@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import type { SimulationResult } from "@/lib/simulation";
+import type { SimulationWorker } from "@/lib/simulation";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
@@ -22,6 +23,7 @@ import {
 interface ResultsProps {
   initialForm: FormState;
   initialResult: SimulationResult;
+  worker: SimulationWorker | null;
   onBack: () => void;
 }
 
@@ -133,7 +135,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
   );
 }
 
-export function Results({ initialForm, initialResult, onBack }: ResultsProps) {
+export function Results({ initialForm, initialResult, worker, onBack }: ResultsProps) {
   const [form, setForm] = useState(initialForm);
   const [result, setResult] = useState(initialResult);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -154,14 +156,21 @@ export function Results({ initialForm, initialResult, onBack }: ResultsProps) {
 
       // debounce 300ms
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
+      debounceRef.current = setTimeout(async () => {
         const input = formToSimulationInput(newForm);
-        const newResult = runSimulation(input);
-        setResult(newResult);
+        try {
+          const newResult = worker
+            ? await worker.run(input)
+            : runSimulation(input);
+          setResult(newResult);
+        } catch {
+          // フォールバック
+          setResult(runSimulation(input));
+        }
         setIsCalculating(false);
       }, 300);
     },
-    [form]
+    [form, worker]
   );
 
   const delta = useMemo(() => {

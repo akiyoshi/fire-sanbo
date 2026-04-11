@@ -32,26 +32,33 @@ export const DEFAULT_FORM: FormState = {
   numTrials: 1000,
 };
 
+/** NaN/undefined/負値を安全な値に変換 */
+function safeNum(v: unknown, fallback = 0, min = 0): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, n);
+}
+
 export function formToSimulationInput(form: FormState): SimulationInput {
   return {
-    currentAge: form.currentAge,
-    retirementAge: form.retirementAge,
-    endAge: form.endAge,
-    annualSalary: form.annualSalary,
-    annualExpense: form.monthlyExpense * 12,
+    currentAge: safeNum(form.currentAge, 35, 18),
+    retirementAge: safeNum(form.retirementAge, 50, 19),
+    endAge: safeNum(form.endAge, 95, 60),
+    annualSalary: safeNum(form.annualSalary),
+    annualExpense: safeNum(form.monthlyExpense) * 12,
     accounts: {
-      nisa: form.nisaBalance,
-      tokutei: form.tokuteiBalance,
-      ideco: form.idecoBalance,
+      nisa: safeNum(form.nisaBalance),
+      tokutei: safeNum(form.tokuteiBalance),
+      ideco: safeNum(form.idecoBalance),
     },
     allocation: {
-      expectedReturn: form.expectedReturn / 100,
-      standardDeviation: form.standardDeviation / 100,
+      expectedReturn: safeNum(form.expectedReturn, 5) / 100,
+      standardDeviation: safeNum(form.standardDeviation, 15, 0.1) / 100,
     },
-    idecoYearsOfService: form.idecoYearsOfService,
-    tokuteiGainRatio: form.tokuteiGainRatio / 100,
+    idecoYearsOfService: safeNum(form.idecoYearsOfService, 20, 1),
+    tokuteiGainRatio: safeNum(form.tokuteiGainRatio, 50) / 100,
     withdrawalOrder: ["nisa", "tokutei", "ideco"],
-    numTrials: form.numTrials,
+    numTrials: safeNum(form.numTrials, 1000, 10),
     seed: Math.floor(Math.random() * 2 ** 32),
   };
 }
