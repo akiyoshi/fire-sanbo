@@ -3,6 +3,7 @@ import type {
   SimulationResult,
   TrialResult,
   YearResult,
+  TaxBreakdown,
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
 import { calcAnnualTax, calcWithdrawalTax, calcSocialInsurancePremium } from "@/lib/tax";
@@ -23,11 +24,13 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
     // 収入（退職前のみ）
     let income = 0;
-    let tax = 0;
+    const taxBd: TaxBreakdown = { incomeTax: 0, residentTax: 0, socialInsurance: 0, withdrawalTax: 0, total: 0 };
     if (age < input.retirementAge) {
       const taxResult = calcAnnualTax(input.annualSalary, age);
       income = taxResult.netIncome;
-      tax = taxResult.totalTax;
+      taxBd.incomeTax = taxResult.incomeTax;
+      taxBd.residentTax = taxResult.residentTax;
+      taxBd.socialInsurance = taxResult.socialInsurance;
     }
 
     // 退職後: 必要支出を口座から取り崩し
@@ -36,7 +39,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       // 退職後の社会保険料（国保+国民年金）を支出に加算
       const retiredSocialInsurance = calcSocialInsurancePremium(0, age);
       const needed = input.annualExpense + retiredSocialInsurance;
-      tax += retiredSocialInsurance;
+      taxBd.socialInsurance += retiredSocialInsurance;
       let remaining = needed;
 
       for (const accountType of input.withdrawalOrder) {
@@ -65,7 +68,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         }
 
         withdrawal += withdrawAmount;
-        tax += result.tax;
+        taxBd.withdrawalTax += result.tax;
         remaining -= result.net;
       }
     }
@@ -91,6 +94,12 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
     const totalAssetsAfter = nisa + tokutei + ideco;
 
+    taxBd.total = Math.round(taxBd.incomeTax + taxBd.residentTax + taxBd.socialInsurance + taxBd.withdrawalTax);
+    taxBd.incomeTax = Math.round(taxBd.incomeTax);
+    taxBd.residentTax = Math.round(taxBd.residentTax);
+    taxBd.socialInsurance = Math.round(taxBd.socialInsurance);
+    taxBd.withdrawalTax = Math.round(taxBd.withdrawalTax);
+
     years.push({
       age,
       totalAssets: Math.round(totalAssetsAfter),
@@ -99,7 +108,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       ideco: Math.round(ideco),
       income: Math.round(income),
       expense: input.annualExpense,
-      tax: Math.round(tax),
+      taxBreakdown: taxBd,
       withdrawal: Math.round(withdrawal),
       portfolioReturn,
     });

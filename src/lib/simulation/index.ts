@@ -6,6 +6,7 @@ export type {
   SimulationResult,
   TrialResult,
   YearResult,
+  TaxBreakdown,
   AccountBalance,
   AssetAllocation,
 } from "./types";

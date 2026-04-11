@@ -6,6 +6,8 @@ import type { SimulationWorker } from "@/lib/simulation";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
+import { PrescriptionCard } from "@/components/prescription-card";
+import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -84,6 +86,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
   );
 
   return (
+    <>
     <ResponsiveContainer width="100%" height={350}>
       <AreaChart data={data}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -132,6 +135,21 @@ function AssetChart({ result }: { result: SimulationResult }) {
         />
       </AreaChart>
     </ResponsiveContainer>
+    <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1">
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.1 }} />
+        90%信頼区間
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.2 }} />
+        50%信頼区間
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-block w-6 h-0.5" style={{ background: "var(--chart-1)" }} />
+        中央値
+      </span>
+    </div>
+    </>
   );
 }
 
@@ -206,6 +224,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </div>
           )}
           <SuccessRateDisplay rate={result.successRate} />
+          <p className="text-xs text-center text-muted-foreground mt-3">🏛️ 2026年度 税制・社会保険料 反映済み</p>
         </CardContent>
       </Card>
 
@@ -299,6 +318,20 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </div>
         </CardContent>
       </Card>
+
+      {/* 税金ブレイクダウン */}
+      <Card>
+        <CardContent className="pt-6">
+          <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
+        </CardContent>
+      </Card>
+
+      {/* 処方箋 */}
+      <PrescriptionCard
+        worker={worker}
+        input={formToSimulationInput(form)}
+        currentRate={result.successRate}
+      />
 
       {/* 取り崩し順序 */}
       <Card>

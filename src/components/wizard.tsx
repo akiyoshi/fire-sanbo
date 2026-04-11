@@ -20,6 +20,12 @@ const STEPS = [
   { title: "確認", description: "入力内容の確認" },
 ];
 
+let _inputId = 0;
+function useInputId(prefix: string) {
+  const [id] = useState(() => `${prefix}-${++_inputId}`);
+  return id;
+}
+
 function NumberInput({
   label,
   value,
@@ -37,16 +43,19 @@ function NumberInput({
   max?: number;
   step?: number;
 }) {
+  const id = useInputId("num");
   const displayValue = new Intl.NumberFormat("ja-JP").format(value);
   const manYen = value >= 10000 ? `（${Math.round(value / 10000).toLocaleString()}万円）` : "";
 
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center gap-2">
         <Input
+          id={id}
           type="text"
           inputMode="numeric"
+          aria-label={label}
           value={displayValue}
           onChange={(e) => {
             const raw = e.target.value.replace(/[^0-9]/g, "");
@@ -86,16 +95,19 @@ function SliderInput({
   step: number;
   suffix?: string;
 }) {
+  const id = useInputId("slider");
   return (
     <div className="space-y-2">
       <div className="flex justify-between">
-        <Label>{label}</Label>
+        <Label htmlFor={id}>{label}</Label>
         <span className="text-sm font-medium">
           {value}
           {suffix}
         </span>
       </div>
       <Slider
+        id={id}
+        aria-label={label}
         value={[value]}
         onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : v)}
         min={min}
@@ -141,10 +153,12 @@ export function Wizard({ onComplete }: WizardProps) {
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       {/* ステップインジケーター */}
-      <div className="flex items-center justify-center gap-2">
+      <nav aria-label="入力ステップ" className="flex items-center justify-center gap-2">
         {STEPS.map((s, i) => (
           <div key={i} className="flex items-center gap-2">
             <div
+              aria-current={i === step ? "step" : undefined}
+              aria-label={`${s.title}${i < step ? "（完了）" : i === step ? "（現在）" : ""}`}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                 i === step
                   ? "bg-primary text-primary-foreground"
@@ -164,7 +178,7 @@ export function Wizard({ onComplete }: WizardProps) {
             )}
           </div>
         ))}
-      </div>
+      </nav>
 
       <Card>
         <CardHeader>
@@ -309,7 +323,7 @@ export function Wizard({ onComplete }: WizardProps) {
           {step === 3 && (
             <div className="space-y-3 text-sm">
               <h3 className="font-medium">基本情報</h3>
-              <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-muted-foreground">
                 <span>年齢</span>
                 <span className="text-foreground">
                   {form.currentAge}歳 → {form.retirementAge}歳退職 →{" "}
@@ -326,7 +340,7 @@ export function Wizard({ onComplete }: WizardProps) {
               </div>
 
               <h3 className="font-medium mt-4">口座残高</h3>
-              <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-muted-foreground">
                 <span>NISA</span>
                 <span className="text-foreground">
                   {formatYen(form.nisaBalance)}
@@ -344,7 +358,7 @@ export function Wizard({ onComplete }: WizardProps) {
               </div>
 
               <h3 className="font-medium mt-4">投資条件</h3>
-              <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-muted-foreground">
                 <span>期待リターン</span>
                 <span className="text-foreground">
                   {form.expectedReturn}%

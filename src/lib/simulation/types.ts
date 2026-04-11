@@ -33,6 +33,14 @@ export interface SimulationInput {
   seed?: number;
 }
 
+export interface TaxBreakdown {
+  incomeTax: number;
+  residentTax: number;
+  socialInsurance: number;
+  withdrawalTax: number;
+  total: number;
+}
+
 export interface YearResult {
   age: number;
   totalAssets: number;
@@ -41,7 +49,7 @@ export interface YearResult {
   ideco: number;
   income: number;
   expense: number;
-  tax: number;
+  taxBreakdown: TaxBreakdown;
   withdrawal: number;
   portfolioReturn: number;
 }
