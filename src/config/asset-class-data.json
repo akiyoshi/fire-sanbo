@@ -1,0 +1,77 @@
+{
+  "version": "1.0.0",
+  "source": "GPIF基本ポートフォリオ策定資料・各指数過去実績ベースの参考値",
+  "period": "過去20年間の年率換算（参考値）",
+  "lastUpdated": "2026-04-11",
+  "assetClasses": {
+    "domestic_stock": {
+      "label": "国内株式",
+      "expectedReturn": 0.080,
+      "risk": 0.180
+    },
+    "developed_stock": {
+      "label": "先進国株式",
+      "expectedReturn": 0.090,
+      "risk": 0.195
+    },
+    "emerging_stock": {
+      "label": "新興国株式",
+      "expectedReturn": 0.075,
+      "risk": 0.240
+    },
+    "domestic_bond": {
+      "label": "国内債券",
+      "expectedReturn": 0.010,
+      "risk": 0.025
+    },
+    "developed_bond": {
+      "label": "先進国債券",
+      "expectedReturn": 0.035,
+      "risk": 0.105
+    },
+    "emerging_bond": {
+      "label": "新興国債券",
+      "expectedReturn": 0.055,
+      "risk": 0.130
+    },
+    "domestic_reit": {
+      "label": "国内REIT",
+      "expectedReturn": 0.075,
+      "risk": 0.190
+    },
+    "developed_reit": {
+      "label": "先進国REIT",
+      "expectedReturn": 0.085,
+      "risk": 0.210
+    },
+    "cash": {
+      "label": "現金・預金",
+      "expectedReturn": 0.000,
+      "risk": 0.000
+    }
+  },
+  "correlationMatrix": {
+    "order": [
+      "domestic_stock",
+      "developed_stock",
+      "emerging_stock",
+      "domestic_bond",
+      "developed_bond",
+      "emerging_bond",
+      "domestic_reit",
+      "developed_reit",
+      "cash"
+    ],
+    "matrix": [
+      [1.00, 0.70, 0.65, -0.10, 0.05, 0.15, 0.40, 0.35, 0.00],
+      [0.70, 1.00, 0.85,  0.00, 0.30, 0.35, 0.35, 0.65, 0.00],
+      [0.65, 0.85, 1.00,  0.00, 0.25, 0.50, 0.30, 0.55, 0.00],
+      [-0.10, 0.00, 0.00, 1.00, 0.25, 0.10, 0.15, 0.00, 0.00],
+      [0.05, 0.30, 0.25,  0.25, 1.00, 0.55, 0.15, 0.30, 0.00],
+      [0.15, 0.35, 0.50,  0.10, 0.55, 1.00, 0.20, 0.35, 0.00],
+      [0.40, 0.35, 0.30,  0.15, 0.15, 0.20, 1.00, 0.55, 0.00],
+      [0.35, 0.65, 0.55,  0.00, 0.30, 0.35, 0.55, 1.00, 0.00],
+      [0.00, 0.00, 0.00,  0.00, 0.00, 0.00, 0.00, 0.00, 1.00]
+    ]
+  }
+}

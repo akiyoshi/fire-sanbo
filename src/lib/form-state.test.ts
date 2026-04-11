@@ -69,4 +69,48 @@ describe("formToSimulationInput", () => {
       expect(input.numTrials).toBeGreaterThanOrEqual(10);
     });
   });
+
+  describe("ポートフォリオモード統合", () => {
+    it("有効なポートフォリオで合成リターン・リスクがSimulationInputに反映される", () => {
+      const form: FormState = {
+        ...DEFAULT_FORM,
+        inputMode: "portfolio",
+        portfolio: [
+          { assetClass: "developed_stock", amount: 10_000_000 },
+        ],
+      };
+      const input = formToSimulationInput(form);
+      // 手動入力のデフォルト(5%/15%)ではなく、先進国株式の値が使われる
+      expect(input.allocation.expectedReturn).toBeCloseTo(0.09, 4);
+      expect(input.allocation.standardDeviation).toBeCloseTo(0.195, 4);
+    });
+
+    it("現金100%ポートフォリオでリスクフロア0.001が適用される", () => {
+      const form: FormState = {
+        ...DEFAULT_FORM,
+        inputMode: "portfolio",
+        portfolio: [
+          { assetClass: "cash", amount: 5_000_000 },
+        ],
+      };
+      const input = formToSimulationInput(form);
+      expect(input.allocation.expectedReturn).toBe(0);
+      expect(input.allocation.standardDeviation).toBe(0.001);
+    });
+
+    it("ポートフォリオ金額0のときは手動入力値にフォールバックする", () => {
+      const form: FormState = {
+        ...DEFAULT_FORM,
+        inputMode: "portfolio",
+        expectedReturn: 7,
+        standardDeviation: 20,
+        portfolio: [
+          { assetClass: "developed_stock", amount: 0 },
+        ],
+      };
+      const input = formToSimulationInput(form);
+      expect(input.allocation.expectedReturn).toBeCloseTo(0.07);
+      expect(input.allocation.standardDeviation).toBeCloseTo(0.20);
+    });
+  });
 });

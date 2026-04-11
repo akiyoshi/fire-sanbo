@@ -1,4 +1,6 @@
 import type { SimulationInput } from "@/lib/simulation";
+import type { PortfolioEntry } from "@/lib/portfolio";
+import { calcPortfolio } from "@/lib/portfolio";
 
 export interface FormState {
   currentAge: number;
@@ -14,6 +16,8 @@ export interface FormState {
   idecoYearsOfService: number;
   tokuteiGainRatio: number;
   numTrials: number;
+  inputMode: "portfolio" | "manual";
+  portfolio: PortfolioEntry[];
 }
 
 export const DEFAULT_FORM: FormState = {
@@ -30,6 +34,10 @@ export const DEFAULT_FORM: FormState = {
   idecoYearsOfService: 15,
   tokuteiGainRatio: 50,
   numTrials: 1000,
+  inputMode: "portfolio",
+  portfolio: [
+    { assetClass: "developed_stock", amount: 0 },
+  ],
 };
 
 /** NaN/undefined/負値を安全な値に変換 */
@@ -40,6 +48,18 @@ function safeNum(v: unknown, fallback = 0, min = 0): number {
 }
 
 export function formToSimulationInput(form: FormState): SimulationInput {
+  // ポートフォリオモードの場合、合成リターン・リスクを自動計算
+  let expectedReturn = safeNum(form.expectedReturn, 5) / 100;
+  let standardDeviation = safeNum(form.standardDeviation, 15, 0.1) / 100;
+
+  if (form.inputMode === "portfolio" && form.portfolio.length > 0) {
+    const result = calcPortfolio(form.portfolio);
+    if (result.totalAmount > 0) {
+      expectedReturn = result.expectedReturn;
+      standardDeviation = Math.max(0.001, result.risk);
+    }
+  }
+
   return {
     currentAge: safeNum(form.currentAge, 35, 18),
     retirementAge: safeNum(form.retirementAge, 50, 19),
@@ -52,8 +72,8 @@ export function formToSimulationInput(form: FormState): SimulationInput {
       ideco: safeNum(form.idecoBalance),
     },
     allocation: {
-      expectedReturn: safeNum(form.expectedReturn, 5) / 100,
-      standardDeviation: safeNum(form.standardDeviation, 15, 0.1) / 100,
+      expectedReturn,
+      standardDeviation,
     },
     idecoYearsOfService: safeNum(form.idecoYearsOfService, 20, 1),
     tokuteiGainRatio: safeNum(form.tokuteiGainRatio, 50) / 100,

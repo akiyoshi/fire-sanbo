@@ -82,10 +82,21 @@ export function calcSocialInsurancePremium(
     );
   }
 
-  const nhiTotal = Math.min(medical + support + longTermCare, nhi.totalCap);
-  const pension = cfg.socialInsurance.nationalPension.annualPremium;
+  // 65歳以上: 介護保険第1号被保険者（市区町村基準額）
+  let longTermCareCat1 = 0;
+  const cat1 = nhi.longTermCareCategory1;
+  if (cat1 && age >= cat1.minAge) {
+    longTermCareCat1 = cat1.annualPremium;
+  }
 
-  return nhiTotal + pension;
+  const nhiTotal = Math.min(medical + support + longTermCare, nhi.totalCap);
+
+  // 国民年金: 60歳未満のみ（第1号被保険者の加入期間は20〜59歳）
+  const pensionCfg = cfg.socialInsurance.nationalPension;
+  const pensionMaxAge = pensionCfg.maxAge ?? 59;
+  const pension = age <= pensionMaxAge ? pensionCfg.annualPremium : 0;
+
+  return nhiTotal + longTermCareCat1 + pension;
 }
 
 /**

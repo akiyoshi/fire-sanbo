@@ -145,4 +145,54 @@ describe("税制エンジン P0テスト", () => {
       expect(deduction).toBeGreaterThan(0);
     });
   });
+
+  // 回帰テスト: 年齢別社会保険料
+  describe("年齢別社会保険料の正確性", () => {
+    it("30歳: 介護保険なし・国民年金あり", () => {
+      const si = calcSocialInsurancePremium(0, 30);
+      // 所得0: 国保均等割のみ + 国民年金
+      const expected = 45_400 + 16_500 + 210_120; // 医療均等割 + 後期支援均等割 + 年金
+      expect(si).toBe(expected);
+    });
+
+    it("45歳: 介護保険(第2号)あり・国民年金あり", () => {
+      const si = calcSocialInsurancePremium(0, 45);
+      // 介護保険均等割も加算
+      const expected = 45_400 + 16_500 + 15_600 + 210_120;
+      expect(si).toBe(expected);
+    });
+
+    it("60歳: 国民年金の最終年", () => {
+      const si59 = calcSocialInsurancePremium(0, 59);
+      const si60 = calcSocialInsurancePremium(0, 60);
+      // 59歳: 年金あり、60歳: 年金なし
+      expect(si59).toBeGreaterThan(si60);
+      expect(si59 - si60).toBe(210_120); // 差分 = 国民年金保険料
+    });
+
+    it("65歳: 介護保険第1号あり・国民年金なし", () => {
+      const si = calcSocialInsurancePremium(0, 65);
+      // 医療均等割 + 後期支援均等割 + 介護第1号(74,700)、年金なし
+      const expected = 45_400 + 16_500 + 74_700;
+      expect(si).toBe(expected);
+    });
+
+    it("80歳: 介護保険第1号あり・国民年金なし", () => {
+      const si65 = calcSocialInsurancePremium(0, 65);
+      const si80 = calcSocialInsurancePremium(0, 80);
+      // 65歳と80歳のゼロ所得は同じ構造
+      expect(si80).toBe(si65);
+    });
+
+    it("64→65歳: 介護保険が第2号(国保内)から第1号(独立)に切り替わる", () => {
+      const si64 = calcSocialInsurancePremium(0, 64);
+      const si65 = calcSocialInsurancePremium(0, 65);
+      // 64歳: 均等割(医療+後期+介護第2号) + 年金なし(60超)
+      // 65歳: 均等割(医療+後期) + 介護第1号(74,700) + 年金なし
+      const expected64 = 45_400 + 16_500 + 15_600; // 介護第2号の均等割あり、年金はなし(64>59)
+      const expected65 = 45_400 + 16_500 + 74_700; // 介護第1号
+      expect(si64).toBe(expected64);
+      expect(si65).toBe(expected65);
+    });
+  });
 });

@@ -71,12 +71,17 @@
         "minAge": 40,
         "maxAge": 64
       },
+      "longTermCareCategory1": {
+        "annualPremium": 74700,
+        "minAge": 65
+      },
       "totalCap": 1060000,
       "baseDeduction": 430000
     },
     "nationalPension": {
       "monthlyPremium": 17510,
-      "annualPremium": 210120
+      "annualPremium": 210120,
+      "maxAge": 59
     }
   },
   "investmentTax": {

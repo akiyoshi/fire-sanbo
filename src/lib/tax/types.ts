@@ -57,12 +57,17 @@ export interface TaxConfig {
       medical: NHIComponent;
       support: NHIComponent;
       longTermCare: NHIComponent;
+      longTermCareCategory1?: {
+        annualPremium: number;
+        minAge: number;
+      };
       totalCap: number;
       baseDeduction: number;
     };
     nationalPension: {
       monthlyPremium: number;
       annualPremium: number;
+      maxAge?: number;
     };
   };
   investmentTax: {
