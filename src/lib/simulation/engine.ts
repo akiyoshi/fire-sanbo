@@ -5,7 +5,7 @@ import type {
   YearResult,
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
-import { calcAnnualTax, calcWithdrawalTax } from "@/lib/tax";
+import { calcAnnualTax, calcWithdrawalTax, calcSocialInsurancePremium } from "@/lib/tax";
 import type { AccountType } from "@/lib/tax";
 
 /**
@@ -33,7 +33,10 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     // 退職後: 必要支出を口座から取り崩し
     let withdrawal = 0;
     if (age >= input.retirementAge) {
-      const needed = input.annualExpense;
+      // 退職後の社会保険料（国保+国民年金）を支出に加算
+      const retiredSocialInsurance = calcSocialInsurancePremium(0, age);
+      const needed = input.annualExpense + retiredSocialInsurance;
+      tax += retiredSocialInsurance;
       let remaining = needed;
 
       for (const accountType of input.withdrawalOrder) {

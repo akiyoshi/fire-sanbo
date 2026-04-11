@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import type { SimulationResult } from "@/lib/simulation";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput } from "@/lib/form-state";
@@ -17,7 +17,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 interface ResultsProps {
@@ -63,11 +62,10 @@ function AssetChart({ result }: { result: SimulationResult }) {
     () =>
       result.ages.map((age, i) => ({
         age,
-        p5: result.percentiles.p5[i],
-        p25: result.percentiles.p25[i],
+        // 信頼区間帯: [p5, p95] と [p25, p75] の範囲で描画
+        band90: [result.percentiles.p5[i], result.percentiles.p95[i]] as [number, number],
+        band50: [result.percentiles.p25[i], result.percentiles.p75[i]] as [number, number],
         p50: result.percentiles.p50[i],
-        p75: result.percentiles.p75[i],
-        p95: result.percentiles.p95[i],
       })),
     [result]
   );
@@ -87,27 +85,29 @@ function AssetChart({ result }: { result: SimulationResult }) {
           className="text-xs"
         />
         <Tooltip
-          formatter={(value) => formatManYen(Number(value))}
+          formatter={(value, name) => {
+            if (Array.isArray(value)) {
+              return `${formatManYen(Number(value[0]))} 〜 ${formatManYen(Number(value[1]))}`;
+            }
+            return formatManYen(Number(value));
+          }}
           labelFormatter={(label) => `${label}歳`}
         />
-        <Legend />
         <Area
           type="monotone"
-          dataKey="p95"
-          name="95th"
-          stackId="fan"
+          dataKey="band90"
+          name="5th-95th"
           stroke="none"
           fill="hsl(var(--chart-1))"
           fillOpacity={0.1}
         />
         <Area
           type="monotone"
-          dataKey="p75"
-          name="75th"
-          stackId="fan2"
+          dataKey="band50"
+          name="25th-75th"
           stroke="none"
           fill="hsl(var(--chart-1))"
-          fillOpacity={0.15}
+          fillOpacity={0.2}
         />
         <Area
           type="monotone"
@@ -115,26 +115,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
           name="中央値"
           stroke="hsl(var(--chart-1))"
           strokeWidth={2}
-          fill="hsl(var(--chart-1))"
-          fillOpacity={0.2}
-        />
-        <Area
-          type="monotone"
-          dataKey="p25"
-          name="25th"
-          stackId="fan3"
-          stroke="none"
-          fill="hsl(var(--chart-2))"
-          fillOpacity={0.1}
-        />
-        <Area
-          type="monotone"
-          dataKey="p5"
-          name="5th"
-          stackId="fan4"
-          stroke="none"
-          fill="hsl(var(--chart-2))"
-          fillOpacity={0.05}
+          fill="none"
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -144,19 +125,30 @@ function AssetChart({ result }: { result: SimulationResult }) {
 export function Results({ initialForm, initialResult, onBack }: ResultsProps) {
   const [form, setForm] = useState(initialForm);
   const [result, setResult] = useState(initialResult);
-  const [isDirty, setIsDirty] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const updateAndRecalc = useCallback(
     (key: keyof FormState, value: number) => {
       const newForm = { ...form, [key]: value };
       setForm(newForm);
-      setIsDirty(true);
+      setIsCalculating(true);
 
-      // debounce: 即座に再計算
-      const input = formToSimulationInput(newForm);
-      const newResult = runSimulation(input);
-      setResult(newResult);
-      setIsDirty(false);
+      // debounce 300ms
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        const input = formToSimulationInput(newForm);
+        const newResult = runSimulation(input);
+        setResult(newResult);
+        setIsCalculating(false);
+      }, 300);
     },
     [form]
   );

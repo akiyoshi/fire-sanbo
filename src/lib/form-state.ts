@@ -52,6 +52,6 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     tokuteiGainRatio: form.tokuteiGainRatio / 100,
     withdrawalOrder: ["nisa", "tokutei", "ideco"],
     numTrials: form.numTrials,
-    seed: 42,
+    seed: Math.floor(Math.random() * 2 ** 32),
   };
 }
