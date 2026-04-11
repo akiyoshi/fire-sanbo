@@ -1,0 +1,92 @@
+{
+  "version": "1.0.0",
+  "fiscalYear": 2026,
+  "lastUpdated": "2026-04-11",
+  "incomeTax": {
+    "brackets": [
+      { "from": 0, "to": 1950000, "rate": 0.05, "deduction": 0 },
+      { "from": 1950000, "to": 3300000, "rate": 0.10, "deduction": 97500 },
+      { "from": 3300000, "to": 6950000, "rate": 0.20, "deduction": 427500 },
+      { "from": 6950000, "to": 9000000, "rate": 0.23, "deduction": 636000 },
+      { "from": 9000000, "to": 18000000, "rate": 0.33, "deduction": 1536000 },
+      { "from": 18000000, "to": 40000000, "rate": 0.40, "deduction": 2796000 },
+      { "from": 40000000, "to": null, "rate": 0.45, "deduction": 4796000 }
+    ],
+    "reconstructionSurtaxRate": 0.021,
+    "basicDeduction": {
+      "thresholds": [
+        { "maxIncome": 24000000, "deduction": 480000 },
+        { "maxIncome": 24500000, "deduction": 320000 },
+        { "maxIncome": 25000000, "deduction": 160000 },
+        { "maxIncome": null, "deduction": 0 }
+      ]
+    },
+    "employmentIncomeDeduction": {
+      "thresholds": [
+        { "maxIncome": 1625000, "deduction": 550000 },
+        { "maxIncome": 1800000, "rate": 0.40, "subtract": -100000 },
+        { "maxIncome": 3600000, "rate": 0.30, "subtract": 80000 },
+        { "maxIncome": 6600000, "rate": 0.20, "subtract": 440000 },
+        { "maxIncome": 8500000, "rate": 0.10, "subtract": 1100000 },
+        { "maxIncome": null, "deduction": 1950000 }
+      ]
+    },
+    "retirementIncomeDeduction": {
+      "yearsThreshold": 20,
+      "belowThresholdPerYear": 400000,
+      "aboveThresholdPerYear": 700000,
+      "minimumDeduction": 800000,
+      "taxableRatio": 0.5
+    }
+  },
+  "residentTax": {
+    "incomeRate": 0.10,
+    "perCapita": 5000,
+    "forestEnvironmentTax": 1000,
+    "basicDeduction": {
+      "thresholds": [
+        { "maxIncome": 24000000, "deduction": 430000 },
+        { "maxIncome": 24500000, "deduction": 290000 },
+        { "maxIncome": 25000000, "deduction": 150000 },
+        { "maxIncome": null, "deduction": 0 }
+      ]
+    }
+  },
+  "socialInsurance": {
+    "nationalHealthInsurance": {
+      "medical": {
+        "incomeRate": 0.0789,
+        "perCapita": 45400,
+        "cap": 650000
+      },
+      "support": {
+        "incomeRate": 0.0289,
+        "perCapita": 16500,
+        "cap": 240000
+      },
+      "longTermCare": {
+        "incomeRate": 0.0222,
+        "perCapita": 15600,
+        "cap": 170000,
+        "minAge": 40,
+        "maxAge": 64
+      },
+      "totalCap": 1060000,
+      "baseDeduction": 430000
+    },
+    "nationalPension": {
+      "monthlyPremium": 17510,
+      "annualPremium": 210120
+    }
+  },
+  "investmentTax": {
+    "tokuteiRate": 0.20315,
+    "nisaTaxRate": 0,
+    "nisaAnnualLimit": 3600000,
+    "nisaLifetimeLimit": 18000000
+  },
+  "ideco": {
+    "minReceiveAge": 60,
+    "maxReceiveAge": 75
+  }
+}
