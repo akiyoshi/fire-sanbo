@@ -37,10 +37,21 @@ function SuccessRateDisplay({ rate }: { rate: number }) {
       : pct >= 50
       ? "text-yellow-500"
       : "text-red-500";
+  const interpretation =
+    pct >= 90
+      ? "非常に安全なプランです"
+      : pct >= 80
+      ? "十分安全圏です。微調整で90%超も可能"
+      : pct >= 60
+      ? "やや不安があります。退職時期や支出の調整を検討してください"
+      : pct >= 40
+      ? "リスクが高い状態です。大幅な見直しが必要です"
+      : "現在のプランでは資産が不足する可能性が高いです";
   return (
     <div className="text-center">
       <p className="text-sm text-muted-foreground">FIRE成功確率</p>
       <p className={`text-6xl font-bold ${color}`}>{pct}%</p>
+      <p className="text-sm text-muted-foreground mt-1">{interpretation}</p>
       <div className="w-full bg-muted rounded-full h-3 mt-2">
         <div
           className={`h-3 rounded-full transition-all duration-500 ${
@@ -165,7 +176,12 @@ export function Results({ initialForm, initialResult, onBack }: ResultsProps) {
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* 成功確率 */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 relative">
+          {isCalculating && (
+            <div className="absolute inset-0 bg-background/60 flex items-center justify-center rounded-lg z-10">
+              <p className="text-sm text-muted-foreground animate-pulse">再計算中...</p>
+            </div>
+          )}
           <SuccessRateDisplay rate={result.successRate} />
         </CardContent>
       </Card>

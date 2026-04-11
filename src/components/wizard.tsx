@@ -37,17 +37,21 @@ function NumberInput({
   max?: number;
   step?: number;
 }) {
+  const displayValue = new Intl.NumberFormat("ja-JP").format(value);
+  const manYen = value >= 10000 ? `（${Math.round(value / 10000).toLocaleString()}万円）` : "";
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
       <div className="flex items-center gap-2">
         <Input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value) || 0)}
-          min={min}
-          max={max}
-          step={step}
+          type="text"
+          inputMode="numeric"
+          value={displayValue}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/[^0-9]/g, "");
+            onChange(Number(raw) || 0);
+          }}
           className="text-right"
         />
         {suffix && (
@@ -56,6 +60,9 @@ function NumberInput({
           </span>
         )}
       </div>
+      {manYen && (
+        <p className="text-xs text-muted-foreground text-right">{manYen}</p>
+      )}
     </div>
   );
 }
@@ -105,7 +112,25 @@ export function Wizard({ onComplete }: WizardProps) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const validate = (): string | null => {
+    if (step === 0) {
+      if (form.retirementAge <= form.currentAge) return "退職年齢は現在の年齢より大きくしてください";
+      if (form.endAge < form.retirementAge) return "終了年齢は退職年齢以上にしてください";
+      if (form.monthlyExpense <= 0) return "月間生活費を入力してください";
+    }
+    if (step === 1) {
+      if (form.nisaBalance + form.tokuteiBalance + form.idecoBalance <= 0 && form.annualSalary <= 0) {
+        return "口座残高または年収を入力してください";
+      }
+    }
+    return null;
+  };
+
+  const validationError = validate();
+
+  const next = () => {
+    if (!validationError) setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
   const prev = () => setStep((s) => Math.max(s - 1, 0));
 
   const formatYen = (n: number) =>
@@ -337,12 +362,15 @@ export function Wizard({ onComplete }: WizardProps) {
       </Card>
 
       {/* ナビゲーション */}
+      {validationError && (
+        <p className="text-sm text-destructive text-center">{validationError}</p>
+      )}
       <div className="flex justify-between">
         <Button variant="outline" onClick={prev} disabled={step === 0}>
           戻る
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button onClick={next}>次へ</Button>
+          <Button onClick={next} disabled={!!validationError}>次へ</Button>
         ) : (
           <Button onClick={() => onComplete(form)}>シミュレーション開始</Button>
         )}
