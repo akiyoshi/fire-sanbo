@@ -12,30 +12,35 @@ export class SimulationWorker {
     reject: (reason: Error) => void;
   } | null = null;
 
+  private setupWorkerHandlers(): void {
+    if (!this.worker) return;
+    this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      if (!this.pending) return;
+      const { resolve, reject } = this.pending;
+      this.pending = null;
+
+      if (e.data.type === "result") {
+        resolve(e.data.data);
+      } else {
+        reject(new Error(e.data.message));
+      }
+    };
+    this.worker.onerror = (e) => {
+      if (this.pending) {
+        const { reject } = this.pending;
+        this.pending = null;
+        reject(new Error(e.message || "Worker error"));
+      }
+    };
+  }
+
   constructor() {
     if (typeof Worker !== "undefined") {
       this.worker = new Worker(
         new URL("./worker.ts", import.meta.url),
         { type: "module" }
       );
-      this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-        if (!this.pending) return;
-        const { resolve, reject } = this.pending;
-        this.pending = null;
-
-        if (e.data.type === "result") {
-          resolve(e.data.data);
-        } else {
-          reject(new Error(e.data.message));
-        }
-      };
-      this.worker.onerror = (e) => {
-        if (this.pending) {
-          const { reject } = this.pending;
-          this.pending = null;
-          reject(new Error(e.message || "Worker error"));
-        }
-      };
+      this.setupWorkerHandlers();
     }
   }
 
@@ -44,6 +49,12 @@ export class SimulationWorker {
       // フォールバック: メインスレッドで実行
       const { runSimulation } = await import("./engine");
       return runSimulation(input);
+    }
+
+    // 前のpending promiseをキャンセル（上書き防止）
+    if (this.pending) {
+      this.pending.reject(new Error("Superseded"));
+      this.pending = null;
     }
 
     return new Promise((resolve, reject) => {
@@ -57,11 +68,12 @@ export class SimulationWorker {
       this.worker.terminate();
       this.pending.reject(new Error("Cancelled"));
       this.pending = null;
-      // 新しいWorkerを再作成
+      // 新しいWorkerを再作成+ハンドラ再登録
       this.worker = new Worker(
         new URL("./worker.ts", import.meta.url),
         { type: "module" }
       );
+      this.setupWorkerHandlers();
     }
   }
 

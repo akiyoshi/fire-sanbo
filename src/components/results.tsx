@@ -111,7 +111,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
           dataKey="band90"
           name="5th-95th"
           stroke="none"
-          fill="hsl(var(--chart-1))"
+          fill="var(--chart-1)"
           fillOpacity={0.1}
         />
         <Area
@@ -119,14 +119,14 @@ function AssetChart({ result }: { result: SimulationResult }) {
           dataKey="band50"
           name="25th-75th"
           stroke="none"
-          fill="hsl(var(--chart-1))"
+          fill="var(--chart-1)"
           fillOpacity={0.2}
         />
         <Area
           type="monotone"
           dataKey="p50"
           name="中央値"
-          stroke="hsl(var(--chart-1))"
+          stroke="var(--chart-1)"
           strokeWidth={2}
           fill="none"
         />
@@ -140,6 +140,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
   const [result, setResult] = useState(initialResult);
   const [isCalculating, setIsCalculating] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRef = useRef(0);
+  const formRef = useRef(form);
+  formRef.current = form;
 
   // クリーンアップ
   useEffect(() => {
@@ -150,27 +153,38 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
 
   const updateAndRecalc = useCallback(
     (key: keyof FormState, value: number) => {
-      const newForm = { ...form, [key]: value };
-      setForm(newForm);
+      setForm(prev => {
+        const newForm = { ...prev, [key]: value };
+        // 依存パラメータの自動補正
+        if (key === "retirementAge" && value > newForm.endAge) {
+          newForm.endAge = value;
+        }
+        formRef.current = newForm;
+        return newForm;
+      });
       setIsCalculating(true);
+
+      const gen = ++generationRef.current;
 
       // debounce 300ms
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(async () => {
-        const input = formToSimulationInput(newForm);
+        const input = formToSimulationInput(formRef.current);
         try {
           const newResult = worker
             ? await worker.run(input)
             : runSimulation(input);
+          // stale結果を無視
+          if (gen !== generationRef.current) return;
           setResult(newResult);
         } catch {
-          // フォールバック
+          if (gen !== generationRef.current) return;
           setResult(runSimulation(input));
         }
         setIsCalculating(false);
       }, 300);
     },
-    [form, worker]
+    [worker]
   );
 
   const delta = useMemo(() => {

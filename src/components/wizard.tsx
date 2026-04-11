@@ -50,7 +50,9 @@ function NumberInput({
           value={displayValue}
           onChange={(e) => {
             const raw = e.target.value.replace(/[^0-9]/g, "");
-            onChange(Number(raw) || 0);
+            const num = Number(raw) || 0;
+            const clamped = Math.min(num, max ?? 10_000_000_000);
+            onChange(clamped);
           }}
           className="text-right"
         />
