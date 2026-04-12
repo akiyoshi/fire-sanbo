@@ -92,7 +92,7 @@ export function Wizard({ onComplete }: WizardProps) {
 
       {/* バリデーション + 実行ボタン */}
       {validationError && (
-        <p className="text-sm text-destructive text-center">{validationError}</p>
+        <p role="alert" aria-live="polite" className="text-sm text-destructive text-center">{validationError}</p>
       )}
       <div className="flex flex-col items-center gap-3">
         <div className="flex justify-center gap-4">

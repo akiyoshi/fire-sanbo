@@ -39,6 +39,7 @@ function SuccessRateDisplay({ rate }: { rate: number }) {
       : pct >= 50
       ? "text-warning"
       : "text-danger";
+  const icon = pct >= 80 ? "✅" : pct >= 50 ? "⚠️" : "❌";
   const interpretation =
     pct >= 90
       ? "非常に安全なプランです"
@@ -50,9 +51,11 @@ function SuccessRateDisplay({ rate }: { rate: number }) {
       ? "リスクが高い状態です。大幅な見直しが必要です"
       : "現在のプランでは資産が不足する可能性が高いです";
   return (
-    <div className="text-center">
+    <div className="text-center" role="status" aria-label={`FIRE成功確率 ${pct}パーセント`}>
       <p className="text-sm text-muted-foreground">FIRE成功確率</p>
-      <p className={`text-6xl font-bold ${color}`}>{pct}%</p>
+      <p className={`text-6xl font-bold ${color}`}>
+        <span aria-hidden="true">{icon} </span>{pct}%
+      </p>
       <p className="text-sm text-muted-foreground mt-1">{interpretation}</p>
       <div className="w-full bg-muted rounded-full h-3 mt-2">
         <div

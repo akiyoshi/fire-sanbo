@@ -78,6 +78,7 @@ export function QuickPreview({ form, isValid }: QuickPreviewProps) {
       : pct >= 50
       ? "text-warning"
       : "text-danger";
+  const icon = pct >= 80 ? "✅" : pct >= 50 ? "⚠️" : "❌";
   const barColor =
     pct >= 80
       ? "bg-success"
@@ -93,7 +94,7 @@ export function QuickPreview({ form, isValid }: QuickPreviewProps) {
             <p className="text-xs text-muted-foreground">概算成功確率</p>
             <div className="flex items-baseline gap-2">
               <span className={`text-3xl font-bold tabular-nums ${color}`}>
-                {computing ? "..." : `${pct}%`}
+                {computing ? "..." : <><span aria-hidden="true">{icon} </span>{pct}%</>}
               </span>
               <span className="text-xs text-muted-foreground">
                 (100回試行)

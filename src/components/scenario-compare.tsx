@@ -28,9 +28,12 @@ function SuccessBar({ rate }: { rate: number }) {
     pct >= 80 ? "bg-success" : pct >= 50 ? "bg-warning" : "bg-danger";
   const textColor =
     pct >= 80 ? "text-success" : pct >= 50 ? "text-warning" : "text-danger";
+  const icon = pct >= 80 ? "✅" : pct >= 50 ? "⚠️" : "❌";
   return (
     <div>
-      <span className={`text-3xl font-bold ${textColor}`}>{pct}%</span>
+      <span className={`text-3xl font-bold ${textColor}`}>
+        <span aria-hidden="true">{icon} </span>{pct}%
+      </span>
       <div className="w-full bg-muted rounded-full h-2 mt-1">
         <div
           className={`h-2 rounded-full transition-all duration-500 ${color}`}
