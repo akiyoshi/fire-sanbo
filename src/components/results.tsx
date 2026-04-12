@@ -6,6 +6,7 @@ import { formToSimulationInput } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
 import { PrescriptionCard } from "@/components/prescription-card";
 import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
+import { WorstCaseCard } from "@/components/worst-case-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -365,6 +366,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </Card>
         </div>
       </div>
+
+      {/* 最悪ケース診断書 */}
+      <WorstCaseCard result={result} retirementAge={form.retirementAge} />
 
       <div className="flex justify-center">
         <Button variant="outline" onClick={onBack}>
