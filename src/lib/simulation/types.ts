@@ -32,6 +32,8 @@ export interface SimulationInput {
   withdrawalOrder: ("nisa" | "tokutei" | "ideco" | "gold_physical")[];
   /** シミュレーション試行回数 */
   numTrials: number;
+  /** 想定インフレ率（年率, e.g. 0.02 = 2%） */
+  inflationRate: number;
   /** 乱数シード（再現性用、省略時はランダム） */
   seed?: number;
 }

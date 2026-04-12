@@ -1286,3 +1286,97 @@ useEffect(() => {
 | `wizard.tsx` に復元 + 自動保存 + リセットボタン | 15分 |
 | テスト追加（save/load/clear + バージョン不一致） | 15分 |
 | **合計** | **~45分** |
+
+---
+
+# 実質リターン補正（インフレ率対応） デザインドキュメント
+
+> **ステータス**: Approved
+> **スプリント**: Sprint 7
+> **前提**: v0.5.2 (FormState永続化 + メモリ最適化) が完成済み
+
+## 概要
+
+シミュレーションエンジンに想定インフレ率を導入し、実質リターン（名目リターン − インフレ率）でモンテカルロシミュレーションを実行する。生活費を名目のまま据え置けるため、ユーザーの入力負荷を増やさずにインフレの影響を反映できる。
+
+## 問題
+
+月間生活費25万円を40年間固定でシミュレーションすると、インフレ未考慮のため成功率90%でも実際にはもっとリスクが高い。ユーザーがFIRE判断を信頼できない。
+
+## 提案するアプローチ
+
+### 実質リターン方式（Real Return Method）
+
+- **方針**: `expectedReturn - inflationRate` を実質リターンとしてエンジンに渡す
+- **理由**: 生活費は「今の物価での金額」を入力。インフレ分はリターン側で吸収するため、ユーザーは生活費を名目成長させる必要がない
+- **デフォルト**: 2%（日銀の物価安定目標に一致）
+- **範囲**: 0% 〜 5%、ステップ 0.1%
+
+### 技術設計
+
+#### SimulationInput の変更
+
+```typescript
+export interface SimulationInput {
+  // 既存フィールド省略
+  /** 想定インフレ率（年率, e.g. 0.02 = 2%） */
+  inflationRate: number;
+}
+```
+
+#### エンジン変更（runTrial / runTrialLite）
+
+```typescript
+// ポートフォリオリターン生成時に実質リターンを使用
+const realReturn = input.allocation.expectedReturn - input.inflationRate;
+const portfolioReturn = generateLogNormalReturn(
+  realReturn,
+  input.allocation.standardDeviation,
+  rng
+);
+```
+
+#### FormState の変更
+
+```typescript
+export interface FormState {
+  // 既存フィールド省略
+  inflationRate: number; // UI上は % 表示（e.g. 2.0）
+}
+```
+
+`FORM_SCHEMA_VERSION` を 1 → 2 に上げる。古いスキーマは破棄して DEFAULT_FORM にフォールバック。
+
+#### formToSimulationInput の変更
+
+```typescript
+inflationRate: safeNum(form.inflationRate, 2.0) / 100,
+```
+
+#### UI変更
+
+1. **wizard.tsx**: 詳細設定カードにインフレ率スライダー追加（0〜5%、ステップ0.1%、デフォルト2.0%）
+2. **results.tsx**: What-Ifスライダーにインフレ率追加 + 「インフレ率 X% 考慮済み」バッジ表示
+
+## 成功指標
+
+- インフレ率2%でシミュレーションした結果を信頼してFIRE判断できる
+- What-Ifスライダーでインフレ率を変えると成功率がリアルタイムに変動する
+- 既存テストが全件パス + 新規テスト追加
+
+## スコープ外
+
+- 変動インフレ（年ごとにランダムなインフレ率）
+- インフレ感応度チャート（インフレ率 vs 成功率のプロット）
+- 費目別インフレ率（食費・住居費で異なるインフレ率）
+
+## 工数見積もり
+
+| タスク | 工数 |
+|--------|------|
+| types.ts + form-state.ts + formToSimulationInput | 15分 |
+| simulation/engine.ts + prescription/engine.ts | 15分 |
+| wizard.tsx スライダー追加 | 10分 |
+| results.tsx What-If + バッジ | 15分 |
+| テスト更新・追加 | 20分 |
+| **合計** | **~1.5時間** |

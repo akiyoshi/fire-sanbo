@@ -15,6 +15,7 @@ const baseInput: SimulationInput = {
   goldGainRatio: 0.3,
   withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
   numTrials: 50,
+  inflationRate: 0.02,
   seed: 42,
 };
 

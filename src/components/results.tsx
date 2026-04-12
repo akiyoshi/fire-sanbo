@@ -224,7 +224,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </div>
           )}
           <SuccessRateDisplay rate={result.successRate} />
-          <p className="text-xs text-center text-muted-foreground mt-3">🏛️ 2026年度 税制・社会保険料 反映済み</p>
+          <p className="text-xs text-center text-muted-foreground mt-3">
+            🏛️ 2026年度 税制・社会保険料 反映済み ・ インフレ率 {form.inflationRate}% 考慮済み
+          </p>
         </CardContent>
       </Card>
 
@@ -298,6 +300,22 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
               min={form.retirementAge}
               max={100}
               step={1}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label>想定インフレ率</Label>
+              <span className="text-sm font-medium">
+                {form.inflationRate}%
+              </span>
+            </div>
+            <Slider
+              value={[form.inflationRate]}
+              onValueChange={(v) => updateAndRecalc("inflationRate", Array.isArray(v) ? v[0] : v)}
+              min={0}
+              max={5}
+              step={0.1}
             />
           </div>
         </CardContent>
