@@ -1,12 +1,11 @@
 {
   "name": "fire-sanbo",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
-    "dev": "node --max-old-space-size=512 node_modules/.bin/next dev",
-    "dev:clean": "node -e \"fs.rmSync('.next',{recursive:true,force:true})\" && node --max-old-space-size=512 node_modules/.bin/next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,7 +16,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
-    "next": "16.2.3",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -34,11 +32,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.5.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.3",
     "jsdom": "^29.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vite": "^6.3.5",
+    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.1.4"
   }
 }

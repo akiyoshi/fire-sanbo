@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import type { SimulationResult } from "@/lib/simulation";
 import type { SimulationWorker } from "@/lib/simulation";

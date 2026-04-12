@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, useEffect } from "react";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput } from "@/lib/form-state";
@@ -14,7 +12,7 @@ type AppState =
   | { phase: "calculating"; form: FormState }
   | { phase: "result"; form: FormState; result: SimulationResult };
 
-export default function Home() {
+export default function App() {
   const [state, setState] = useState<AppState>({ phase: "input" });
   const workerRef = useRef<SimulationWorker | null>(null);
 

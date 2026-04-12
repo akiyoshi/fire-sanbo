@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.7.0] - 2026-04-12
+
+### 変更
+- **Next.js 16 → Vite 6 移行**: Turbopack devサーバーのメモリ爆発（~20GB）を解消
+- devサーバー起動: クラッシュ → 389ms
+- `"use client"` ディレクティブを全9ファイルから除去
+- エントリポイント: `src/app/page.tsx` → `src/App.tsx` + `src/main.tsx` + `index.html`
+- eslint: `eslint-config-next` 除去
+- tsconfig: Next.js plugin・.next パス除去
+- AGENTS.md: Next.js → Vite SPA 用に更新
+
+### 削除
+- `next`, `eslint-config-next` 依存パッケージ
+- `next.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`
+
+### 追加
+- `vite`, `@vitejs/plugin-react`, `vite-tsconfig-paths` 依存パッケージ
+- `vite.config.ts` (Worker内パスエイリアス対応含む)
+- `DESIGN-vite-migration.md` デザインドキュメント
+
+### 維持
+- 計算エンジン (`src/lib/**`): 変更ゼロ
+- テスト: 86/86 全パス（変更ゼロ）
+- UIコンポーネント: `"use client"` 除去のみ
+
 ## [0.6.0] - 2026-04-12
 
 ### 追加

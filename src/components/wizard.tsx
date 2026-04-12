@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo, useEffect } from "react";
 import type { FormState } from "@/lib/form-state";
 import { DEFAULT_FORM, deriveBalancesByTaxCategory, saveForm, loadForm, clearForm } from "@/lib/form-state";
