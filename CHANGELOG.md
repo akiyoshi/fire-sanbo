@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2] - 2026-04-12
+
+### 改善
+- Node.jsヒープ制限 `--max-old-space-size=512` をdevスクリプトに追加
+- Next.jsメモリ最適化: `workerThreads: false`, `cpus: 1`
+
 ## [0.5.1] - 2026-04-12
 
 ### 追加

@@ -1,10 +1,10 @@
 {
   "name": "fire-sanbo",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:clean": "node -e \"fs.rmSync('.next',{recursive:true,force:true})\" && next dev",
+    "dev": "node --max-old-space-size=512 node_modules/.bin/next dev",
+    "dev:clean": "node -e \"fs.rmSync('.next',{recursive:true,force:true})\" && node --max-old-space-size=512 node_modules/.bin/next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
