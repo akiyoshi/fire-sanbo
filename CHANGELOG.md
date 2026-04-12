@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0] - 2026-04-12
+
+### 追加
+- 統合資産台帳: 金現物 (gold_physical) を第4口座種別として追加
+- `TaxCategory` 型システム: nisa / tokutei / ideco / gold_physical の4種別で口座を管理
+- 金現物譲渡所得税計算 (`calcGoldWithdrawalTax`): 50万控除 + 1/2課税 + 総合課税
+- ウィザードを4ステップ形式から1ページスクロール形式に刷新
+- ポートフォリオ入力に課税種別セレクタを追加
+- 資産クラス⇔課税種別のクロスバリデーション (gold↔gold_physical 連動)
+- 取り崩し順序最適化が金現物口座を含む最大4!=24通りの順列を探索
+- `asset-class-data.json` に金の期待リターン・リスク・相関係数を追加
+
+### 修正
+- `getActiveCategories` が初期残高0のtokuteiを除外し勤労余剰が座礁する問題を修正
+- `TaxCategory` の二重定義を解消 (`portfolio/types.ts` を唯一のソースに統一)
+- テスト: 71 → 78 (+7)
+
 ## [0.4.0] - 2026-04-11
 
 ### 追加

@@ -8,19 +8,30 @@ const baseInput: SimulationInput = {
   endAge: 80,
   annualSalary: 0,
   annualExpense: 3_600_000,
-  accounts: { nisa: 20_000_000, tokutei: 20_000_000, ideco: 10_000_000 },
+  accounts: { nisa: 20_000_000, tokutei: 20_000_000, ideco: 10_000_000, gold_physical: 0 },
   allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
   idecoYearsOfService: 20,
   tokuteiGainRatio: 0.5,
-  withdrawalOrder: ["nisa", "tokutei", "ideco"],
+  goldGainRatio: 0.3,
+  withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
   numTrials: 50,
   seed: 42,
 };
 
 describe("取り崩し順序最適化", () => {
-  it("6パターン全てが返される", () => {
+  it("残高>0のアクティブカテゴリの全パターンが返される", () => {
     const result = optimizeWithdrawalOrder(baseInput);
-    expect(result.all).toHaveLength(6);
+    // nisa, tokutei, ideco の3カテゴリがアクティブ (gold_physical=0)
+    expect(result.all).toHaveLength(6); // 3! = 6
+  });
+
+  it("4カテゴリアクティブ時は24パターンが返される", () => {
+    const input = {
+      ...baseInput,
+      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 5_000_000 },
+    };
+    const result = optimizeWithdrawalOrder(input);
+    expect(result.all).toHaveLength(24); // 4! = 24
   });
 
   it("best と worst が正しくソートされている", () => {

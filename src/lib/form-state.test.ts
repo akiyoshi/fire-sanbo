@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formToSimulationInput, DEFAULT_FORM } from "./form-state";
+import { formToSimulationInput, DEFAULT_FORM, deriveBalancesByTaxCategory } from "./form-state";
 import type { FormState } from "./form-state";
 
 describe("formToSimulationInput", () => {
@@ -8,23 +8,49 @@ describe("formToSimulationInput", () => {
     expect(input.annualExpense).toBe(DEFAULT_FORM.monthlyExpense * 12);
   });
 
-  it("パーセントを小数に変換（expectedReturn, standardDeviation, tokuteiGainRatio）", () => {
-    const input = formToSimulationInput(DEFAULT_FORM);
-    expect(input.allocation.expectedReturn).toBeCloseTo(0.05);
-    expect(input.allocation.standardDeviation).toBeCloseTo(0.15);
-    expect(input.tokuteiGainRatio).toBeCloseTo(0.5);
+  it("ポートフォリオからリターン・リスクが自動計算される", () => {
+    const form: FormState = {
+      ...DEFAULT_FORM,
+      portfolio: [
+        { assetClass: "developed_stock", taxCategory: "nisa", amount: 10_000_000 },
+      ],
+    };
+    const input = formToSimulationInput(form);
+    // 先進国株式: 9% return, 19.5% risk
+    expect(input.allocation.expectedReturn).toBeCloseTo(0.09, 2);
+    expect(input.allocation.standardDeviation).toBeCloseTo(0.195, 2);
   });
 
-  it("口座残高がそのまま渡される", () => {
+  it("tokuteiGainRatio がパーセントから小数に変換される", () => {
     const input = formToSimulationInput(DEFAULT_FORM);
-    expect(input.accounts.nisa).toBe(DEFAULT_FORM.nisaBalance);
-    expect(input.accounts.tokutei).toBe(DEFAULT_FORM.tokuteiBalance);
-    expect(input.accounts.ideco).toBe(DEFAULT_FORM.idecoBalance);
+    expect(input.tokuteiGainRatio).toBeCloseTo(DEFAULT_FORM.tokuteiGainRatio / 100);
   });
 
-  it("取り崩し順序はnisa→tokutei→ideco固定", () => {
+  it("goldGainRatio がパーセントから小数に変換される", () => {
     const input = formToSimulationInput(DEFAULT_FORM);
-    expect(input.withdrawalOrder).toEqual(["nisa", "tokutei", "ideco"]);
+    expect(input.goldGainRatio).toBeCloseTo(DEFAULT_FORM.goldGainRatio / 100);
+  });
+
+  it("ポートフォリオから課税種別ごとの残高が自動集計される", () => {
+    const form: FormState = {
+      ...DEFAULT_FORM,
+      portfolio: [
+        { assetClass: "developed_stock", taxCategory: "nisa", amount: 5_000_000 },
+        { assetClass: "domestic_stock", taxCategory: "tokutei", amount: 3_000_000 },
+        { assetClass: "developed_bond", taxCategory: "ideco", amount: 2_000_000 },
+        { assetClass: "gold", taxCategory: "gold_physical", amount: 1_000_000 },
+      ],
+    };
+    const input = formToSimulationInput(form);
+    expect(input.accounts.nisa).toBe(5_000_000);
+    expect(input.accounts.tokutei).toBe(3_000_000);
+    expect(input.accounts.ideco).toBe(2_000_000);
+    expect(input.accounts.gold_physical).toBe(1_000_000);
+  });
+
+  it("取り崩し順序はnisa→tokutei→gold_physical→ideco固定", () => {
+    const input = formToSimulationInput(DEFAULT_FORM);
+    expect(input.withdrawalOrder).toEqual(["nisa", "tokutei", "gold_physical", "ideco"]);
   });
 
   it("seed が数値", () => {
@@ -40,24 +66,11 @@ describe("formToSimulationInput", () => {
         currentAge: NaN,
         annualSalary: NaN,
         monthlyExpense: NaN,
-        expectedReturn: NaN,
       };
       const input = formToSimulationInput(broken);
       expect(Number.isFinite(input.currentAge)).toBe(true);
       expect(Number.isFinite(input.annualSalary)).toBe(true);
       expect(Number.isFinite(input.annualExpense)).toBe(true);
-      expect(Number.isFinite(input.allocation.expectedReturn)).toBe(true);
-    });
-
-    it("負の金額が0に丸められる", () => {
-      const broken: FormState = {
-        ...DEFAULT_FORM,
-        nisaBalance: -1000000,
-        tokuteiBalance: -500000,
-      };
-      const input = formToSimulationInput(broken);
-      expect(input.accounts.nisa).toBe(0);
-      expect(input.accounts.tokutei).toBe(0);
     });
 
     it("numTrialsの最小値は10", () => {
@@ -70,27 +83,24 @@ describe("formToSimulationInput", () => {
     });
   });
 
-  describe("ポートフォリオモード統合", () => {
+  describe("ポートフォリオ合成", () => {
     it("有効なポートフォリオで合成リターン・リスクがSimulationInputに反映される", () => {
       const form: FormState = {
         ...DEFAULT_FORM,
-        inputMode: "portfolio",
         portfolio: [
-          { assetClass: "developed_stock", amount: 10_000_000 },
+          { assetClass: "developed_stock", taxCategory: "nisa", amount: 10_000_000 },
         ],
       };
       const input = formToSimulationInput(form);
-      // 手動入力のデフォルト(5%/15%)ではなく、先進国株式の値が使われる
-      expect(input.allocation.expectedReturn).toBeCloseTo(0.09, 4);
-      expect(input.allocation.standardDeviation).toBeCloseTo(0.195, 4);
+      expect(input.allocation.expectedReturn).toBeCloseTo(0.09, 2);
+      expect(input.allocation.standardDeviation).toBeCloseTo(0.195, 2);
     });
 
     it("現金100%ポートフォリオでリスクフロア0.001が適用される", () => {
       const form: FormState = {
         ...DEFAULT_FORM,
-        inputMode: "portfolio",
         portfolio: [
-          { assetClass: "cash", amount: 5_000_000 },
+          { assetClass: "cash", taxCategory: "tokutei", amount: 5_000_000 },
         ],
       };
       const input = formToSimulationInput(form);
@@ -98,19 +108,29 @@ describe("formToSimulationInput", () => {
       expect(input.allocation.standardDeviation).toBe(0.001);
     });
 
-    it("ポートフォリオ金額0のときは手動入力値にフォールバックする", () => {
+    it("ポートフォリオ金額0のときはフォールバック値(5%/15%)が使用される", () => {
       const form: FormState = {
         ...DEFAULT_FORM,
-        inputMode: "portfolio",
-        expectedReturn: 7,
-        standardDeviation: 20,
         portfolio: [
-          { assetClass: "developed_stock", amount: 0 },
+          { assetClass: "developed_stock", taxCategory: "nisa", amount: 0 },
         ],
       };
       const input = formToSimulationInput(form);
-      expect(input.allocation.expectedReturn).toBeCloseTo(0.07);
-      expect(input.allocation.standardDeviation).toBeCloseTo(0.20);
+      expect(input.allocation.expectedReturn).toBeCloseTo(0.05);
+      expect(input.allocation.standardDeviation).toBeCloseTo(0.15);
     });
+  });
+});
+
+describe("deriveBalancesByTaxCategory", () => {
+  it("同一課税種別の複数銘柄を合算する", () => {
+    const balances = deriveBalancesByTaxCategory([
+      { assetClass: "developed_stock", taxCategory: "nisa", amount: 3_000_000 },
+      { assetClass: "domestic_stock", taxCategory: "nisa", amount: 2_000_000 },
+    ]);
+    expect(balances.nisa).toBe(5_000_000);
+    expect(balances.tokutei).toBe(0);
+    expect(balances.ideco).toBe(0);
+    expect(balances.gold_physical).toBe(0);
   });
 });

@@ -7,7 +7,11 @@ import type {
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
 import { calcAnnualTax, calcWithdrawalTax, calcSocialInsurancePremium } from "@/lib/tax";
-import type { AccountType } from "@/lib/tax";
+import type { TaxCategory } from "@/lib/tax";
+
+function assertNever(x: never): never {
+  throw new Error(`Unexpected tax category: ${x}`);
+}
 
 /**
  * 1回の試行（currentAge → endAge までの年次シミュレーション）
@@ -16,11 +20,12 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
   let nisa = input.accounts.nisa;
   let tokutei = input.accounts.tokutei;
   let ideco = input.accounts.ideco;
+  let gold_physical = input.accounts.gold_physical;
   const years: YearResult[] = [];
   let depletionAge: number | null = null;
 
   for (let age = input.currentAge; age <= input.endAge; age++) {
-    const totalAssetsBefore = nisa + tokutei + ideco;
+    const totalAssetsBefore = nisa + tokutei + ideco + gold_physical;
 
     // 収入（退職前のみ）
     let income = 0;
@@ -42,20 +47,21 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       taxBd.socialInsurance += retiredSocialInsurance;
       let remaining = needed;
 
-      for (const accountType of input.withdrawalOrder) {
+      for (const taxCategory of input.withdrawalOrder) {
         if (remaining <= 0) break;
 
-        const balance = getAccountBalance(accountType, nisa, tokutei, ideco);
+        const balance = getAccountBalance(taxCategory, nisa, tokutei, ideco, gold_physical);
         if (balance <= 0) continue;
 
         const withdrawAmount = Math.min(remaining, balance);
-        const result = calcWithdrawalTax(accountType, withdrawAmount, {
+        const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
           yearsOfService: input.idecoYearsOfService,
           gainRatio: input.tokuteiGainRatio,
+          goldGainRatio: input.goldGainRatio,
         });
 
         // 口座から引き出し
-        switch (accountType) {
+        switch (taxCategory) {
           case "nisa":
             nisa -= withdrawAmount;
             break;
@@ -65,6 +71,11 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           case "ideco":
             ideco -= withdrawAmount;
             break;
+          case "gold_physical":
+            gold_physical -= withdrawAmount;
+            break;
+          default:
+            assertNever(taxCategory);
         }
 
         withdrawal += withdrawAmount;
@@ -91,8 +102,9 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     nisa = Math.max(0, nisa * (1 + portfolioReturn));
     tokutei = Math.max(0, tokutei * (1 + portfolioReturn));
     ideco = Math.max(0, ideco * (1 + portfolioReturn));
+    gold_physical = Math.max(0, gold_physical * (1 + portfolioReturn));
 
-    const totalAssetsAfter = nisa + tokutei + ideco;
+    const totalAssetsAfter = nisa + tokutei + ideco + gold_physical;
 
     taxBd.total = Math.round(taxBd.incomeTax + taxBd.residentTax + taxBd.socialInsurance + taxBd.withdrawalTax);
     taxBd.incomeTax = Math.round(taxBd.incomeTax);
@@ -106,6 +118,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       nisa: Math.round(nisa),
       tokutei: Math.round(tokutei),
       ideco: Math.round(ideco),
+      gold_physical: Math.round(gold_physical),
       income: Math.round(income),
       expense: input.annualExpense,
       taxBreakdown: taxBd,
@@ -119,7 +132,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     }
   }
 
-  const finalAssets = nisa + tokutei + ideco;
+  const finalAssets = nisa + tokutei + ideco + gold_physical;
   return {
     years,
     success: depletionAge === null,
@@ -129,10 +142,11 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 }
 
 function getAccountBalance(
-  type: AccountType,
+  type: TaxCategory,
   nisa: number,
   tokutei: number,
-  ideco: number
+  ideco: number,
+  gold_physical: number,
 ): number {
   switch (type) {
     case "nisa":
@@ -141,6 +155,10 @@ function getAccountBalance(
       return tokutei;
     case "ideco":
       return ideco;
+    case "gold_physical":
+      return gold_physical;
+    default:
+      return assertNever(type);
   }
 }
 

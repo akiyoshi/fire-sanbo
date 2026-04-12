@@ -10,6 +10,7 @@ import {
   calcRetirementTaxableIncome,
   calcTokuteiTax,
   calcNisaTax,
+  calcGoldWithdrawalTax,
 } from "./engine";
 import { calcWithdrawalTax } from "./accounts";
 
@@ -193,6 +194,30 @@ describe("税制エンジン P0テスト", () => {
       const expected65 = 45_400 + 16_500 + 74_700; // 介護第1号
       expect(si64).toBe(expected64);
       expect(si65).toBe(expected65);
+    });
+  });
+
+  describe("金現物（長期譲渡所得）", () => {
+    it("利益50万円以下なら税額0（特別控除）", () => {
+      // 取り崩し100万円、含み益率30% → 利益30万 < 50万控除
+      const result = calcGoldWithdrawalTax(1_000_000, 0.3, 0);
+      expect(result.tax).toBe(0);
+    });
+
+    it("利益200万で50万控除+1/2課税が適用される", () => {
+      // 取り崩し400万円、含み益率50% → 利益200万
+      // 課税対象 = (200万 - 50万) * 0.5 = 75万
+      const result = calcGoldWithdrawalTax(4_000_000, 0.5, 0);
+      // 退職後otherIncome=0: 所得税と住民税の差分が発生する
+      expect(result.tax).toBeGreaterThan(0);
+      expect(result.tax).toBeLessThan(200_000); // 75万の所得に対して20万未満
+    });
+
+    it("calcWithdrawalTax経由でgold_physicalが呼べる", () => {
+      const result = calcWithdrawalTax("gold_physical", 2_000_000, { goldGainRatio: 0.5 });
+      expect(result.tax).toBeGreaterThanOrEqual(0);
+      expect(result.net).toBeLessThanOrEqual(2_000_000);
+      expect(result.net + result.tax).toBe(2_000_000);
     });
   });
 });

@@ -1,19 +1,33 @@
 import { runSimulation } from "@/lib/simulation";
 import type { SimulationInput, SimulationResult } from "@/lib/simulation";
-import type { AccountType } from "@/lib/tax";
+import type { TaxCategory } from "@/lib/tax";
 
-/** 取り崩し順序の全パターン（3! = 6通り） */
-const ALL_WITHDRAWAL_ORDERS: AccountType[][] = [
-  ["nisa", "tokutei", "ideco"],
-  ["nisa", "ideco", "tokutei"],
-  ["tokutei", "nisa", "ideco"],
-  ["tokutei", "ideco", "nisa"],
-  ["ideco", "nisa", "tokutei"],
-  ["ideco", "tokutei", "nisa"],
-];
+/** 取り崩し順序の全パターン（4! = 24通り） */
+function permutations<T>(arr: T[]): T[][] {
+  if (arr.length <= 1) return [arr];
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+    for (const perm of permutations(rest)) {
+      result.push([arr[i], ...perm]);
+    }
+  }
+  return result;
+}
+
+function getActiveCategories(input: SimulationInput): TaxCategory[] {
+  const categories: TaxCategory[] = [];
+  if (input.accounts.nisa > 0) categories.push("nisa");
+  // 勤労期間中に余剰が特定口座に蓄積されるため、勤労期間があれば常に含める
+  const hasWorkingYears = input.retirementAge > input.currentAge && input.annualSalary > 0;
+  if (input.accounts.tokutei > 0 || hasWorkingYears) categories.push("tokutei");
+  if (input.accounts.ideco > 0) categories.push("ideco");
+  if (input.accounts.gold_physical > 0) categories.push("gold_physical");
+  return categories;
+}
 
 export interface WithdrawalOrderResult {
-  order: AccountType[];
+  order: TaxCategory[];
   label: string;
   successRate: number;
   medianFinalAssets: number;
@@ -27,22 +41,26 @@ export interface OptimizationResult {
   benefitAmount: number;
 }
 
-function orderLabel(order: AccountType[]): string {
-  const names: Record<AccountType, string> = {
+function orderLabel(order: TaxCategory[]): string {
+  const names: Record<TaxCategory, string> = {
     nisa: "NISA",
     tokutei: "特定",
     ideco: "iDeCo",
+    gold_physical: "金現物",
   };
   return order.map((a) => names[a]).join(" → ");
 }
 
 /**
- * 全6パターンの取り崩し順序を評価し、最適順序を提案
+ * 全パターンの取り崩し順序を評価し、最適順序を提案
  */
 export function optimizeWithdrawalOrder(
   baseInput: SimulationInput
 ): OptimizationResult {
-  const results: WithdrawalOrderResult[] = ALL_WITHDRAWAL_ORDERS.map(
+  const active = getActiveCategories(baseInput);
+  const allOrders = active.length > 0 ? permutations(active) : [baseInput.withdrawalOrder];
+
+  const results: WithdrawalOrderResult[] = allOrders.map(
     (order) => {
       const input: SimulationInput = { ...baseInput, withdrawalOrder: order };
       const sim = runSimulation(input);

@@ -230,3 +230,48 @@ export function calcAnnualTax(
     netIncome,
   };
 }
+
+/**
+ * 金現物（長期譲渡所得）の税額を計算
+ * 5年超の長期保有前提: 50万円特別控除 + 1/2課税 → 総合課税
+ *
+ * otherIncome: 退職後は給与所得0、特定口座は源泉分離、iDeCoは退職所得（分離）のため、
+ * 金の前に総合課税所得が発生するケースは現モデルにない。デフォルト0。
+ */
+export function calcGoldWithdrawalTax(
+  withdrawalAmount: number,
+  gainRatio: number,
+  otherIncome: number,
+  cfg = config
+): { tax: number; taxableIncome: number } {
+  const gain = withdrawalAmount * gainRatio;
+  const afterDeduction = Math.max(0, gain - 500_000); // 50万円特別控除
+  const taxableIncome = afterDeduction * 0.5;          // 長期: 1/2課税
+
+  if (taxableIncome <= 0) {
+    return { tax: 0, taxableIncome: 0 };
+  }
+
+  // 総合課税: 他の所得と合算して累進課税の差分で計算
+  const totalIncome = otherIncome + taxableIncome;
+  const taxWithGold = calcIncomeTax(
+    calcTaxableIncome(totalIncome, 0, cfg),
+    cfg
+  );
+  const taxWithoutGold = otherIncome > 0
+    ? calcIncomeTax(calcTaxableIncome(otherIncome, 0, cfg), cfg)
+    : 0;
+  const incomeTaxDiff = taxWithGold - taxWithoutGold;
+
+  // 住民税（所得割のみ、差分）— 基礎控除を適用
+  const residentTaxableWithGold = Math.max(0, totalIncome - calcResidentBasicDeduction(totalIncome, cfg));
+  const residentTaxableWithoutGold = otherIncome > 0
+    ? Math.max(0, otherIncome - calcResidentBasicDeduction(otherIncome, cfg))
+    : 0;
+  const residentWithGold = Math.floor(residentTaxableWithGold * cfg.residentTax.incomeRate);
+  const residentWithoutGold = Math.floor(residentTaxableWithoutGold * cfg.residentTax.incomeRate);
+  const residentTaxDiff = residentWithGold - residentWithoutGold;
+
+  const tax = Math.max(0, incomeTaxDiff + residentTaxDiff);
+  return { tax, taxableIncome };
+}

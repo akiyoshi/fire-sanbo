@@ -458,7 +458,7 @@ function findMedianTrial(trials: TrialResult[]): TrialResult {
 
 # ポートフォリオ・ブリッジ デザインドキュメント
 
-> **ステータス**: Draft
+> **ステータス**: Superseded by 統合資産台帳（Unified Asset Ledger）
 > **スプリント**: Sprint 7
 > **前提**: v0.3.0 (処方箋 + 税金の見える化) が完成済み
 
@@ -742,3 +742,468 @@ interface FormState {
 - `/plan-design-review` — 2モードUIの切り替え体験レビュー
 - `/autoplan` — 全レビューを一括で走らせる
 - 直接実装に進む場合は「ポートフォリオ・ブリッジを実装して」と指示
+
+---
+
+# 統合資産台帳（Unified Asset Ledger）デザインドキュメント
+
+> **ステータス**: Reviewed — /plan-eng-review APPROVE(条件付き) + /plan-design-review 7.6/10
+> **スプリント**: Sprint 7（ポートフォリオ・ブリッジを置換）
+> **前提**: v0.3.0 (処方箋 + 税金の見える化) が完成済み
+
+## 概要
+
+ウィザード3画面（基本情報 / 口座残高 / 投資条件）を**1画面のスクロールフォーム**（`max-w-4xl`）に統合し、ポートフォリオ行に課税種別を持たせることで「口座残高入力」と「ポートフォリオ入力」を**単一のテーブル**にする。金（ゴールド）資産クラスと長期譲渡所得税制を追加。
+
+**入力は1回、計算は全部やる。**
+
+## 問題
+
+1. **入力の二重構造**: ウィザードのステップ2で口座残高（NISA/特定/iDeCo）を入力し、ステップ3でポートフォリオ（資産クラス別の保有額）を入力する。同じ資産なのに2回入力する。口座残高はポートフォリオの課税種別集計に過ぎないのに、別概念として扱っている。
+2. **3画面は不要**: PCモニターで利用しているため、ウィザードの段階的入力は不要。1画面でスクロールするほうが速い。
+3. **金（ゴールド）が無い**: 分散投資の一環として金現物（SBI証券）を保有しているが、8資産クラスに含まれず、シミュレーションから完全に消えている。
+
+## ターゲットユーザー
+
+**開発者本人（と家族）**。NISA/iDeCo/特定口座で複数ファンド + 金現物（SBI証券）を保有。マネーフォワードで資産を管理し、手動でFIRE参謀に転記している。汎用性は不要。
+
+## 提案するアプローチ
+
+### 1. ウィザード廃止 → 1画面スクロールフォーム
+
+現在の4ステップウィザードを廃止し、`max-w-4xl`（896px）の1画面にすべてのセクションを配置する。結果画面と同じ横幅で、入力→結果の遷移で横幅のジャンプがない。
+
+#### 資産テーブルのレイアウト: 2行構造
+
+各ポートフォリオ行は、銘柄名を上段に小さいグレー文字で全幅表示し、下段に資産クラス(30%) / 課税種別(25%) / 金額(35%) + 削除(10%)の重みつき列を配置する。金額列は太字・右寄せ・`tabular-nums` で最重要フィールドとして視覚的に強調。
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ ── 基本情報 ──────────────────────────────────────────── │
+│ 現在の年齢   [35]歳  退職[50]歳  終了[95]歳             │
+│ 年収     [6,000,000]円  月間生活費  [250,000]円/月       │
+│                                                          │
+│ ── 資産 ───────────────────────────────────────────────  │
+│                                                          │
+│  eMAXIS Slim 米国株式(S&P500)                            │
+│  [先進国株式 ▼]     [NISA ▼]        8,000,000 円    [✕] │
+│                                                          │
+│  eMAXIS Slim 全世界株式(オール・カントリー)               │
+│  [先進国株式 ▼]     [特定口座 ▼]    5,000,000 円    [✕] │
+│                                                          │
+│  eMAXIS Slim 先進国債券インデックス                       │
+│  [先進国債券 ▼]     [iDeCo ▼]      2,000,000 円    [✕] │
+│                                                          │
+│  SBI証券 金現物                                          │
+│  [金 ▼]             [金現物 ▼]      3,000,000 円    [✕] │
+│                                                          │
+│  [+ 行を追加]                                            │
+│                                                          │
+│ ┌─ 集計 ──────────────────────────────────────────────┐ │
+│ │ NISA 800万  特定 500万  iDeCo 200万  金現物 300万   │ │
+│ │ 合計 1,800万                                        │ │
+│ │                                                      │ │
+│ │ 📊 合成リターン: 7.8%  リスク: 16.2%                │ │
+│ │    分散効果: -2.8%（単純加重比）                     │ │
+│ └──────────────────────────────────────────────────────┘ │
+│                                                          │
+│ ── 詳細設定 ─────────────────────────────────────────── │
+│ 特定口座の含み益率  [50]%                                │
+│ iDeCoの加入年数    [15]年                                │
+│ 金の含み益率       [30]%  ← 金がある場合のみ表示        │
+│ シミュレーション回数 [1,000]回                            │
+│                                                          │
+│             [シミュレーション開始]                        │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 2. 課税種別（TaxCategory）の導入
+
+「口座」と「課税方式」は別概念。NISA/特定/iDeCoは口座の種類だが、金現物は証券口座にあっても税制が異なる。将来の暗号資産（雑所得）やオプション取引（申告分離）にも対応できるよう、`TaxCategory` として設計する。
+
+```typescript
+// 現在出荷するもの
+export const TAX_CATEGORIES = [
+  "nisa",            // 非課税
+  "tokutei",         // 源泉分離 20.315%
+  "ideco",           // 退職所得控除
+  "gold_physical",   // 総合課税（長期譲渡1/2 + 50万控除）
+] as const;
+
+export type TaxCategory = (typeof TAX_CATEGORIES)[number];
+
+// 将来の拡張候補（スコープ外だが型設計で受け入れ可能）
+// "crypto"        — 雑所得（総合課税）
+// "options"       — 申告分離 20.315%（先物・オプション）
+// "gold_etf"      — 特定口座の金ETF（20.315%、tokuteiと同じ）
+
+// UIラベル
+export const TAX_CATEGORY_LABELS: Record<TaxCategory, string> = {
+  nisa: "NISA",
+  tokutei: "特定口座",
+  ideco: "iDeCo",
+  gold_physical: "金現物",
+};
+```
+
+### 3. PortfolioEntry の拡張
+
+```typescript
+// 現在
+interface PortfolioEntry {
+  assetClass: AssetClassId;
+  amount: number;
+}
+
+// 変更後
+interface PortfolioEntry {
+  name?: string;               // 銘柄名（表示用・任意）
+  assetClass: AssetClassId;
+  taxCategory: TaxCategory;    // 課税種別
+  amount: number;
+}
+```
+
+### 4. 残高の自動集計
+
+`FormState` から `nisaBalance` / `tokuteiBalance` / `idecoBalance` の直接入力を**廃止**。ポートフォリオ行の `taxCategory` で自動集計する。
+
+```typescript
+function deriveBalancesByTaxCategory(portfolio: PortfolioEntry[]): {
+  nisa: number;
+  tokutei: number;
+  ideco: number;
+  gold_physical: number;
+} {
+  const result = { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0 };
+  for (const entry of portfolio) {
+    if (entry.taxCategory in result) {
+      result[entry.taxCategory] += entry.amount;
+    }
+  }
+  return result;
+}
+```
+
+### 5. 金（ゴールド）資産クラスの追加
+
+#### asset-class-data.json に追加
+
+| 項目 | 値 | 根拠 |
+|------|---|------|
+| 期待リターン | 6.5% | 円建て金価格の過去20年CAGR（参考値） |
+| リスク | 19.0% | 円建て金価格の年率標準偏差 |
+
+相関（主要クラスとの参考値）:
+- 金 × 国内株式: 0.05
+- 金 × 先進国株式: 0.05
+- 金 × 新興国株式: 0.10
+- 金 × 国内債券: 0.15
+- 金 × 先進国債券: 0.25
+- 金 × 新興国債券: 0.15
+- 金 × 国内REIT: 0.05
+- 金 × 先進国REIT: 0.05
+- 金 × 現金: 0.00
+
+**株式との相関がほぼゼロ** → 分散効果が大きい。これがポートフォリオに金を入れる理由であり、合成リスクに反映されないのは痛い。
+
+#### AssetClassId の拡張
+
+```typescript
+export const ASSET_CLASS_IDS = [
+  "domestic_stock",
+  "developed_stock",
+  "emerging_stock",
+  "domestic_bond",
+  "developed_bond",
+  "emerging_bond",
+  "domestic_reit",
+  "developed_reit",
+  "gold",        // ← 追加
+  "cash",
+] as const;
+```
+
+### 6. 金の税制: 長期譲渡所得
+
+5年超の長期保有を前提とし、以下のルールを適用:
+
+```
+譲渡益 = 売却額 - 取得費
+課税対象 = max(0, 譲渡益 - 500,000) × 0.5    // 50万円特別控除 + 1/2課税
+→ 総合課税（所得税 + 住民税 + 復興特別所得税）
+```
+
+特定口座（源泉分離20.315%）とは異なり、**総合課税**なので他の所得と合算される。退職後は他の所得が少ないため、税率が低くなる傾向がある（FIRE的に有利）。
+
+#### 税制エンジンの拡張
+
+```typescript
+/** 金現物（長期譲渡所得）の税額を計算 */
+export function calcGoldWithdrawalTax(
+  withdrawalAmount: number,
+  gainRatio: number,    // 含み益率 (0-1)
+  otherIncome: number,  // 他の総合課税所得（金の課税額に影響）
+  age: number,
+  cfg = config
+): { tax: number; taxableIncome: number } {
+  const gain = withdrawalAmount * gainRatio;
+  const afterDeduction = Math.max(0, gain - 500_000); // 50万円特別控除
+  const taxableIncome = afterDeduction * 0.5;          // 長期: 1/2課税
+
+  // 総合課税: 他の所得と合算して累進課税
+  const totalIncome = otherIncome + taxableIncome;
+  const taxWithGold = calcIncomeTaxFromTaxableIncome(totalIncome, age, cfg);
+  const taxWithoutGold = calcIncomeTaxFromTaxableIncome(otherIncome, age, cfg);
+  const tax = taxWithGold - taxWithoutGold; // 差分が金に起因する税額
+
+  return { tax, taxableIncome };
+}
+```
+
+#### B1: `otherIncome` の設計決定（エンジニアリングレビューで追加）
+
+`runTrial()` の取り崩しループ内で `otherIncome` をどう計算するか：
+
+- 退職後の給与所得 = 0
+- 特定口座は**源泉分離**（20.315%）→ 総合課税の `otherIncome` に含まない
+- iDeCoは**退職所得**（分離課税）→ 総合課税の `otherIncome` に含まない
+- NISAは非課税 → 含まない
+
+**結論: `otherIncome = 0` を明示的なデフォルトとする。** 退職後にFIRE参謀が想定する取り崩しフェーズでは、金の前に総合課税所得が発生するケースは現モデルにない。コード内にこの前提をコメントで明記すること。
+
+### 7. SimulationInput の拡張
+
+```typescript
+interface AccountBalance {
+  nisa: number;
+  tokutei: number;
+  ideco: number;
+  gold_physical: number;  // ← 追加
+}
+
+// withdrawalOrder にも gold_physical を追加
+withdrawalOrder: TaxCategory[];
+```
+
+デフォルトの取り崩し順序: `["nisa", "tokutei", "gold_physical", "ideco"]`
+- NISA: 非課税なので最初
+- 特定: 源泉分離20.315%
+- 金現物: 総合課税だが退職後は低税率（50万控除 + 1/2課税）
+- iDeCo: 退職所得控除適用のため最後
+
+### 8. FormState の変更
+
+```typescript
+interface FormState {
+  // ── 基本情報（変更なし）──
+  currentAge: number;
+  retirementAge: number;
+  endAge: number;
+  annualSalary: number;
+  monthlyExpense: number;
+
+  // ── 廃止 ──
+  // nisaBalance: number;       ← portfolio から自動集計
+  // tokuteiBalance: number;    ← portfolio から自動集計
+  // idecoBalance: number;      ← portfolio から自動集計
+  // expectedReturn: number;    ← portfolio から自動計算
+  // standardDeviation: number; ← portfolio から自動計算
+  // inputMode: "portfolio" | "manual"; ← 廃止。常にポートフォリオ入力
+
+  // ── 資産台帳（新） ──
+  portfolio: PortfolioEntry[];  // 拡張版（name, taxCategory 追加）
+
+  // ── 詳細設定（維持） ──
+  idecoYearsOfService: number;
+  tokuteiGainRatio: number;
+  goldGainRatio: number;        // ← 追加: 金の含み益率
+  numTrials: number;
+}
+```
+
+### 9. formToSimulationInput() の変更
+
+```typescript
+export function formToSimulationInput(form: FormState): SimulationInput {
+  // ポートフォリオから合成リターン・リスクを計算
+  const portfolioResult = calcPortfolio(form.portfolio);
+  const expectedReturn = portfolioResult.totalAmount > 0
+    ? portfolioResult.expectedReturn
+    : 0.05; // フォールバック
+  const standardDeviation = portfolioResult.totalAmount > 0
+    ? Math.max(0.001, portfolioResult.risk)
+    : 0.15;
+
+  // 残高を課税種別から自動集計
+  const balances = deriveBalancesByTaxCategory(form.portfolio);
+
+  return {
+    currentAge: safeNum(form.currentAge, 35, 18),
+    retirementAge: safeNum(form.retirementAge, 50, 19),
+    endAge: safeNum(form.endAge, 95, 60),
+    annualSalary: safeNum(form.annualSalary),
+    annualExpense: safeNum(form.monthlyExpense) * 12,
+    accounts: {
+      nisa: balances.nisa,
+      tokutei: balances.tokutei,
+      ideco: balances.ideco,
+      gold_physical: balances.gold_physical,
+    },
+    allocation: { expectedReturn, standardDeviation },
+    idecoYearsOfService: safeNum(form.idecoYearsOfService, 20, 1),
+    tokuteiGainRatio: safeNum(form.tokuteiGainRatio, 50) / 100,
+    goldGainRatio: safeNum(form.goldGainRatio, 30) / 100,
+    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
+    numTrials: safeNum(form.numTrials, 1000, 10),
+    seed: Math.floor(Math.random() * 2 ** 32),
+  };
+}
+```
+
+## 技術的考慮事項
+
+### 影響範囲
+
+| ファイル | 変更内容 | リスク |
+|---------|---------|--------|
+| `portfolio/types.ts` | `PortfolioEntry` に `name`, `taxCategory` 追加。`gold` を `AssetClassId` に追加。`TaxCategory` 型定義 | **中**: 既存テスト更新 |
+| `portfolio/engine.ts` | 変更なし（`calcPortfolio` は `assetClass` と `amount` のみ参照） | **なし** |
+| `config/asset-class-data.json` | `gold` エントリ + 相関行列を10×10に拡張 | **低** |
+| `lib/form-state.ts` | `FormState` 再設計。`nisaBalance` 等を廃止、`deriveBalancesByTaxCategory()` 追加 | **高**: 参照箇所が多い |
+| `components/wizard.tsx` | 全面書き替え → 1画面フォーム（`max-w-4xl`） | **高**: UIの最大変更 |
+| `simulation/types.ts` | `AccountBalance` に `gold_physical` 追加 | **中**: エンジン影響 |
+| `simulation/engine.ts` | `runTrial()` に金口座の取り崩し + 税計算を追加 | **中** |
+| `tax/engine.ts` | `calcGoldWithdrawalTax()` 追加 | **低**: 新規関数 |
+| `tax/accounts.ts` | `TaxCategory` を使用、`calcWithdrawalTax()` に `gold_physical` ケース追加 | **中** |
+| `withdrawal/optimizer.ts` | 4課税種別の取り崩し順序最適化（24通り） | **中** |
+| `prescription/engine.ts` | `runTrialLite()` に金口座処理追加 | **中** |
+| テスト全般 | `FormState` 変更に伴う更新 | **中** |
+
+### 後方互換の方針
+
+`nisaBalance` / `tokuteiBalance` / `idecoBalance` / `expectedReturn` / `standardDeviation` / `inputMode` を `FormState` から削除するのは破壊的変更。以下の方針で対処:
+
+1. **一括削除** — ユーザーは1人（開発者本人）。後方互換を維持するコストが無駄。テストを更新して一括移行。
+2. `formToSimulationInput()` が唯一の変換レイヤー。ここだけ正しければエンジン側は動く。
+
+### B2: `runTrialLite()` の金口座対応（エンジニアリングレビューで追加）
+
+`prescription/engine.ts` の `runTrialLite()` は `runTrial()` の軽量版だが別実装。口座の取り崩しロジックが `nisa/tokutei/ideco` にハードコードされている。金口座を追加しないと処方箋の成功率計算に金が反映されない。
+
+**対処**: `runTrialLite()` に `getBalance()` と取り崩しの switch 文に `gold_physical` ケースを追加。`calcGoldWithdrawalTax()` の簡略版（`otherIncome = 0` 固定）を使う。
+
+### B3: `TaxCategory` exhaustive switch（エンジニアリングレビューで追加）
+
+`TaxCategory` 拡張時に switch 文の漏れを防ぐため、`never` パターンで exhaustive check を強制:
+
+```typescript
+function assertNever(x: never): never {
+  throw new Error(`Unexpected tax category: ${x}`);
+}
+```
+
+全 switch 文の `default` にこれを入れれば、TypeScript が `gold_physical` ケース漏れをコンパイルエラーにする。
+
+変更が必要な switch 文の一覧:
+
+| ファイル | 関数 |
+|---------|------|
+| `simulation/engine.ts` | `runTrial()` 内 switch, `getAccountBalance()` |
+| `tax/accounts.ts` | `calcWithdrawalTax()` |
+| `prescription/engine.ts` | `getBalance()`, `runTrialLite()` 内 switch |
+| `withdrawal/optimizer.ts` | `ALL_WITHDRAWAL_ORDERS`, `orderLabel()` |
+
+### 金の取り崩しモデル
+
+シミュレーションエンジンの `runTrial()` に金口座を追加:
+
+- 金は単独資産クラスとして成長（合成ポートフォリオの成長率ではなく、金固有のリターン・リスクで成長させるか、合成に含めるか → **合成に含める方式を採用**。理由: シンプル。全口座が同じ成長率で成長する現行モデルを維持）
+- 取り崩し時: `calcGoldWithdrawalTax()` で長期譲渡所得を計算（`otherIncome = 0`）
+- TaxBreakdown に `goldTax` フィールドを追加するか、`withdrawalTax` に合算するか → **`withdrawalTax` に合算**（Sprint 6の税金の見える化でインサイトテキストで区別可能）
+
+### 取り崩し順序最適化の爆発
+
+4課税種別で 4! = 24通りの総当たり。現在の 6通り（3口座）の4倍。100試行×24 = 2,400回のシミュレーション。PCのみ利用なら許容範囲。速度が問題になる場合は、金現物の固定位置（NISA→特定→**金現物**→iDeCo）の仮定で探索空間を 3! × 2 = 12通りに削減できる。
+
+### UI設計の決定事項（デザインレビューで確定）
+
+| 項目 | 決定 |
+|------|------|
+| 情報アーキテクチャ | インラインサマリー（テーブル直下に `bg-muted` パネル） |
+| ビジュアル階層 | 重みつき列: 資産クラス(30%) / 課税種別(25%) / 金額(35%) + 削除(10%)。銘柄名は上段に小さいグレー文字 |
+| インタラクション | ミニマル: `useMemo` + ボタン無効化。アニメーションなし。既存wizard.tsxパターン踏襲 |
+| アクセシビリティ | 実用最低限: 各入力に `aria-label`、削除ボタンに `aria-label="削除"` |
+| レスポンシブネス | `max-w-4xl`（結果画面と統一）。モバイル対応はスコープ外 |
+| 一貫性 | 素の `<select>` + shadcn風CSSスタイリング。カスタムポップオーバーは不使用 |
+| セレクトボックス | 素の HTML `<select>` を Tailwind class で shadcn 風にスタイリング |
+
+### 新規コード
+
+| ファイル | 内容 | 推定行数 |
+|---------|------|---------|
+| `config/asset-class-data.json` | `gold` エントリ + 相関行列10×10 | ~15行追加 |
+| `portfolio/types.ts` | `TaxCategory`, `PortfolioEntry` 拡張, `gold` 追加 | ~20行変更 |
+| `lib/form-state.ts` | `FormState` 再設計 + `deriveBalancesByTaxCategory()` | ~60行変更 |
+| `tax/engine.ts` | `calcGoldWithdrawalTax()` | ~25行追加 |
+| `tax/accounts.ts` | `TaxCategory` 拡張 + `gold_physical` ケース | ~15行変更 |
+| `simulation/types.ts` | `AccountBalance` に `gold_physical`, `SimulationInput` に `goldGainRatio` | ~5行変更 |
+| `simulation/engine.ts` | `runTrial()` に金口座処理 + exhaustive switch | ~35行変更 |
+| `prescription/engine.ts` | `runTrialLite()` に金口座処理 | ~25行変更 |
+| `withdrawal/optimizer.ts` | 4課税種別対応（24通り） | ~20行変更 |
+| `components/wizard.tsx` | 1画面フォームに全面書き替え（2行レイアウト） | ~280行（差分） |
+| テスト更新 | form-state, simulation, tax, prescription のテスト更新 + 新規 | ~100行変更 |
+
+**合計**: ~340行の新規コード + ~260行の変更
+
+## 成功指標
+
+| 指標 | 目標 |
+|------|------|
+| 入力が1画面で完結する | ウィザードのステップ遷移がゼロ |
+| 残高がポートフォリオの合計値と自動一致する | `deriveBalancesByTaxCategory()` の出力 = 旧 `nisaBalance` 等の役割 |
+| 金現物がシミュレーションに反映される | 金を含むポートフォリオで成功率が変動する |
+| 金の取り崩し時に長期譲渡所得（1/2課税 + 50万控除）が適用される | テストで検証 |
+| 入力時間が大幅短縮される | 10分 → 目標3分以内 |
+| 既存テストが全件パス | `npm test` green |
+
+## エッジケース
+
+| # | ケース | 対処 |
+|---|--------|------|
+| 1 | ポートフォリオが空（行ゼロ） | 「資産を1行以上追加してください」バリデーション |
+| 2 | 全行の金額が0円 | 合成リターン・リスク = フォールバック値（5%/15%）、残高 = 全てゼロ |
+| 3 | 同じ資産クラスが異なる課税種別に存在 | 正常。合成計算は `assetClass` × `amount` で集計、残高は `taxCategory` で集計 |
+| 4 | 金のみ保有（他の課税種別ゼロ） | NISA/特定/iDeCo = 0、金現物のみで取り崩しシミュレーション |
+| 5 | 金の含み益率が100%に近い | 正常。全額が譲渡益として計算される |
+| 6 | 金の譲渡益が50万円以下 | 50万円特別控除で課税所得0。`max(0, gain - 500,000) * 0.5` = 0 |
+| 7 | 処方箋エンジンに金口座を含む入力 | `runTrialLite()` が金口座に対応していること（B2で対処済み） |
+| 8 | 最後の1行を削除しようとする | 削除不可（✕ボタン非表示）。最低1行は必須 |
+
+## スコープ外（Sprint 7）
+
+- CSVインポート（マネーフォワードも証券会社も今は対象外）
+- 銘柄名からの資産カテゴリ自動推定
+- ポートフォリオの保存・復元（localStorageは将来検討）
+- 課税種別と資産クラスの組み合わせバリデーション
+- 金以外のコモディティ（銀・プラチナ等）
+- 短期譲渡所得（5年以内の金売却）
+- 暗号資産（雑所得・総合課税）
+- オプション取引（申告分離 20.315%）
+- モバイル対応
+
+## 工数見積もり
+
+| タスク | 工数 |
+|--------|------|
+| `asset-class-data.json` に金追加 + 相関行列10×10 | 1時間 |
+| `TaxCategory` / `PortfolioEntry` / `FormState` 型変更 + `deriveBalancesByTaxCategory()` | 2-3時間 |
+| `calcGoldWithdrawalTax()` + 税制エンジン拡張 + exhaustive switch | 1-2時間 |
+| シミュレーションエンジン（金口座 + 取り崩し）+ `runTrialLite()` 対応 | 2-3時間 |
+| 1画面フォームUI（wizard.tsx 全面書き替え、2行レイアウト） | 3-4時間 |
+| テスト更新 + 新規テスト（P0: 13件 + P1: 6件） | 2-3時間 |
+| **合計** | **11-16時間** |
+
+## ハンドオフ
+
+- 直接実装に進む場合は「統合資産台帳を実装して」と指示

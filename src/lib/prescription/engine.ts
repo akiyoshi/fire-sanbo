@@ -15,13 +15,18 @@ import {
   calcWithdrawalTax,
   calcSocialInsurancePremium,
 } from "@/lib/tax";
-import type { AccountType } from "@/lib/tax";
+import type { TaxCategory } from "@/lib/tax";
+
+function assertNever(x: never): never {
+  throw new Error(`Unexpected tax category: ${x}`);
+}
 
 function getBalance(
-  type: AccountType,
+  type: TaxCategory,
   nisa: number,
   tokutei: number,
   ideco: number,
+  gold_physical: number,
 ): number {
   switch (type) {
     case "nisa":
@@ -30,6 +35,10 @@ function getBalance(
       return tokutei;
     case "ideco":
       return ideco;
+    case "gold_physical":
+      return gold_physical;
+    default:
+      return assertNever(type);
   }
 }
 
@@ -37,6 +46,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let nisa = input.accounts.nisa;
   let tokutei = input.accounts.tokutei;
   let ideco = input.accounts.ideco;
+  let gold_physical = input.accounts.gold_physical;
 
   for (let age = input.currentAge; age <= input.endAge; age++) {
     let income = 0;
@@ -50,16 +60,17 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
       const needed = input.annualExpense + retiredSocialInsurance;
       let remaining = needed;
 
-      for (const accountType of input.withdrawalOrder) {
+      for (const taxCategory of input.withdrawalOrder) {
         if (remaining <= 0) break;
-        const balance = getBalance(accountType, nisa, tokutei, ideco);
+        const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical);
         if (balance <= 0) continue;
         const withdrawAmount = Math.min(remaining, balance);
-        const result = calcWithdrawalTax(accountType, withdrawAmount, {
+        const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
           yearsOfService: input.idecoYearsOfService,
           gainRatio: input.tokuteiGainRatio,
+          goldGainRatio: input.goldGainRatio,
         });
-        switch (accountType) {
+        switch (taxCategory) {
           case "nisa":
             nisa -= withdrawAmount;
             break;
@@ -69,6 +80,11 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
           case "ideco":
             ideco -= withdrawAmount;
             break;
+          case "gold_physical":
+            gold_physical -= withdrawAmount;
+            break;
+          default:
+            assertNever(taxCategory);
         }
         remaining -= result.net;
       }
@@ -87,8 +103,9 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     nisa = Math.max(0, nisa * (1 + portfolioReturn));
     tokutei = Math.max(0, tokutei * (1 + portfolioReturn));
     ideco = Math.max(0, ideco * (1 + portfolioReturn));
+    gold_physical = Math.max(0, gold_physical * (1 + portfolioReturn));
 
-    if (nisa + tokutei + ideco <= 0 && age >= input.retirementAge) {
+    if (nisa + tokutei + ideco + gold_physical <= 0 && age >= input.retirementAge) {
       return false;
     }
   }
