@@ -67,7 +67,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
     () => deriveBalancesByTaxCategory(form.portfolio),
     [form.portfolio],
   );
-  const totalBalance = balances.nisa + balances.tokutei + balances.ideco + balances.gold_physical;
+  const totalBalance = balances.nisa + balances.tokutei + balances.ideco + balances.gold_physical + balances.cash;
 
   return (
     <Card>
@@ -94,7 +94,9 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
                     updateEntry(i, "assetClass", newClass);
                     if (newClass === "gold" && entry.taxCategory !== "gold_physical") {
                       updateEntry(i, "taxCategory", "gold_physical");
-                    } else if (newClass !== "gold" && entry.taxCategory === "gold_physical") {
+                    } else if (newClass === "cash" && entry.taxCategory !== "cash") {
+                      updateEntry(i, "taxCategory", "cash");
+                    } else if (newClass !== "gold" && newClass !== "cash" && (entry.taxCategory === "gold_physical" || entry.taxCategory === "cash")) {
                       updateEntry(i, "taxCategory", "tokutei");
                     }
                   }}
@@ -118,7 +120,9 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
                 >
                   {entry.assetClass === "gold"
                     ? <option value="gold_physical">{TAX_CATEGORY_LABELS.gold_physical}</option>
-                    : TAX_CATEGORIES.filter((tc) => tc !== "gold_physical").map((tc) => (
+                    : entry.assetClass === "cash"
+                    ? <option value="cash">{TAX_CATEGORY_LABELS.cash}</option>
+                    : TAX_CATEGORIES.filter((tc) => tc !== "gold_physical" && tc !== "cash").map((tc) => (
                         <option key={tc} value={tc}>
                           {TAX_CATEGORY_LABELS[tc]}
                         </option>
@@ -168,6 +172,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
               {balances.tokutei > 0 && <span>特定 <strong>{formatManYen(balances.tokutei)}</strong></span>}
               {balances.ideco > 0 && <span>iDeCo <strong>{formatManYen(balances.ideco)}</strong></span>}
               {balances.gold_physical > 0 && <span>金現物 <strong>{formatManYen(balances.gold_physical)}</strong></span>}
+              {balances.cash > 0 && <span>現金 <strong>{formatManYen(balances.cash)}</strong></span>}
               <span className="font-medium">合計 <strong>{formatManYen(totalBalance)}</strong></span>
             </div>
             {portfolioResult.totalAmount > 0 && (

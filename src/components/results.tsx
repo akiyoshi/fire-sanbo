@@ -28,7 +28,12 @@ interface ResultsProps {
 }
 
 function formatManYen(value: number): string {
-  return `${Math.round(value / 10000).toLocaleString()}万`;
+  const man = Math.round(value / 10000);
+  if (man >= 10000) {
+    const oku = man / 10000;
+    return oku % 1 === 0 ? `${oku}億` : `${oku.toFixed(1)}億`;
+  }
+  return `${man.toLocaleString()}万`;
 }
 
 function SuccessRateDisplay({ rate }: { rate: number }) {
@@ -98,7 +103,8 @@ function AssetChart({ result }: { result: SimulationResult }) {
         />
         <YAxis
           tickFormatter={formatManYen}
-          label={{ value: "資産（万円）", angle: -90, position: "insideLeft" }}
+          width={80}
+          label={{ value: "資産（万円）", angle: -90, position: "insideLeft", offset: 10 }}
           className="text-xs"
         />
         <Tooltip
@@ -350,10 +356,10 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-2">
-                現在の推奨順序: <strong>NISA → 特定口座 → 金現物 → iDeCo</strong>
+                現在の推奨順序: <strong>現金 → NISA → 特定口座 → 金現物 → iDeCo</strong>
               </p>
               <p className="text-xs text-muted-foreground">
-                NISA（非課税）を先に使い切ることで、課税口座の運用期間を最大化し税引後資産を最大化します。
+                現金（無リスク）を先に使い切り、次にNISA（非課税）、課税口座の運用期間を最大化し税引後資産を最大化します。
               </p>
             </CardContent>
           </Card>

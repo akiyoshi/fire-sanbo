@@ -59,7 +59,7 @@ describe("モンテカルロシミュレーション", () => {
     endAge: 95,
     annualSalary: 8_000_000,
     annualExpense: 3_600_000,
-    accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0 },
+    accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.05, standardDeviation: 0.15 },
     idecoYearsOfService: 20,
     tokuteiGainRatio: 0.5,
@@ -76,7 +76,7 @@ describe("モンテカルロシミュレーション", () => {
       ...baseInput,
       allocation: { expectedReturn: 0.0, standardDeviation: 0.01 },
       annualExpense: 6_000_000,
-      accounts: { nisa: 1_000_000, tokutei: 2_000_000, ideco: 1_000_000, gold_physical: 0 },
+      accounts: { nisa: 1_000_000, tokutei: 2_000_000, ideco: 1_000_000, gold_physical: 0, cash: 0 },
       numTrials: 100,
     };
     const result = runSimulation(input);
@@ -87,7 +87,7 @@ describe("モンテカルロシミュレーション", () => {
   it("豊富な資産・低支出で成功確率≒100%", () => {
     const input: SimulationInput = {
       ...baseInput,
-      accounts: { nisa: 500_000_000, tokutei: 300_000_000, ideco: 200_000_000, gold_physical: 0 },
+      accounts: { nisa: 500_000_000, tokutei: 300_000_000, ideco: 200_000_000, gold_physical: 0, cash: 0 },
       annualExpense: 1_200_000,
       numTrials: 100,
     };
@@ -151,7 +151,7 @@ describe("取り崩し順序", () => {
       endAge: 70,
       annualSalary: 0,
       annualExpense: 3_600_000,
-      accounts: { nisa: 30_000_000, tokutei: 30_000_000, ideco: 20_000_000, gold_physical: 0 },
+      accounts: { nisa: 30_000_000, tokutei: 30_000_000, ideco: 20_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 20,
       tokuteiGainRatio: 0.5,
@@ -185,7 +185,7 @@ describe("年金統合", () => {
     endAge: 80,
     annualSalary: 0,
     annualExpense: 3_000_000,
-    accounts: { nisa: 20_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0 },
+    accounts: { nisa: 20_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
     idecoYearsOfService: 20,
     tokuteiGainRatio: 0.5,
@@ -220,7 +220,7 @@ describe("年金統合", () => {
 
   it("繰下げ（70歳開始）で増額される", () => {
     // 資産を増やして枯渇を防ぐ
-    const richInput = { ...pensionInput, accounts: { nisa: 40_000_000, tokutei: 20_000_000, ideco: 10_000_000, gold_physical: 0 } };
+    const richInput = { ...pensionInput, accounts: { nisa: 40_000_000, tokutei: 20_000_000, ideco: 10_000_000, gold_physical: 0, cash: 0 } };
     const at65 = runSimulation({
       ...richInput,
       pension: { kosei: 100_000, kokumin: 65_000, startAge: 65 },
@@ -242,7 +242,7 @@ describe("退職金", () => {
       endAge: 60,
       annualSalary: 8_000_000,
       annualExpense: 3_600_000,
-      accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0 },
+      accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 20,
       tokuteiGainRatio: 0.5,
@@ -271,7 +271,7 @@ describe("副収入（サイドFIRE）", () => {
       endAge: 70,
       annualSalary: 0,
       annualExpense: 3_000_000,
-      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0 },
+      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 20,
       tokuteiGainRatio: 0.5,
@@ -300,7 +300,7 @@ describe("ライフイベント", () => {
       endAge: 70,
       annualSalary: 8_000_000,
       annualExpense: 3_600_000,
-      accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0 },
+      accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 20,
       tokuteiGainRatio: 0.5,
@@ -331,7 +331,7 @@ describe("NISA年間積立枠", () => {
       endAge: 60,
       annualSalary: 8_000_000,
       annualExpense: 2_000_000,
-      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0 },
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 15,
       tokuteiGainRatio: 0.5,
@@ -355,7 +355,7 @@ describe("NISA年間積立枠", () => {
       endAge: 60,
       annualSalary: 8_000_000,
       annualExpense: 2_000_000,
-      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0 },
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 15,
       tokuteiGainRatio: 0.5,
@@ -384,7 +384,7 @@ describe("世帯シミュレーション", () => {
     endAge: 80,
     annualSalary: 6_000_000,
     annualExpense: 3_600_000,
-    accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0 },
+    accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.05, standardDeviation: 0.01 },
     idecoYearsOfService: 15,
     tokuteiGainRatio: 0.5,
@@ -399,7 +399,7 @@ describe("世帯シミュレーション", () => {
     currentAge: 33,
     retirementAge: 55,
     annualSalary: 4_000_000,
-    accounts: { nisa: 3_000_000, tokutei: 2_000_000, ideco: 1_000_000, gold_physical: 0 },
+    accounts: { nisa: 3_000_000, tokutei: 2_000_000, ideco: 1_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
     idecoYearsOfService: 10,
     tokuteiGainRatio: 0.4,

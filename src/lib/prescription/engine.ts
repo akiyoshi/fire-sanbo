@@ -30,6 +30,7 @@ function getBalance(
   tokutei: number,
   ideco: number,
   gold_physical: number,
+  cash: number,
 ): number {
   switch (type) {
     case "nisa":
@@ -40,6 +41,8 @@ function getBalance(
       return ideco;
     case "gold_physical":
       return gold_physical;
+    case "cash":
+      return cash;
     default:
       return assertNever(type);
   }
@@ -68,6 +71,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let tokutei = input.accounts.tokutei;
   let ideco = input.accounts.ideco;
   let gold_physical = input.accounts.gold_physical;
+  let cash = input.accounts.cash;
 
   for (let age = input.currentAge; age <= input.endAge; age++) {
     // 給与所得
@@ -110,7 +114,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
 
       for (const taxCategory of input.withdrawalOrder) {
         if (remaining <= 0) break;
-        const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical);
+        const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
         if (balance <= 0) continue;
         const withdrawAmount = Math.min(remaining, balance);
         const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
@@ -131,6 +135,9 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
           case "gold_physical":
             gold_physical -= withdrawAmount;
             break;
+          case "cash":
+            cash -= withdrawAmount;
+            break;
           default:
             assertNever(taxCategory);
         }
@@ -147,7 +154,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
           if (deficit <= 0) break;
-          const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical);
+          const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
           if (balance <= 0) continue;
           const draw = Math.min(deficit, balance);
           switch (taxCategory) {
@@ -155,6 +162,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
             case "tokutei": tokutei -= draw; break;
             case "ideco": ideco -= draw; break;
             case "gold_physical": gold_physical -= draw; break;
+            case "cash": cash -= draw; break;
             default: assertNever(taxCategory);
           }
           deficit -= draw;
@@ -173,8 +181,9 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     tokutei = Math.max(0, tokutei * (1 + portfolioReturn));
     ideco = Math.max(0, ideco * (1 + portfolioReturn));
     gold_physical = Math.max(0, gold_physical * (1 + portfolioReturn));
+    // cash: 現金はリターンなし
 
-    if (nisa + tokutei + ideco + gold_physical <= 0 && age >= input.retirementAge) {
+    if (nisa + tokutei + ideco + gold_physical + cash <= 0 && age >= input.retirementAge) {
       return false;
     }
   }

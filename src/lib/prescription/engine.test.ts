@@ -10,7 +10,7 @@ function baseInput(overrides?: Partial<SimulationInput>): SimulationInput {
     endAge: 95,
     annualSalary: 6_000_000,
     annualExpense: 3_000_000,
-    accounts: { nisa: 3_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0 },
+    accounts: { nisa: 3_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.05, standardDeviation: 0.15 },
     idecoYearsOfService: 15,
     tokuteiGainRatio: 0.5,
@@ -87,7 +87,7 @@ describe("generatePrescriptions", () => {
   it("到達不可能な目標では空配列を返しうる", () => {
     // 資産ゼロ・高支出→厳しい条件
     const input = baseInput({
-      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0 },
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
       annualExpense: 10_000_000,
       annualSalary: 3_000_000,
     });

@@ -58,7 +58,7 @@ export function Wizard({ onComplete }: WizardProps) {
     () => deriveBalancesByTaxCategory(form.portfolio),
     [form.portfolio],
   );
-  const totalBalance = balances.nisa + balances.tokutei + balances.ideco + balances.gold_physical;
+  const totalBalance = balances.nisa + balances.tokutei + balances.ideco + balances.gold_physical + balances.cash;
   const hasGold = form.portfolio.some((e) => e.taxCategory === "gold_physical" && e.amount > 0);
 
   const validate = (): string | null => {
@@ -110,6 +110,7 @@ export function Wizard({ onComplete }: WizardProps) {
         <EventsSection form={form} update={update} />
       </details>
 
+      {/* 配偶者セクション: 現在独身のため非表示（将来復活予定）
       <details className="group" open={!!form.spouseEnabled}>
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -122,6 +123,7 @@ export function Wizard({ onComplete }: WizardProps) {
         </summary>
         <SpouseSection form={form} update={update} />
       </details>
+      */}
 
       <details className="group">
         <summary className="cursor-pointer list-none">

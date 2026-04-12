@@ -115,7 +115,7 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
 
     // 既存の課税種別割合を保存
     const taxRatios: Record<TaxCategory, number> = {
-      nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0,
+      nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0,
     };
     for (const entry of currentPortfolio) {
       taxRatios[entry.taxCategory] += entry.amount;

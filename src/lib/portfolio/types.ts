@@ -18,6 +18,7 @@ export const TAX_CATEGORIES = [
   "tokutei",
   "ideco",
   "gold_physical",
+  "cash",
 ] as const;
 
 export type TaxCategory = (typeof TAX_CATEGORIES)[number];
@@ -27,6 +28,7 @@ export const TAX_CATEGORY_LABELS: Record<TaxCategory, string> = {
   tokutei: "特定口座",
   ideco: "iDeCo",
   gold_physical: "金現物",
+  cash: "現金・預金",
 };
 
 export interface AssetClassData {

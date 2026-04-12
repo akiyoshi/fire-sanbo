@@ -61,6 +61,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
   let pTokutei = input.accounts.tokutei;
   let pIdeco = input.accounts.ideco;
   let pGold = input.accounts.gold_physical;
+  let pCash = input.accounts.cash;
   let pNisaCumulative = pNisa;
 
   // --- Spouse 口座 ---
@@ -69,6 +70,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
   let sTokutei = sp?.accounts.tokutei ?? 0;
   let sIdeco = sp?.accounts.ideco ?? 0;
   let sGold = sp?.accounts.gold_physical ?? 0;
+  let sCash = sp?.accounts.cash ?? 0;
   let sNisaCumulative = sNisa;
 
   const years: YearResult[] = [];
@@ -192,8 +194,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           if (remaining <= 0) break;
 
           const balance = isPrimary
-            ? getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold)
-            : getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold);
+            ? getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold, pCash)
+            : getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold, sCash);
           if (balance <= 0) continue;
 
           const withdrawAmount = Math.min(remaining, balance);
@@ -205,6 +207,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
               case "tokutei": pTokutei -= withdrawAmount; break;
               case "ideco": pIdeco -= withdrawAmount; break;
               case "gold_physical": pGold -= withdrawAmount; break;
+              case "cash": pCash -= withdrawAmount; break;
               default: assertNever(taxCategory);
             }
           } else {
@@ -213,6 +216,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
               case "tokutei": sTokutei -= withdrawAmount; break;
               case "ideco": sIdeco -= withdrawAmount; break;
               case "gold_physical": sGold -= withdrawAmount; break;
+              case "cash": sCash -= withdrawAmount; break;
               default: assertNever(taxCategory);
             }
           }
@@ -259,7 +263,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
           if (deficit <= 0) break;
-          const balance = getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold);
+          const balance = getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold, pCash);
           if (balance <= 0) continue;
           const draw = Math.min(deficit, balance);
           switch (taxCategory) {
@@ -267,6 +271,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
             case "tokutei": pTokutei -= draw; break;
             case "ideco": pIdeco -= draw; break;
             case "gold_physical": pGold -= draw; break;
+            case "cash": pCash -= draw; break;
             default: assertNever(taxCategory);
           }
           withdrawal += draw;
@@ -294,7 +299,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
           if (deficit <= 0) break;
-          const balance = getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold);
+          const balance = getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold, sCash);
           if (balance <= 0) continue;
           const draw = Math.min(deficit, balance);
           switch (taxCategory) {
@@ -302,6 +307,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
             case "tokutei": sTokutei -= draw; break;
             case "ideco": sIdeco -= draw; break;
             case "gold_physical": sGold -= draw; break;
+            case "cash": sCash -= draw; break;
             default: assertNever(taxCategory);
           }
           withdrawal += draw;
@@ -317,6 +323,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     pTokutei = Math.max(0, pTokutei * (1 + pReturn));
     pIdeco = Math.max(0, pIdeco * (1 + pReturn));
     pGold = Math.max(0, pGold * (1 + pReturn));
+    // pCash: 現金はリターンなし（元本維持）
 
     let sReturn = 0;
     if (sp) {
@@ -326,10 +333,11 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       sTokutei = Math.max(0, sTokutei * (1 + sReturn));
       sIdeco = Math.max(0, sIdeco * (1 + sReturn));
       sGold = Math.max(0, sGold * (1 + sReturn));
+      // sCash: 現金はリターンなし（元本維持）
     }
 
     // ====== 集計 ======
-    const totalAssets = pNisa + pTokutei + pIdeco + pGold + sNisa + sTokutei + sIdeco + sGold;
+    const totalAssets = pNisa + pTokutei + pIdeco + pGold + pCash + sNisa + sTokutei + sIdeco + sGold + sCash;
 
     taxBd.total = Math.round(taxBd.incomeTax + taxBd.residentTax + taxBd.socialInsurance + taxBd.withdrawalTax);
     taxBd.incomeTax = Math.round(taxBd.incomeTax);
@@ -346,6 +354,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       tokutei: Math.round(pTokutei + sTokutei),
       ideco: Math.round(pIdeco + sIdeco),
       gold_physical: Math.round(pGold + sGold),
+      cash: Math.round(pCash + sCash),
       income: Math.round(totalIncome),
       expense: input.annualExpense + lifeEventExpense,
       taxBreakdown: taxBd,
@@ -358,7 +367,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     }
   }
 
-  const finalAssets = pNisa + pTokutei + pIdeco + pGold + sNisa + sTokutei + sIdeco + sGold;
+  const finalAssets = pNisa + pTokutei + pIdeco + pGold + pCash + sNisa + sTokutei + sIdeco + sGold + sCash;
   return {
     years,
     success: depletionAge === null,
@@ -373,6 +382,7 @@ function getAccountBalance(
   tokutei: number,
   ideco: number,
   gold_physical: number,
+  cash: number,
 ): number {
   switch (type) {
     case "nisa":
@@ -383,6 +393,8 @@ function getAccountBalance(
       return ideco;
     case "gold_physical":
       return gold_physical;
+    case "cash":
+      return cash;
     default:
       return assertNever(type);
   }

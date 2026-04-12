@@ -23,6 +23,7 @@ function getActiveCategories(input: SimulationInput): TaxCategory[] {
   if (input.accounts.tokutei > 0 || hasWorkingYears) categories.push("tokutei");
   if (input.accounts.ideco > 0) categories.push("ideco");
   if (input.accounts.gold_physical > 0) categories.push("gold_physical");
+  if (input.accounts.cash > 0) categories.push("cash");
   return categories;
 }
 
@@ -47,6 +48,7 @@ function orderLabel(order: TaxCategory[]): string {
     tokutei: "特定",
     ideco: "iDeCo",
     gold_physical: "金現物",
+    cash: "現金",
   };
   return order.map((a) => names[a]).join(" → ");
 }

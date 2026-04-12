@@ -61,9 +61,9 @@ describe("formToSimulationInput", () => {
     expect(input.accounts.gold_physical).toBe(1_000_000);
   });
 
-  it("取り崩し順序はnisa→tokutei→gold_physical→ideco固定", () => {
+  it("取り崩し順序はcash→nisa→tokutei→gold_physical→ideco固定", () => {
     const input = formToSimulationInput(DEFAULT_FORM);
-    expect(input.withdrawalOrder).toEqual(["nisa", "tokutei", "gold_physical", "ideco"]);
+    expect(input.withdrawalOrder).toEqual(["cash", "nisa", "tokutei", "gold_physical", "ideco"]);
   });
 
   it("seed が数値", () => {
@@ -194,6 +194,7 @@ describe("deriveBalancesByTaxCategory", () => {
     expect(balances.tokutei).toBe(0);
     expect(balances.ideco).toBe(0);
     expect(balances.gold_physical).toBe(0);
+    expect(balances.cash).toBe(0);
   });
 });
 

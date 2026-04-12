@@ -8,7 +8,7 @@ const baseInput: SimulationInput = {
   endAge: 80,
   annualSalary: 0,
   annualExpense: 3_600_000,
-  accounts: { nisa: 20_000_000, tokutei: 20_000_000, ideco: 10_000_000, gold_physical: 0 },
+  accounts: { nisa: 20_000_000, tokutei: 20_000_000, ideco: 10_000_000, gold_physical: 0, cash: 0 },
   allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
   idecoYearsOfService: 20,
   tokuteiGainRatio: 0.5,
@@ -29,7 +29,7 @@ describe("取り崩し順序最適化", () => {
   it("4カテゴリアクティブ時は24パターンが返される", () => {
     const input = {
       ...baseInput,
-      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 5_000_000 },
+      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 5_000_000, cash: 0 },
     };
     const result = optimizeWithdrawalOrder(input);
     expect(result.all).toHaveLength(24); // 4! = 24

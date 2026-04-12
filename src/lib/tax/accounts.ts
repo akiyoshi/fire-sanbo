@@ -56,6 +56,10 @@ export function calcWithdrawalTax(
       const result = calcGoldWithdrawalTax(amount, goldGainRatio, 0, cfg);
       return { gross: amount, tax: result.tax, net: amount - result.tax, taxCategory };
     }
+    case "cash": {
+      // 現金・預金: 取り崩し時に税金なし
+      return { gross: amount, tax: 0, net: amount, taxCategory };
+    }
     default:
       return assertNever(taxCategory);
   }

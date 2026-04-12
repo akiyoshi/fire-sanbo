@@ -213,7 +213,7 @@ function safeNum(v: unknown, fallback = 0, min = 0): number {
 
 /** ポートフォリオから課税種別ごとの残高を集計 */
 export function deriveBalancesByTaxCategory(portfolio: PortfolioEntry[]): Record<TaxCategory, number> {
-  const result: Record<TaxCategory, number> = { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0 };
+  const result: Record<TaxCategory, number> = { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 };
   for (const entry of portfolio) {
     if (entry.taxCategory in result) {
       result[entry.taxCategory] += entry.amount;
@@ -246,6 +246,7 @@ export function formToSimulationInput(form: FormState): SimulationInput {
       tokutei: balances.tokutei,
       ideco: balances.ideco,
       gold_physical: balances.gold_physical,
+      cash: balances.cash,
     },
     allocation: {
       expectedReturn,
@@ -255,7 +256,7 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     tokuteiGainRatio: safeNum(form.tokuteiGainRatio, 50) / 100,
     goldGainRatio: safeNum(form.goldGainRatio, 30) / 100,
     inflationRate: safeNum(form.inflationRate, 2.0) / 100,
-    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
+    withdrawalOrder: ["cash", "nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: safeNum(form.numTrials, 1000, 10),
     seed: Math.floor(Math.random() * 2 ** 32),
 
@@ -286,6 +287,7 @@ function spouseFormToInput(sp: SpouseFormState): SpouseInput {
       tokutei: balances.tokutei,
       ideco: balances.ideco,
       gold_physical: balances.gold_physical,
+      cash: balances.cash,
     },
     allocation: { expectedReturn, standardDeviation },
     idecoYearsOfService: safeNum(sp.idecoYearsOfService, 20, 1),
