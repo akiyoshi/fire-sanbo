@@ -59,11 +59,12 @@ describe("モンテカルロシミュレーション", () => {
     endAge: 95,
     annualSalary: 8_000_000,
     annualExpense: 3_600_000,
-    accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000 },
+    accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0 },
     allocation: { expectedReturn: 0.05, standardDeviation: 0.15 },
     idecoYearsOfService: 20,
     tokuteiGainRatio: 0.5,
-    withdrawalOrder: ["nisa", "tokutei", "ideco"],
+    goldGainRatio: 0.3,
+    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: 100,
     seed: 42,
   };
@@ -74,7 +75,7 @@ describe("モンテカルロシミュレーション", () => {
       ...baseInput,
       allocation: { expectedReturn: 0.0, standardDeviation: 0.01 },
       annualExpense: 6_000_000,
-      accounts: { nisa: 1_000_000, tokutei: 2_000_000, ideco: 1_000_000 },
+      accounts: { nisa: 1_000_000, tokutei: 2_000_000, ideco: 1_000_000, gold_physical: 0 },
       numTrials: 100,
     };
     const result = runSimulation(input);
@@ -85,7 +86,7 @@ describe("モンテカルロシミュレーション", () => {
   it("豊富な資産・低支出で成功確率≒100%", () => {
     const input: SimulationInput = {
       ...baseInput,
-      accounts: { nisa: 500_000_000, tokutei: 300_000_000, ideco: 200_000_000 },
+      accounts: { nisa: 500_000_000, tokutei: 300_000_000, ideco: 200_000_000, gold_physical: 0 },
       annualExpense: 1_200_000,
       numTrials: 100,
     };
@@ -136,11 +137,12 @@ describe("取り崩し順序", () => {
       endAge: 70,
       annualSalary: 0,
       annualExpense: 3_600_000,
-      accounts: { nisa: 30_000_000, tokutei: 30_000_000, ideco: 20_000_000 },
+      accounts: { nisa: 30_000_000, tokutei: 30_000_000, ideco: 20_000_000, gold_physical: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 20,
       tokuteiGainRatio: 0.5,
-      withdrawalOrder: ["nisa", "tokutei", "ideco"],
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 50,
       seed: 42,
     };
@@ -148,7 +150,7 @@ describe("取り崩し順序", () => {
     const nisaFirst = runSimulation(baseInput);
     const idecoFirst = runSimulation({
       ...baseInput,
-      withdrawalOrder: ["ideco", "tokutei", "nisa"],
+      withdrawalOrder: ["ideco", "tokutei", "gold_physical", "nisa"],
     });
 
     // NISA先行の方が最終資産が多い（税金が少ないから）

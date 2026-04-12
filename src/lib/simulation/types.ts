@@ -4,6 +4,7 @@ export interface AccountBalance {
   nisa: number;
   tokutei: number;
   ideco: number;
+  gold_physical: number;
 }
 
 export interface AssetAllocation {
@@ -25,8 +26,10 @@ export interface SimulationInput {
   idecoYearsOfService: number;
   /** 特定口座の含み益率 (0-1) */
   tokuteiGainRatio: number;
+  /** 金現物の含み益率 (0-1) */
+  goldGainRatio: number;
   /** 取り崩し順序 */
-  withdrawalOrder: ("nisa" | "tokutei" | "ideco")[];
+  withdrawalOrder: ("nisa" | "tokutei" | "ideco" | "gold_physical")[];
   /** シミュレーション試行回数 */
   numTrials: number;
   /** 乱数シード（再現性用、省略時はランダム） */
@@ -47,6 +50,7 @@ export interface YearResult {
   nisa: number;
   tokutei: number;
   ideco: number;
+  gold_physical: number;
   income: number;
   expense: number;
   taxBreakdown: TaxBreakdown;

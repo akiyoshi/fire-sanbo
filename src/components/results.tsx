@@ -289,22 +289,6 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
 
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>期待リターン</Label>
-              <span className="text-sm font-medium">
-                {form.expectedReturn}%
-              </span>
-            </div>
-            <Slider
-              value={[form.expectedReturn]}
-              onValueChange={(v) => updateAndRecalc("expectedReturn", Array.isArray(v) ? v[0] : v)}
-              min={0}
-              max={15}
-              step={0.5}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between">
               <Label>シミュレーション終了年齢</Label>
               <span className="text-sm font-medium">{form.endAge}歳</span>
             </div>
@@ -340,7 +324,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-2">
-            現在の推奨順序: <strong>NISA → 特定口座 → iDeCo</strong>
+            現在の推奨順序: <strong>NISA → 特定口座 → 金現物 → iDeCo</strong>
           </p>
           <p className="text-xs text-muted-foreground">
             NISA（非課税）を先に使い切ることで、課税口座の運用期間を最大化し税引後資産を最大化します。
