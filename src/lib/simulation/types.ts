@@ -14,6 +14,64 @@ export interface AssetAllocation {
   standardDeviation: number;
 }
 
+/* ---------- v0.9 拡張: 年金・退職金・副収入・ライフイベント・NISA枠 ---------- */
+
+export interface PensionInput {
+  /** 厚生年金の見込み月額（ねんきん定期便の値） */
+  kosei: number;
+  /** 国民年金の見込み月額（満額: 68,000円） */
+  kokumin: number;
+  /** 受給開始年齢（60-75歳、デフォルト65歳） */
+  startAge: number;
+}
+
+export interface RetirementBonusInput {
+  /** 退職金の見込み額 */
+  amount: number;
+  /** 勤続年数（退職所得控除の計算用） */
+  yearsOfService: number;
+}
+
+export interface SideIncomeInput {
+  /** 退職後の年間副収入（税引前） */
+  annualAmount: number;
+  /** 副収入が続く年齢の上限 */
+  untilAge: number;
+}
+
+export interface LifeEvent {
+  /** イベント名 */
+  label: string;
+  /** 発生年齢 */
+  age: number;
+  /** 金額（円） */
+  amount: number;
+}
+
+export interface NisaConfig {
+  /** 年間投資枠（円、デフォルト3,600,000） */
+  annualLimit: number;
+  /** 生涯投資枠（円、デフォルト18,000,000） */
+  lifetimeLimit: number;
+}
+
+/* ---------- v1.0 拡張: 世帯シミュレーション ---------- */
+
+export interface SpouseInput {
+  currentAge: number;
+  retirementAge: number;
+  annualSalary: number;
+  accounts: AccountBalance;
+  allocation: AssetAllocation;
+  pension?: PensionInput;
+  retirementBonus?: RetirementBonusInput;
+  sideIncome?: SideIncomeInput;
+  nisaConfig?: NisaConfig;
+  idecoYearsOfService: number;
+  tokuteiGainRatio: number;
+  goldGainRatio: number;
+}
+
 export interface SimulationInput {
   currentAge: number;
   retirementAge: number;
@@ -36,6 +94,21 @@ export interface SimulationInput {
   inflationRate: number;
   /** 乱数シード（再現性用、省略時はランダム） */
   seed?: number;
+
+  /* v0.9 拡張フィールド（すべてオプショナル、後方互換） */
+
+  /** 年金入力 */
+  pension?: PensionInput;
+  /** 退職金入力 */
+  retirementBonus?: RetirementBonusInput;
+  /** 退職後の副収入 */
+  sideIncome?: SideIncomeInput;
+  /** ライフイベント（一時支出） */
+  lifeEvents?: LifeEvent[];
+  /** NISA積立枠設定 */
+  nisaConfig?: NisaConfig;
+  /** 配偶者（世帯シミュレーション用） */
+  spouse?: SpouseInput;
 }
 
 export interface TaxBreakdown {

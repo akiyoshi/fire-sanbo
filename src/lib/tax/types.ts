@@ -35,6 +35,13 @@ export interface NHIComponent {
   maxAge?: number;
 }
 
+export interface PublicPensionDeductionBracket {
+  maxIncome: number | null;
+  deduction?: number;
+  rate?: number;
+  base?: number;
+}
+
 export interface TaxConfig {
   version: string;
   fiscalYear: number;
@@ -75,6 +82,10 @@ export interface TaxConfig {
     nisaTaxRate: number;
     nisaAnnualLimit: number;
     nisaLifetimeLimit: number;
+  };
+  publicPensionDeduction: {
+    under65: PublicPensionDeductionBracket[];
+    age65plus: PublicPensionDeductionBracket[];
   };
   ideco: {
     minReceiveAge: number;

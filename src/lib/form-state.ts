@@ -1,6 +1,21 @@
 import type { SimulationInput } from "@/lib/simulation";
 import type { PortfolioEntry, TaxCategory } from "@/lib/portfolio";
+import type { PensionInput, RetirementBonusInput, SideIncomeInput, LifeEvent, NisaConfig, SpouseInput } from "@/lib/simulation";
 import { calcPortfolio } from "@/lib/portfolio";
+
+export interface SpouseFormState {
+  currentAge: number;
+  retirementAge: number;
+  annualSalary: number;
+  portfolio: PortfolioEntry[];
+  idecoYearsOfService: number;
+  tokuteiGainRatio: number;
+  goldGainRatio: number;
+  pension?: PensionInput;
+  retirementBonus?: RetirementBonusInput;
+  sideIncome?: SideIncomeInput;
+  nisaConfig?: NisaConfig;
+}
 
 export interface FormState {
   currentAge: number;
@@ -14,6 +29,16 @@ export interface FormState {
   goldGainRatio: number;
   inflationRate: number;
   numTrials: number;
+
+  /* v0.9 拡張フィールド（すべてオプショナル） */
+  pension?: PensionInput;
+  retirementBonus?: RetirementBonusInput;
+  sideIncome?: SideIncomeInput;
+  lifeEvents?: LifeEvent[];
+  nisaConfig?: NisaConfig;
+
+  /* v1.0 拡張: 世帯シミュレーション */
+  spouse?: SpouseFormState;
 }
 
 /* ---------- シナリオ管理 ---------- */
@@ -82,20 +107,23 @@ export function exportFormToJSON(form: FormState): string {
 export function importFormFromJSON(json: string): FormState | null {
   try {
     const data = JSON.parse(json);
-    if (data.version !== FORM_SCHEMA_VERSION) return null;
-    const form = data.form as FormState;
-    // 基本的なバリデーション
+    const form = data.form;
+    // 基本的なバリデーション（v2/v3共通）
+    if (!form || typeof form !== "object") return null;
     if (typeof form.currentAge !== "number" || typeof form.monthlyExpense !== "number") return null;
     if (typeof form.retirementAge !== "number" || typeof form.endAge !== "number") return null;
     if (typeof form.annualSalary !== "number") return null;
     if (!Array.isArray(form.portfolio)) return null;
-    // portfolio エントリの構造チェック
     for (const entry of form.portfolio) {
       if (typeof entry.assetClass !== "string" || typeof entry.taxCategory !== "string" || typeof entry.amount !== "number") {
         return null;
       }
     }
-    return form;
+    if (data.version === 2) {
+      return migrateV2toV3(form as Record<string, unknown>);
+    }
+    if (data.version !== FORM_SCHEMA_VERSION) return null;
+    return form as FormState;
   } catch {
     return null;
   }
@@ -115,16 +143,33 @@ export const DEFAULT_FORM: FormState = {
   goldGainRatio: 30,
   inflationRate: 2.0,
   numTrials: 1000,
+  pension: { kosei: 100_000, kokumin: 65_000, startAge: 65 },
+  retirementBonus: { amount: 0, yearsOfService: 20 },
+  sideIncome: undefined,
+  lifeEvents: [],
+  nisaConfig: { annualLimit: 3_600_000, lifetimeLimit: 18_000_000 },
 };
 
 /* ---------- localStorage 永続化 ---------- */
 
 const STORAGE_KEY = "fire-sanbo-form";
-const FORM_SCHEMA_VERSION = 2;
+const FORM_SCHEMA_VERSION = 3;
 
 interface StoredForm {
   version: number;
   form: FormState;
+}
+
+/** v2 → v3 マイグレーション: 新フィールドにデフォルト値を注入 */
+function migrateV2toV3(form: Record<string, unknown>): FormState {
+  return {
+    ...DEFAULT_FORM,
+    ...(form as Partial<FormState>),
+    pension: (form as Partial<FormState>).pension ?? DEFAULT_FORM.pension,
+    retirementBonus: (form as Partial<FormState>).retirementBonus ?? DEFAULT_FORM.retirementBonus,
+    lifeEvents: (form as Partial<FormState>).lifeEvents ?? [],
+    nisaConfig: (form as Partial<FormState>).nisaConfig ?? DEFAULT_FORM.nisaConfig,
+  };
 }
 
 export function saveForm(form: FormState): void {
@@ -141,8 +186,9 @@ export function loadForm(): FormState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const data: StoredForm = JSON.parse(raw);
-    if (data.version !== FORM_SCHEMA_VERSION) return null;
-    return data.form;
+    if (data.version === FORM_SCHEMA_VERSION) return data.form;
+    if (data.version === 2) return migrateV2toV3(data.form as unknown as Record<string, unknown>);
+    return null;
   } catch {
     return null;
   }
@@ -210,5 +256,42 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: safeNum(form.numTrials, 1000, 10),
     seed: Math.floor(Math.random() * 2 ** 32),
+
+    // v0.9 拡張
+    pension: form.pension,
+    retirementBonus: form.retirementBonus,
+    sideIncome: form.sideIncome,
+    lifeEvents: form.lifeEvents,
+    nisaConfig: form.nisaConfig,
+
+    // v1.0 世帯シミュレーション
+    spouse: form.spouse ? spouseFormToInput(form.spouse) : undefined,
+  };
+}
+
+function spouseFormToInput(sp: SpouseFormState): SpouseInput {
+  const portfolioResult = calcPortfolio(sp.portfolio);
+  const expectedReturn = portfolioResult.totalAmount > 0 ? portfolioResult.expectedReturn : 0.05;
+  const standardDeviation = portfolioResult.totalAmount > 0 ? Math.max(0.001, portfolioResult.risk) : 0.15;
+  const balances = deriveBalancesByTaxCategory(sp.portfolio);
+
+  return {
+    currentAge: safeNum(sp.currentAge, 35, 18),
+    retirementAge: safeNum(sp.retirementAge, 55, 19),
+    annualSalary: safeNum(sp.annualSalary),
+    accounts: {
+      nisa: balances.nisa,
+      tokutei: balances.tokutei,
+      ideco: balances.ideco,
+      gold_physical: balances.gold_physical,
+    },
+    allocation: { expectedReturn, standardDeviation },
+    idecoYearsOfService: safeNum(sp.idecoYearsOfService, 20, 1),
+    tokuteiGainRatio: safeNum(sp.tokuteiGainRatio, 50) / 100,
+    goldGainRatio: safeNum(sp.goldGainRatio, 30) / 100,
+    pension: sp.pension,
+    retirementBonus: sp.retirementBonus,
+    sideIncome: sp.sideIncome,
+    nisaConfig: sp.nisaConfig,
   };
 }

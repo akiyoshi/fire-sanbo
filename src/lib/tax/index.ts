@@ -13,6 +13,10 @@ export {
   calcNisaTax,
   calcAnnualTax,
   calcGoldWithdrawalTax,
+  calcPublicPensionDeduction,
+  calcPensionTax,
+  calcRetirementBonusNet,
+  calcSideIncomeTax,
 } from "./engine";
 export type { AnnualTaxResult } from "./engine";
 

@@ -90,6 +90,22 @@
     "nisaAnnualLimit": 3600000,
     "nisaLifetimeLimit": 18000000
   },
+  "publicPensionDeduction": {
+    "under65": [
+      { "maxIncome": 1300000, "deduction": 600000 },
+      { "maxIncome": 4100000, "rate": 0.25, "base": 275000 },
+      { "maxIncome": 7700000, "rate": 0.15, "base": 685000 },
+      { "maxIncome": 10000000, "rate": 0.05, "base": 1455000 },
+      { "maxIncome": null, "deduction": 1955000 }
+    ],
+    "age65plus": [
+      { "maxIncome": 3300000, "deduction": 1100000 },
+      { "maxIncome": 4100000, "rate": 0.25, "base": 275000 },
+      { "maxIncome": 7700000, "rate": 0.15, "base": 685000 },
+      { "maxIncome": 10000000, "rate": 0.05, "base": 1455000 },
+      { "maxIncome": null, "deduction": 1955000 }
+    ]
+  },
   "ideco": {
     "minReceiveAge": 60,
     "maxReceiveAge": 75

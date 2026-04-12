@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import type { FormState } from "@/lib/form-state";
+import type { FormState, SpouseFormState } from "@/lib/form-state";
+import type { PensionInput, RetirementBonusInput, SideIncomeInput, LifeEvent } from "@/lib/simulation";
 import {
   DEFAULT_FORM,
   deriveBalancesByTaxCategory,
@@ -22,6 +23,7 @@ import { Slider } from "@/components/ui/slider";
 import { ASSET_CLASS_IDS, getAssetClassData, calcPortfolio } from "@/lib/portfolio";
 import { TAX_CATEGORIES, TAX_CATEGORY_LABELS } from "@/lib/portfolio";
 import type { AssetClassId, PortfolioEntry, TaxCategory } from "@/lib/portfolio";
+import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
 
 interface WizardProps {
   onComplete: (form: FormState) => void;
@@ -533,7 +535,391 @@ export function Wizard({ onComplete }: WizardProps) {
               )}
             </div>
           )}
+
+          {/* ポートフォリオ最適化 */}
+          <PortfolioOptimizer
+            currentPortfolio={form.portfolio}
+            onApply={(newPortfolio) => setForm((prev) => ({ ...prev, portfolio: newPortfolio }))}
+          />
         </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>年金・退職金・副収入</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 年金 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold">公的年金</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <NumberInput
+                label="厚生年金（月額）"
+                value={form.pension?.kosei ?? 0}
+                onChange={(v) =>
+                  update("pension", { ...(form.pension ?? { kosei: 0, kokumin: 65000, startAge: 65 }), kosei: v })
+                }
+                suffix="円/月"
+              />
+              <NumberInput
+                label="国民年金（月額）"
+                value={form.pension?.kokumin ?? 0}
+                onChange={(v) =>
+                  update("pension", { ...(form.pension ?? { kosei: 0, kokumin: 0, startAge: 65 }), kokumin: v })
+                }
+                suffix="円/月"
+              />
+              <SliderInput
+                label="受給開始年齢"
+                value={form.pension?.startAge ?? 65}
+                onChange={(v) =>
+                  update("pension", { ...(form.pension ?? { kosei: 0, kokumin: 65000, startAge: 65 }), startAge: v })
+                }
+                min={60}
+                max={75}
+                step={1}
+                suffix="歳"
+              />
+            </div>
+            {form.pension && form.pension.startAge !== 65 && (
+              <p className="text-xs text-muted-foreground">
+                {form.pension.startAge < 65
+                  ? `繰上げ: ${((65 - form.pension.startAge) * 12 * 0.4).toFixed(1)}% 減額`
+                  : `繰下げ: ${((form.pension.startAge - 65) * 12 * 0.7).toFixed(1)}% 増額`
+                }
+              </p>
+            )}
+          </div>
+
+          {/* 退職金 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold">退職金</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <NumberInput
+                label="退職金見込み額"
+                value={form.retirementBonus?.amount ?? 0}
+                onChange={(v) =>
+                  update("retirementBonus", { ...(form.retirementBonus ?? { amount: 0, yearsOfService: 20 }), amount: v })
+                }
+                suffix="円"
+              />
+              <SliderInput
+                label="勤続年数"
+                value={form.retirementBonus?.yearsOfService ?? 20}
+                onChange={(v) =>
+                  update("retirementBonus", { ...(form.retirementBonus ?? { amount: 0, yearsOfService: 20 }), yearsOfService: v })
+                }
+                min={1}
+                max={45}
+                step={1}
+                suffix="年"
+              />
+            </div>
+          </div>
+
+          {/* 副収入 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold">退職後の副収入（サイドFIRE）</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <NumberInput
+                label="年間副収入（税引前）"
+                value={form.sideIncome?.annualAmount ?? 0}
+                onChange={(v) => {
+                  if (v > 0) {
+                    update("sideIncome", { annualAmount: v, untilAge: form.sideIncome?.untilAge ?? 65 });
+                  } else {
+                    update("sideIncome", undefined);
+                  }
+                }}
+                suffix="円/年"
+              />
+              {form.sideIncome && form.sideIncome.annualAmount > 0 && (
+                <SliderInput
+                  label="副収入の継続年齢"
+                  value={form.sideIncome.untilAge}
+                  onChange={(v) =>
+                    update("sideIncome", { ...form.sideIncome!, untilAge: v })
+                  }
+                  min={form.retirementAge}
+                  max={80}
+                  step={1}
+                  suffix="歳まで"
+                />
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ライフイベント */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>ライフイベント（一時支出）</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const events = [...(form.lifeEvents ?? [])];
+                events.push({ label: "", age: form.currentAge + 5, amount: 0 });
+                update("lifeEvents", events);
+              }}
+            >
+              + 追加
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(!form.lifeEvents || form.lifeEvents.length === 0) ? (
+            <p className="text-xs text-muted-foreground">
+              住宅購入・教育費・結婚・車など、特定の年齢で発生する大きな支出を追加できます。
+            </p>
+          ) : (
+            form.lifeEvents.map((event, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  placeholder="イベント名"
+                  aria-label="イベント名"
+                  value={event.label}
+                  onChange={(e) => {
+                    const events = [...form.lifeEvents!];
+                    events[i] = { ...events[i], label: e.target.value };
+                    update("lifeEvents", events);
+                  }}
+                  className="w-[30%]"
+                />
+                <div className="w-[20%]">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    aria-label="年齢"
+                    value={event.age}
+                    onChange={(e) => {
+                      const events = [...form.lifeEvents!];
+                      events[i] = { ...events[i], age: Number(e.target.value) || 0 };
+                      update("lifeEvents", events);
+                    }}
+                    className="text-right"
+                    min={form.currentAge}
+                    max={form.endAge}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">歳</span>
+                <div className="flex-1">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="金額"
+                    value={event.amount > 0 ? new Intl.NumberFormat("ja-JP").format(event.amount) : ""}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9]/g, "");
+                      const events = [...form.lifeEvents!];
+                      events[i] = { ...events[i], amount: Math.min(Number(raw) || 0, 1_000_000_000) };
+                      update("lifeEvents", events);
+                    }}
+                    className="text-right"
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">円</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const events = form.lifeEvents!.filter((_, idx) => idx !== i);
+                    update("lifeEvents", events);
+                  }}
+                  aria-label="削除"
+                  className="text-muted-foreground px-2"
+                >
+                  ✕
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 配偶者（世帯シミュレーション） */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>配偶者</span>
+            <Button
+              variant={form.spouse ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (form.spouse) {
+                  update("spouse", undefined);
+                } else {
+                  update("spouse", {
+                    currentAge: form.currentAge - 2,
+                    retirementAge: 55,
+                    annualSalary: 4_000_000,
+                    portfolio: [{ assetClass: "developed_stock" as const, taxCategory: "nisa" as const, amount: 0 }],
+                    idecoYearsOfService: 10,
+                    tokuteiGainRatio: 50,
+                    goldGainRatio: 30,
+                    pension: { kosei: 80_000, kokumin: 65_000, startAge: 65 },
+                    retirementBonus: { amount: 0, yearsOfService: 15 },
+                    nisaConfig: { annualLimit: 3_600_000, lifetimeLimit: 18_000_000 },
+                  });
+                }
+              }}
+            >
+              {form.spouse ? "配偶者あり" : "配偶者を追加"}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        {form.spouse && (
+          <CardContent className="space-y-4">
+            {/* 基本情報 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <SliderInput
+                label="配偶者の年齢"
+                value={form.spouse.currentAge}
+                onChange={(v) => update("spouse", { ...form.spouse!, currentAge: v })}
+                min={20}
+                max={70}
+                step={1}
+                suffix="歳"
+              />
+              <SliderInput
+                label="配偶者の退職年齢"
+                value={form.spouse.retirementAge}
+                onChange={(v) => update("spouse", { ...form.spouse!, retirementAge: v })}
+                min={form.spouse.currentAge + 1}
+                max={75}
+                step={1}
+                suffix="歳"
+              />
+              <NumberInput
+                label="配偶者の年収"
+                value={form.spouse.annualSalary}
+                onChange={(v) => update("spouse", { ...form.spouse!, annualSalary: v })}
+                suffix="円"
+              />
+            </div>
+
+            {/* 配偶者の資産 */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">配偶者の資産</h3>
+              {form.spouse.portfolio.map((entry, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-[35%] min-w-0">
+                    <select
+                      value={entry.assetClass}
+                      onChange={(e) => {
+                        const portfolio = [...form.spouse!.portfolio];
+                        portfolio[i] = { ...portfolio[i], assetClass: e.target.value as AssetClassId };
+                        update("spouse", { ...form.spouse!, portfolio });
+                      }}
+                      aria-label="資産クラス"
+                      className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    >
+                      {SELECTABLE_CLASSES.map((id) => (
+                        <option key={id} value={id}>{assetClassData[id].label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-[25%] min-w-0">
+                    <select
+                      value={entry.taxCategory}
+                      onChange={(e) => {
+                        const portfolio = [...form.spouse!.portfolio];
+                        portfolio[i] = { ...portfolio[i], taxCategory: e.target.value as TaxCategory };
+                        update("spouse", { ...form.spouse!, portfolio });
+                      }}
+                      aria-label="課税種別"
+                      className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    >
+                      {TAX_CATEGORIES.filter((tc) => tc !== "gold_physical").map((tc) => (
+                        <option key={tc} value={tc}>{TAX_CATEGORY_LABELS[tc]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      aria-label="保有額"
+                      value={entry.amount > 0 ? new Intl.NumberFormat("ja-JP").format(entry.amount) : ""}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, "");
+                        const portfolio = [...form.spouse!.portfolio];
+                        portfolio[i] = { ...portfolio[i], amount: Math.min(Number(raw) || 0, 10_000_000_000) };
+                        update("spouse", { ...form.spouse!, portfolio });
+                      }}
+                      className="text-right font-bold tabular-nums"
+                    />
+                  </div>
+                  {form.spouse!.portfolio.length > 1 && (
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => {
+                        const portfolio = form.spouse!.portfolio.filter((_, idx) => idx !== i);
+                        update("spouse", { ...form.spouse!, portfolio });
+                      }}
+                      aria-label="削除" className="text-muted-foreground px-2"
+                    >✕</Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                variant="outline" size="sm"
+                onClick={() => {
+                  const portfolio = [...form.spouse!.portfolio, { assetClass: "developed_stock" as AssetClassId, taxCategory: "nisa" as TaxCategory, amount: 0 }];
+                  update("spouse", { ...form.spouse!, portfolio });
+                }}
+              >+ 行を追加</Button>
+            </div>
+
+            {/* 配偶者の年金 */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">配偶者の年金</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <NumberInput
+                  label="厚生年金（月額）"
+                  value={form.spouse.pension?.kosei ?? 0}
+                  onChange={(v) => update("spouse", { ...form.spouse!, pension: { ...(form.spouse!.pension ?? { kosei: 0, kokumin: 65000, startAge: 65 }), kosei: v } })}
+                  suffix="円/月"
+                />
+                <NumberInput
+                  label="国民年金（月額）"
+                  value={form.spouse.pension?.kokumin ?? 0}
+                  onChange={(v) => update("spouse", { ...form.spouse!, pension: { ...(form.spouse!.pension ?? { kosei: 0, kokumin: 0, startAge: 65 }), kokumin: v } })}
+                  suffix="円/月"
+                />
+                <SliderInput
+                  label="受給開始年齢"
+                  value={form.spouse.pension?.startAge ?? 65}
+                  onChange={(v) => update("spouse", { ...form.spouse!, pension: { ...(form.spouse!.pension ?? { kosei: 0, kokumin: 65000, startAge: 65 }), startAge: v } })}
+                  min={60} max={75} step={1} suffix="歳"
+                />
+              </div>
+            </div>
+
+            {/* 配偶者の退職金 */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">配偶者の退職金</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <NumberInput
+                  label="退職金見込み額"
+                  value={form.spouse.retirementBonus?.amount ?? 0}
+                  onChange={(v) => update("spouse", { ...form.spouse!, retirementBonus: { ...(form.spouse!.retirementBonus ?? { amount: 0, yearsOfService: 15 }), amount: v } })}
+                  suffix="円"
+                />
+                <SliderInput
+                  label="勤続年数"
+                  value={form.spouse.retirementBonus?.yearsOfService ?? 15}
+                  onChange={(v) => update("spouse", { ...form.spouse!, retirementBonus: { ...(form.spouse!.retirementBonus ?? { amount: 0, yearsOfService: 15 }), yearsOfService: v } })}
+                  min={1} max={45} step={1} suffix="年"
+                />
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* 詳細設定 */}

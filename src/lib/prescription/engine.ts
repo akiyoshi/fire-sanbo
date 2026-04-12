@@ -1,4 +1,4 @@
-import type { SimulationInput } from "@/lib/simulation";
+import type { SimulationInput, PensionInput } from "@/lib/simulation";
 import type { PRNG as PRNGType } from "@/lib/simulation";
 import type {
   Prescription,
@@ -14,6 +14,9 @@ import {
   calcAnnualTax,
   calcWithdrawalTax,
   calcSocialInsurancePremium,
+  calcPensionTax,
+  calcRetirementBonusNet,
+  calcSideIncomeTax,
 } from "@/lib/tax";
 import type { TaxCategory } from "@/lib/tax";
 
@@ -42,6 +45,24 @@ function getBalance(
   }
 }
 
+function calcAnnualPension(pension: PensionInput | undefined, age: number): number {
+  if (!pension) return 0;
+  if (age < pension.startAge) return 0;
+  const monthlyBase = pension.kosei + pension.kokumin;
+  let adjustmentRate = 1.0;
+  if (pension.startAge < 65) {
+    adjustmentRate = 1 - (65 - pension.startAge) * 12 * 0.004;
+  } else if (pension.startAge > 65) {
+    adjustmentRate = 1 + (pension.startAge - 65) * 12 * 0.007;
+  }
+  return Math.round(monthlyBase * 12 * adjustmentRate);
+}
+
+function calcLifeEventExpense(lifeEvents: SimulationInput["lifeEvents"], age: number): number {
+  if (!lifeEvents) return 0;
+  return lifeEvents.filter((e) => e.age === age).reduce((sum, e) => sum + e.amount, 0);
+}
+
 function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let nisa = input.accounts.nisa;
   let tokutei = input.accounts.tokutei;
@@ -49,16 +70,43 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let gold_physical = input.accounts.gold_physical;
 
   for (let age = input.currentAge; age <= input.endAge; age++) {
+    // 給与所得
     let income = 0;
     if (age < input.retirementAge) {
       const taxResult = calcAnnualTax(input.annualSalary, age);
       income = taxResult.netIncome;
     }
 
+    // 退職金
+    if (input.retirementBonus && age === input.retirementAge && input.retirementBonus.amount > 0) {
+      const bonus = calcRetirementBonusNet(input.retirementBonus.amount, input.retirementBonus.yearsOfService);
+      tokutei += bonus.net;
+    }
+
+    // 退職後の収入源
+    let postRetirementIncome = 0;
+    if (age >= input.retirementAge) {
+      // 年金
+      const pensionIncome = calcAnnualPension(input.pension, age);
+      if (pensionIncome > 0) {
+        const pensionTax = calcPensionTax(pensionIncome, age);
+        postRetirementIncome += pensionIncome - pensionTax.total;
+      }
+      // 副収入
+      if (input.sideIncome && age <= input.sideIncome.untilAge) {
+        const sideTax = calcSideIncomeTax(input.sideIncome.annualAmount);
+        postRetirementIncome += sideTax.net;
+      }
+    }
+
+    // ライフイベント
+    const lifeEventExpense = calcLifeEventExpense(input.lifeEvents, age);
+
+    // 取り崩しフェーズ（退職後）
     if (age >= input.retirementAge) {
       const retiredSocialInsurance = calcSocialInsurancePremium(0, age);
-      const needed = input.annualExpense + retiredSocialInsurance;
-      let remaining = needed;
+      const needed = input.annualExpense + retiredSocialInsurance + lifeEventExpense;
+      let remaining = Math.max(0, needed - postRetirementIncome);
 
       for (const taxCategory of input.withdrawalOrder) {
         if (remaining <= 0) break;
@@ -90,9 +138,28 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
       }
     }
 
+    // 余剰積立（退職前）
     if (age < input.retirementAge) {
-      const surplus = income - input.annualExpense;
-      if (surplus > 0) tokutei += surplus;
+      const surplus = income - input.annualExpense - lifeEventExpense;
+      if (surplus > 0) {
+        tokutei += surplus;
+      } else if (surplus < 0) {
+        let deficit = -surplus;
+        for (const taxCategory of input.withdrawalOrder) {
+          if (deficit <= 0) break;
+          const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical);
+          if (balance <= 0) continue;
+          const draw = Math.min(deficit, balance);
+          switch (taxCategory) {
+            case "nisa": nisa -= draw; break;
+            case "tokutei": tokutei -= draw; break;
+            case "ideco": ideco -= draw; break;
+            case "gold_physical": gold_physical -= draw; break;
+            default: assertNever(taxCategory);
+          }
+          deficit -= draw;
+        }
+      }
     }
 
     // ポートフォリオリターン（実質リターン = 名目リターン − インフレ率）

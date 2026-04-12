@@ -9,4 +9,10 @@ export type {
   TaxBreakdown,
   AccountBalance,
   AssetAllocation,
+  PensionInput,
+  RetirementBonusInput,
+  SideIncomeInput,
+  LifeEvent,
+  NisaConfig,
+  SpouseInput,
 } from "./types";
