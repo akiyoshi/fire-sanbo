@@ -74,16 +74,16 @@ export function QuickPreview({ form, isValid }: QuickPreviewProps) {
   const pct = Math.round(rate * 100);
   const color =
     pct >= 80
-      ? "text-green-500"
+      ? "text-success"
       : pct >= 50
-      ? "text-yellow-500"
-      : "text-red-500";
+      ? "text-warning"
+      : "text-danger";
   const barColor =
     pct >= 80
-      ? "bg-green-500"
+      ? "bg-success"
       : pct >= 50
-      ? "bg-yellow-500"
-      : "bg-red-500";
+      ? "bg-warning"
+      : "bg-danger";
 
   return (
     <Card>

@@ -35,10 +35,10 @@ function SuccessRateDisplay({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
   const color =
     pct >= 80
-      ? "text-green-500"
+      ? "text-success"
       : pct >= 50
-      ? "text-yellow-500"
-      : "text-red-500";
+      ? "text-warning"
+      : "text-danger";
   const interpretation =
     pct >= 90
       ? "非常に安全なプランです"
@@ -58,10 +58,10 @@ function SuccessRateDisplay({ rate }: { rate: number }) {
         <div
           className={`h-3 rounded-full transition-all duration-500 ${
             pct >= 80
-              ? "bg-green-500"
+              ? "bg-success"
               : pct >= 50
-              ? "bg-yellow-500"
-              : "bg-red-500"
+              ? "bg-warning"
+              : "bg-danger"
           }`}
           style={{ width: `${pct}%` }}
         />
@@ -246,7 +246,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             {delta && (
               <span
                 className={`ml-2 text-sm ${
-                  delta.startsWith("+") ? "text-green-500" : "text-red-500"
+                  delta.startsWith("+") ? "text-success" : "text-danger"
                 }`}
               >
                 ({delta})

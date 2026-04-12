@@ -25,9 +25,9 @@ function formatYen(n: number): string {
 function SuccessBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
   const color =
-    pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-500";
+    pct >= 80 ? "bg-success" : pct >= 50 ? "bg-warning" : "bg-danger";
   const textColor =
-    pct >= 80 ? "text-green-500" : pct >= 50 ? "text-yellow-500" : "text-red-500";
+    pct >= 80 ? "text-success" : pct >= 50 ? "text-warning" : "text-danger";
   return (
     <div>
       <span className={`text-3xl font-bold ${textColor}`}>{pct}%</span>
