@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { FormState } from "@/lib/form-state";
-import { DEFAULT_FORM, deriveBalancesByTaxCategory } from "@/lib/form-state";
+import { DEFAULT_FORM, deriveBalancesByTaxCategory, saveForm, loadForm, clearForm } from "@/lib/form-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,7 +122,18 @@ function formatManYen(n: number): string {
 }
 
 export function Wizard({ onComplete }: WizardProps) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [form, setForm] = useState<FormState>(() => loadForm() ?? DEFAULT_FORM);
+
+  // FormState変更時にlocalStorageへ自動保存（500msデバウンス）
+  useEffect(() => {
+    const timer = setTimeout(() => saveForm(form), 500);
+    return () => clearTimeout(timer);
+  }, [form]);
+
+  const handleReset = () => {
+    clearForm();
+    setForm(DEFAULT_FORM);
+  };
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -434,7 +445,13 @@ export function Wizard({ onComplete }: WizardProps) {
       {validationError && (
         <p className="text-sm text-destructive text-center">{validationError}</p>
       )}
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-4">
+        <Button
+          variant="outline"
+          onClick={handleReset}
+        >
+          入力をリセット
+        </Button>
         <Button
           size="lg"
           onClick={() => onComplete(form)}

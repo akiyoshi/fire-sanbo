@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { formToSimulationInput, DEFAULT_FORM, deriveBalancesByTaxCategory } from "./form-state";
+import { describe, it, expect, beforeEach } from "vitest";
+import { formToSimulationInput, DEFAULT_FORM, deriveBalancesByTaxCategory, saveForm, loadForm, clearForm } from "./form-state";
 import type { FormState } from "./form-state";
 
 describe("formToSimulationInput", () => {
@@ -118,6 +118,50 @@ describe("formToSimulationInput", () => {
       const input = formToSimulationInput(form);
       expect(input.allocation.expectedReturn).toBeCloseTo(0.05);
       expect(input.allocation.standardDeviation).toBeCloseTo(0.15);
+    });
+  });
+
+  describe("localStorage 永続化", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("saveForm → loadForm でラウンドトリップできる", () => {
+      const form: FormState = {
+        ...DEFAULT_FORM,
+        currentAge: 40,
+        portfolio: [
+          { assetClass: "developed_stock", taxCategory: "nisa", amount: 5_000_000 },
+          { assetClass: "gold", taxCategory: "gold_physical", amount: 1_000_000 },
+        ],
+      };
+      saveForm(form);
+      const loaded = loadForm();
+      expect(loaded).toEqual(form);
+    });
+
+    it("loadForm はデータなしで null を返す", () => {
+      expect(loadForm()).toBeNull();
+    });
+
+    it("clearForm でデータが削除される", () => {
+      saveForm(DEFAULT_FORM);
+      expect(loadForm()).not.toBeNull();
+      clearForm();
+      expect(loadForm()).toBeNull();
+    });
+
+    it("スキーマバージョン不一致で null を返す", () => {
+      localStorage.setItem("fire-sanbo-form", JSON.stringify({
+        version: 999,
+        form: DEFAULT_FORM,
+      }));
+      expect(loadForm()).toBeNull();
+    });
+
+    it("不正なJSONで null を返す", () => {
+      localStorage.setItem("fire-sanbo-form", "not json");
+      expect(loadForm()).toBeNull();
     });
   });
 });

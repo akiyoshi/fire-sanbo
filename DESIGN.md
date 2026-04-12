@@ -1207,3 +1207,82 @@ function assertNever(x: never): never {
 ## ハンドオフ
 
 - 直接実装に進む場合は「統合資産台帳を実装して」と指示
+
+---
+
+# FormState永続化 デザインドキュメント
+
+> **ステータス**: Approved
+> **スプリント**: Sprint 6
+> **前提**: v0.5.0 (統合資産台帳) が完成済み
+
+## 概要
+
+FormState全フィールドをlocalStorageに自動保存し、ページリロード・ブラウザ再起動後も前回の入力を復元する。
+
+## 問題
+
+結果画面から入力画面に戻る（またはページリロード）と、ポートフォリオ8銘柄を含む全入力が初期化される。シミュレーション→微調整→再シミュレーションのイテレーションサイクルで毎回手入力が必要。
+
+## ターゲットユーザー
+
+開発者（ドッグフーディング）およびエンドユーザー（30-45歳ITエンジニア）。
+
+## 提案するアプローチ
+
+### localStorage + スキーマバージョニング + リセットUI
+
+1. **自動保存**: FormStateが変更されるたびにlocalStorageに保存（debounce 500ms）
+2. **自動復元**: ページロード時にlocalStorageから復元。なければDEFAULT_FORM
+3. **スキーマバージョン**: `FORM_SCHEMA_VERSION` 定数。FormStateの型が変わったらバージョンを上げる。古いバージョンのデータは破棄してDEFAULT_FORMにフォールバック
+4. **リセットボタン**: wizard.tsxに「入力をリセット」ボタンを追加。localStorage削除 + DEFAULT_FORMに戻す
+
+### 技術設計
+
+```typescript
+// form-state.ts に追加
+const STORAGE_KEY = "fire-sanbo-form";
+const FORM_SCHEMA_VERSION = 1;
+
+interface StoredForm {
+  version: number;
+  form: FormState;
+}
+
+export function saveForm(form: FormState): void;
+export function loadForm(): FormState | null;
+export function clearForm(): void;
+```
+
+### wizard.tsx の変更
+
+```typescript
+// useState の初期値を loadForm() ?? DEFAULT_FORM に変更
+const [form, setForm] = useState<FormState>(() => loadForm() ?? DEFAULT_FORM);
+
+// form変更時に自動保存（useEffect + debounce）
+useEffect(() => {
+  const timer = setTimeout(() => saveForm(form), 500);
+  return () => clearTimeout(timer);
+}, [form]);
+```
+
+## 成功指標
+
+- ポートフォリオの再入力: 毎回 → 0回
+- 翌日ブラウザを開いても前回の設定がそのまま残っている
+
+## スコープ外
+
+- URLエンコードによる設定共有
+- 複数プロファイル切り替え
+- サーバーサイド保存
+
+## 工数見積もり
+
+| タスク | 工数 |
+|--------|------|
+| `form-state.ts` に save/load/clear + バージョニング | 15分 |
+| `wizard.tsx` に復元 + 自動保存 + リセットボタン | 15分 |
+| テスト追加（save/load/clear + バージョン不一致） | 15分 |
+| **合計** | **~45分** |

@@ -30,6 +30,45 @@ export const DEFAULT_FORM: FormState = {
   numTrials: 1000,
 };
 
+/* ---------- localStorage 永続化 ---------- */
+
+const STORAGE_KEY = "fire-sanbo-form";
+const FORM_SCHEMA_VERSION = 1;
+
+interface StoredForm {
+  version: number;
+  form: FormState;
+}
+
+export function saveForm(form: FormState): void {
+  try {
+    const data: StoredForm = { version: FORM_SCHEMA_VERSION, form };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // localStorage 満杯・プライベートモード等 → 黙って無視
+  }
+}
+
+export function loadForm(): FormState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data: StoredForm = JSON.parse(raw);
+    if (data.version !== FORM_SCHEMA_VERSION) return null;
+    return data.form;
+  } catch {
+    return null;
+  }
+}
+
+export function clearForm(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // 無視
+  }
+}
+
 /** NaN/undefined/負値を安全な値に変換 */
 function safeNum(v: unknown, fallback = 0, min = 0): number {
   const n = Number(v);
