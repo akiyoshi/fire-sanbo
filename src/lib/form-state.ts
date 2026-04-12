@@ -16,6 +16,91 @@ export interface FormState {
   numTrials: number;
 }
 
+/* ---------- シナリオ管理 ---------- */
+
+export interface Scenario {
+  id: string;
+  name: string;
+  form: FormState;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const SCENARIOS_KEY = "fire-sanbo-scenarios";
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+export function loadScenarios(): Scenario[] {
+  try {
+    const raw = localStorage.getItem(SCENARIOS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as Scenario[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveScenarios(scenarios: Scenario[]): void {
+  try {
+    localStorage.setItem(SCENARIOS_KEY, JSON.stringify(scenarios));
+  } catch {
+    // localStorage 満杯等 → 無視
+  }
+}
+
+export function saveScenario(name: string, form: FormState): Scenario {
+  const scenarios = loadScenarios();
+  const now = new Date().toISOString();
+  const scenario: Scenario = { id: generateId(), name, form, createdAt: now, updatedAt: now };
+  scenarios.push(scenario);
+  saveScenarios(scenarios);
+  return scenario;
+}
+
+export function updateScenario(id: string, form: FormState): void {
+  const scenarios = loadScenarios();
+  const idx = scenarios.findIndex((s) => s.id === id);
+  if (idx >= 0) {
+    scenarios[idx] = { ...scenarios[idx], form, updatedAt: new Date().toISOString() };
+    saveScenarios(scenarios);
+  }
+}
+
+export function deleteScenario(id: string): void {
+  const scenarios = loadScenarios().filter((s) => s.id !== id);
+  saveScenarios(scenarios);
+}
+
+/* ---------- JSON エクスポート/インポート ---------- */
+
+export function exportFormToJSON(form: FormState): string {
+  return JSON.stringify({ version: FORM_SCHEMA_VERSION, form }, null, 2);
+}
+
+export function importFormFromJSON(json: string): FormState | null {
+  try {
+    const data = JSON.parse(json);
+    if (data.version !== FORM_SCHEMA_VERSION) return null;
+    const form = data.form as FormState;
+    // 基本的なバリデーション
+    if (typeof form.currentAge !== "number" || typeof form.monthlyExpense !== "number") return null;
+    if (typeof form.retirementAge !== "number" || typeof form.endAge !== "number") return null;
+    if (typeof form.annualSalary !== "number") return null;
+    if (!Array.isArray(form.portfolio)) return null;
+    // portfolio エントリの構造チェック
+    for (const entry of form.portfolio) {
+      if (typeof entry.assetClass !== "string" || typeof entry.taxCategory !== "string" || typeof entry.amount !== "number") {
+        return null;
+      }
+    }
+    return form;
+  } catch {
+    return null;
+  }
+}
+
 export const DEFAULT_FORM: FormState = {
   currentAge: 35,
   retirementAge: 50,

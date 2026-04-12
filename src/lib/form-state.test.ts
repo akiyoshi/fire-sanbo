@@ -1,5 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { formToSimulationInput, DEFAULT_FORM, deriveBalancesByTaxCategory, saveForm, loadForm, clearForm } from "./form-state";
+import {
+  formToSimulationInput,
+  DEFAULT_FORM,
+  deriveBalancesByTaxCategory,
+  saveForm,
+  loadForm,
+  clearForm,
+  loadScenarios,
+  saveScenario,
+  updateScenario,
+  deleteScenario,
+  exportFormToJSON,
+  importFormFromJSON,
+} from "./form-state";
 import type { FormState } from "./form-state";
 
 describe("formToSimulationInput", () => {
@@ -181,5 +194,68 @@ describe("deriveBalancesByTaxCategory", () => {
     expect(balances.tokutei).toBe(0);
     expect(balances.ideco).toBe(0);
     expect(balances.gold_physical).toBe(0);
+  });
+});
+
+describe("シナリオ管理", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("saveScenario → loadScenarios でラウンドトリップ", () => {
+    const s1 = saveScenario("現状維持", DEFAULT_FORM);
+    const s2 = saveScenario("転職ケース", { ...DEFAULT_FORM, annualSalary: 8_000_000 });
+    const scenarios = loadScenarios();
+    expect(scenarios).toHaveLength(2);
+    expect(scenarios[0].name).toBe("現状維持");
+    expect(scenarios[1].name).toBe("転職ケース");
+    expect(scenarios[1].form.annualSalary).toBe(8_000_000);
+  });
+
+  it("updateScenario でフォームを更新", () => {
+    const s = saveScenario("テスト", DEFAULT_FORM);
+    updateScenario(s.id, { ...DEFAULT_FORM, currentAge: 42 });
+    const scenarios = loadScenarios();
+    expect(scenarios[0].form.currentAge).toBe(42);
+  });
+
+  it("deleteScenario でシナリオを削除", () => {
+    const s1 = saveScenario("A", DEFAULT_FORM);
+    const s2 = saveScenario("B", DEFAULT_FORM);
+    deleteScenario(s1.id);
+    const scenarios = loadScenarios();
+    expect(scenarios).toHaveLength(1);
+    expect(scenarios[0].name).toBe("B");
+  });
+
+  it("シナリオなしで空配列を返す", () => {
+    expect(loadScenarios()).toEqual([]);
+  });
+});
+
+describe("JSON エクスポート/インポート", () => {
+  it("exportFormToJSON → importFormFromJSON でラウンドトリップ", () => {
+    const form: FormState = {
+      ...DEFAULT_FORM,
+      currentAge: 40,
+      annualSalary: 7_000_000,
+    };
+    const json = exportFormToJSON(form);
+    const imported = importFormFromJSON(json);
+    expect(imported).toEqual(form);
+  });
+
+  it("不正なJSON文字列で null を返す", () => {
+    expect(importFormFromJSON("not valid json")).toBeNull();
+  });
+
+  it("バージョン不一致で null を返す", () => {
+    const json = JSON.stringify({ version: 999, form: DEFAULT_FORM });
+    expect(importFormFromJSON(json)).toBeNull();
+  });
+
+  it("formフィールドが不正で null を返す", () => {
+    const json = JSON.stringify({ version: 2, form: { foo: "bar" } });
+    expect(importFormFromJSON(json)).toBeNull();
   });
 });

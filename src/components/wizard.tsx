@@ -1,6 +1,19 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import type { FormState } from "@/lib/form-state";
-import { DEFAULT_FORM, deriveBalancesByTaxCategory, saveForm, loadForm, clearForm } from "@/lib/form-state";
+import {
+  DEFAULT_FORM,
+  deriveBalancesByTaxCategory,
+  saveForm,
+  loadForm,
+  clearForm,
+  loadScenarios,
+  saveScenario,
+  updateScenario,
+  deleteScenario,
+  exportFormToJSON,
+  importFormFromJSON,
+} from "@/lib/form-state";
+import type { Scenario } from "@/lib/form-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,6 +134,11 @@ function formatManYen(n: number): string {
 
 export function Wizard({ onComplete }: WizardProps) {
   const [form, setForm] = useState<FormState>(() => loadForm() ?? DEFAULT_FORM);
+  const [scenarios, setScenarios] = useState<Scenario[]>(() => loadScenarios());
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
+  const [scenarioName, setScenarioName] = useState("");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // FormState変更時にlocalStorageへ自動保存（500msデバウンス）
   useEffect(() => {
@@ -131,6 +149,65 @@ export function Wizard({ onComplete }: WizardProps) {
   const handleReset = () => {
     clearForm();
     setForm(DEFAULT_FORM);
+    setActiveScenarioId(null);
+  };
+
+  // シナリオ操作
+  const handleSaveScenario = () => {
+    if (!scenarioName.trim()) return;
+    const scenario = saveScenario(scenarioName.trim(), form);
+    setScenarios(loadScenarios());
+    setActiveScenarioId(scenario.id);
+    setScenarioName("");
+    setShowSaveDialog(false);
+  };
+
+  const handleUpdateScenario = () => {
+    if (!activeScenarioId) return;
+    updateScenario(activeScenarioId, form);
+    setScenarios(loadScenarios());
+  };
+
+  const handleLoadScenario = (scenario: Scenario) => {
+    setForm(scenario.form);
+    saveForm(scenario.form);
+    setActiveScenarioId(scenario.id);
+  };
+
+  const handleDeleteScenario = (id: string) => {
+    deleteScenario(id);
+    setScenarios(loadScenarios());
+    if (activeScenarioId === id) setActiveScenarioId(null);
+  };
+
+  // JSON エクスポート/インポート
+  const handleExport = () => {
+    const json = exportFormToJSON(form);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fire-sanbo-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imported = importFormFromJSON(reader.result as string);
+      if (imported) {
+        setForm(imported);
+        saveForm(imported);
+        setActiveScenarioId(null);
+      } else {
+        alert("無効なファイルです。FIRE参謀のエクスポートファイルを選択してください。");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   };
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -207,6 +284,72 @@ export function Wizard({ onComplete }: WizardProps) {
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
+      {/* シナリオ管理 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>シナリオ</span>
+            <div className="flex gap-2">
+              {activeScenarioId && (
+                <Button variant="outline" size="sm" onClick={handleUpdateScenario}>
+                  上書き保存
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(!showSaveDialog)}>
+                名前を付けて保存
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {showSaveDialog && (
+            <div className="flex gap-2">
+              <Input
+                placeholder="シナリオ名（例: 現状維持、転職ケース）"
+                value={scenarioName}
+                onChange={(e) => setScenarioName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveScenario()}
+                className="flex-1"
+              />
+              <Button size="sm" onClick={handleSaveScenario} disabled={!scenarioName.trim()}>
+                保存
+              </Button>
+            </div>
+          )}
+          {scenarios.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {scenarios.map((s) => (
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
+                    s.id === activeScenarioId
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "hover:bg-muted"
+                  }`}
+                  onClick={() => handleLoadScenario(s)}
+                >
+                  <span>{s.name}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteScenario(s.id);
+                    }}
+                    className="ml-1 opacity-50 hover:opacity-100"
+                    aria-label={`${s.name}を削除`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              保存済みシナリオはありません。「名前を付けて保存」でパラメータセットを保存できます。
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* 基本情報 */}
       <Card>
         <CardHeader>
@@ -452,20 +595,37 @@ export function Wizard({ onComplete }: WizardProps) {
       {validationError && (
         <p className="text-sm text-destructive text-center">{validationError}</p>
       )}
-      <div className="flex justify-center gap-4">
-        <Button
-          variant="outline"
-          onClick={handleReset}
-        >
-          入力をリセット
-        </Button>
-        <Button
-          size="lg"
-          onClick={() => onComplete(form)}
-          disabled={!!validationError}
-        >
-          シミュレーション開始
-        </Button>
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex justify-center gap-4">
+          <Button
+            variant="outline"
+            onClick={handleReset}
+          >
+            入力をリセット
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => onComplete(form)}
+            disabled={!!validationError}
+          >
+            シミュレーション開始
+          </Button>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="ghost" size="sm" onClick={handleExport}>
+            📥 エクスポート
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+            📤 インポート
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleImport}
+            className="hidden"
+          />
+        </div>
       </div>
     </div>
   );

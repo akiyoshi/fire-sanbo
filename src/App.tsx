@@ -1,19 +1,23 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { FormState } from "@/lib/form-state";
-import { formToSimulationInput } from "@/lib/form-state";
+import { formToSimulationInput, loadScenarios } from "@/lib/form-state";
+import type { Scenario } from "@/lib/form-state";
 import { SimulationWorker } from "@/lib/simulation";
 import type { SimulationResult } from "@/lib/simulation";
 import { Wizard } from "@/components/wizard";
 import { Results } from "@/components/results";
+import { ScenarioCompare } from "@/components/scenario-compare";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type AppState =
   | { phase: "input" }
   | { phase: "calculating"; form: FormState }
-  | { phase: "result"; form: FormState; result: SimulationResult };
+  | { phase: "result"; form: FormState; result: SimulationResult }
+  | { phase: "compare" };
 
 export default function App() {
   const [state, setState] = useState<AppState>({ phase: "input" });
+  const [scenarioCount, setScenarioCount] = useState(() => loadScenarios().length);
   const workerRef = useRef<SimulationWorker | null>(null);
 
   useEffect(() => {
@@ -23,6 +27,13 @@ export default function App() {
       workerRef.current = null;
     };
   }, []);
+
+  // input画面に戻るたびにシナリオ数を更新
+  useEffect(() => {
+    if (state.phase === "input") {
+      setScenarioCount(loadScenarios().length);
+    }
+  }, [state.phase]);
 
   const handleComplete = async (form: FormState) => {
     setState({ phase: "calculating", form });
@@ -49,10 +60,23 @@ export default function App() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold">
+          <h1
+            className="text-lg font-bold cursor-pointer"
+            onClick={() => setState({ phase: "input" })}
+          >
             🔥 FIRE参謀
           </h1>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            {scenarioCount >= 2 && state.phase === "input" && (
+              <button
+                onClick={() => setState({ phase: "compare" })}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                シナリオ比較
+              </button>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -68,6 +92,12 @@ export default function App() {
           <Results
             initialForm={state.form}
             initialResult={state.result}
+            worker={workerRef.current}
+            onBack={() => setState({ phase: "input" })}
+          />
+        )}
+        {state.phase === "compare" && (
+          <ScenarioCompare
             worker={workerRef.current}
             onBack={() => setState({ phase: "input" })}
           />
