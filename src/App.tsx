@@ -8,12 +8,14 @@ import { Wizard } from "@/components/wizard";
 import { Results } from "@/components/results";
 import { ScenarioCompare } from "@/components/scenario-compare";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MethodologyPage } from "@/components/methodology/methodology-page";
 
 type AppState =
   | { phase: "input" }
   | { phase: "calculating"; form: FormState }
   | { phase: "result"; form: FormState; result: SimulationResult }
-  | { phase: "compare" };
+  | { phase: "compare" }
+  | { phase: "methodology" };
 
 export default function App() {
   const [state, setState] = useState<AppState>({ phase: "input" });
@@ -75,6 +77,12 @@ export default function App() {
                 シナリオ比較
               </button>
             )}
+            <button
+              onClick={() => setState({ phase: "methodology" })}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              計算根拠
+            </button>
             <ThemeToggle />
           </div>
         </div>
@@ -101,6 +109,9 @@ export default function App() {
             worker={workerRef.current}
             onBack={() => setState({ phase: "input" })}
           />
+        )}
+        {state.phase === "methodology" && (
+          <MethodologyPage onBack={() => setState({ phase: "input" })} />
         )}
       </main>
 
