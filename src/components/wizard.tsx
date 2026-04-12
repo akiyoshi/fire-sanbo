@@ -82,10 +82,56 @@ export function Wizard({ onComplete }: WizardProps) {
       />
       <BasicSection form={form} update={update} />
       <PortfolioSection form={form} setForm={setForm} />
-      <IncomeSection form={form} update={update} />
-      <EventsSection form={form} update={update} />
-      <SpouseSection form={form} update={update} />
-      <AdvancedSection form={form} update={update} hasGold={hasGold} />
+
+      {/* 任意セクション: 折りたたみ */}
+      <details className="group" open={!!form.pension?.kosei || !!form.pension?.kokumin || !!form.retirementBonus?.amount}>
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <span className="transition-transform group-open:rotate-90">▶</span>
+            年金・退職金・副収入
+            {(form.pension?.kosei || form.pension?.kokumin || form.retirementBonus?.amount) && (
+              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">設定済み</span>
+            )}
+          </div>
+        </summary>
+        <IncomeSection form={form} update={update} />
+      </details>
+
+      <details className="group" open={(form.lifeEvents?.length ?? 0) > 0}>
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <span className="transition-transform group-open:rotate-90">▶</span>
+            ライフイベント
+            {(form.lifeEvents?.length ?? 0) > 0 && (
+              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{form.lifeEvents!.length}件</span>
+            )}
+          </div>
+        </summary>
+        <EventsSection form={form} update={update} />
+      </details>
+
+      <details className="group" open={!!form.spouseEnabled}>
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <span className="transition-transform group-open:rotate-90">▶</span>
+            配偶者
+            {form.spouseEnabled && (
+              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">設定済み</span>
+            )}
+          </div>
+        </summary>
+        <SpouseSection form={form} update={update} />
+      </details>
+
+      <details className="group">
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <span className="transition-transform group-open:rotate-90">▶</span>
+            詳細設定
+          </div>
+        </summary>
+        <AdvancedSection form={form} update={update} hasGold={hasGold} />
+      </details>
 
       {/* 概算プレビュー */}
       <QuickPreview form={form} isValid={!validationError} />
