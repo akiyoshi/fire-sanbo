@@ -121,6 +121,11 @@ describe("formToSimulationInput", () => {
     });
   });
 
+  it("inflationRate がパーセントから小数に変換される", () => {
+    const input = formToSimulationInput(DEFAULT_FORM);
+    expect(input.inflationRate).toBeCloseTo(DEFAULT_FORM.inflationRate / 100);
+  });
+
   describe("localStorage 永続化", () => {
     beforeEach(() => {
       localStorage.clear();

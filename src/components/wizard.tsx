@@ -402,6 +402,15 @@ export function Wizard({ onComplete }: WizardProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <SliderInput
+            label="想定インフレ率"
+            value={form.inflationRate}
+            onChange={(v) => update("inflationRate", v)}
+            min={0}
+            max={5}
+            step={0.1}
+            suffix="%"
+          />
+          <SliderInput
             label="特定口座の含み益率"
             value={form.tokuteiGainRatio}
             onChange={(v) => update("tokuteiGainRatio", v)}

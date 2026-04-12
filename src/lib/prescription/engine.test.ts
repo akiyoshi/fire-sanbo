@@ -17,6 +17,7 @@ function baseInput(overrides?: Partial<SimulationInput>): SimulationInput {
     goldGainRatio: 0.3,
     withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: 200,
+    inflationRate: 0.02,
     seed: 42,
     ...overrides,
   };

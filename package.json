@@ -1,6 +1,6 @@
 {
   "name": "fire-sanbo",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "private": true,
   "scripts": {
     "dev": "node --max-old-space-size=512 node_modules/.bin/next dev",

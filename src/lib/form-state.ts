@@ -12,6 +12,7 @@ export interface FormState {
   idecoYearsOfService: number;
   tokuteiGainRatio: number;
   goldGainRatio: number;
+  inflationRate: number;
   numTrials: number;
 }
 
@@ -27,13 +28,14 @@ export const DEFAULT_FORM: FormState = {
   idecoYearsOfService: 15,
   tokuteiGainRatio: 50,
   goldGainRatio: 30,
+  inflationRate: 2.0,
   numTrials: 1000,
 };
 
 /* ---------- localStorage 永続化 ---------- */
 
 const STORAGE_KEY = "fire-sanbo-form";
-const FORM_SCHEMA_VERSION = 1;
+const FORM_SCHEMA_VERSION = 2;
 
 interface StoredForm {
   version: number;
@@ -119,6 +121,7 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     idecoYearsOfService: safeNum(form.idecoYearsOfService, 20, 1),
     tokuteiGainRatio: safeNum(form.tokuteiGainRatio, 50) / 100,
     goldGainRatio: safeNum(form.goldGainRatio, 30) / 100,
+    inflationRate: safeNum(form.inflationRate, 2.0) / 100,
     withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: safeNum(form.numTrials, 1000, 10),
     seed: Math.floor(Math.random() * 2 ** 32),

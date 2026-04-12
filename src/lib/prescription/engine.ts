@@ -95,8 +95,10 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
       if (surplus > 0) tokutei += surplus;
     }
 
+    // ポートフォリオリターン（実質リターン = 名目リターン − インフレ率）
+    const realReturn = input.allocation.expectedReturn - input.inflationRate;
     const portfolioReturn = generateLogNormalReturn(
-      input.allocation.expectedReturn,
+      realReturn,
       input.allocation.standardDeviation,
       rng,
     );
