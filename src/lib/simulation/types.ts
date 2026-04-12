@@ -40,6 +40,8 @@ export interface SideIncomeInput {
 }
 
 export interface LifeEvent {
+  /** 一意識別子（UI用、エンジンでは無視） */
+  id?: string;
   /** イベント名 */
   label: string;
   /** 発生年齢 */

@@ -39,6 +39,8 @@ export interface FormState {
 
   /* v1.0 拡張: 世帯シミュレーション */
   spouse?: SpouseFormState;
+  /** 配偶者セクション表示フラグ（false でも spouse データは保持） */
+  spouseEnabled?: boolean;
 }
 
 /* ---------- シナリオ管理 ---------- */
@@ -136,7 +138,7 @@ export const DEFAULT_FORM: FormState = {
   annualSalary: 6_000_000,
   monthlyExpense: 250_000,
   portfolio: [
-    { assetClass: "developed_stock", taxCategory: "nisa", amount: 0 },
+    { id: "default-1", assetClass: "developed_stock", taxCategory: "nisa", amount: 0 },
   ],
   idecoYearsOfService: 15,
   tokuteiGainRatio: 50,
@@ -265,7 +267,7 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     nisaConfig: form.nisaConfig,
 
     // v1.0 世帯シミュレーション
-    spouse: form.spouse ? spouseFormToInput(form.spouse) : undefined,
+    spouse: (form.spouse && form.spouseEnabled !== false) ? spouseFormToInput(form.spouse) : undefined,
   };
 }
 

@@ -1,156 +1,129 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v0.9 設計
-> **前提**: v0.8.0 (Vite SPA + シナリオ管理) が完成済み
+> **バージョン**: v1.0.0
+> **更新日**: 2026-04-12
 
 ## ビジョン
 
 **日本の税制・社会保障を正確に組み込んだ、個人向けライフタイム資産シミュレーター。**
 
-FIRE計算機を超え、年金・退職金・ライフイベント・世帯収支・ポートフォリオ最適化を統合した
-「人生の資産設計エンジン」として再定義する。
+年金・退職金・ライフイベント・世帯収支・ポートフォリオ最適化を統合した
+「人生の資産設計エンジン」。
 
-## 現在の限界
+## 実装済み機能
 
-| 項目 | 現状 | 問題 |
-|------|------|------|
-| 収入モデル | 退職前=給与、退職後=0 | 年金・副収入・退職金がない |
-| 支出モデル | 全年齢で定額 | ライフイベント（住宅・教育）を表現できない |
-| 積立モデル | 余剰→全額特定口座 | NISA年間枠(360万)を無視 |
-| 世帯 | 個人のみ | 配偶者の収入・年金・資産を考慮できない |
-| ポートフォリオ | 手動設定のみ | 目標に対する最適配分がわからない |
+### コアエンジン
 
-## フェーズ計画
+| 機能 | 実装 | テスト |
+|------|------|--------|
+| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 29テスト |
+| 日本税制エンジン (2026年度) | `tax/engine.ts` | 39テスト |
+| 処方箋 (3軸二分探索) | `prescription/engine.ts` runTrialLite | 10テスト |
+| 取り崩し最適化 | `withdrawal/optimizer.ts` | 6テスト |
+| ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
+| ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
+| FormState永続化 | `form-state.ts` | 27テスト |
+| **合計** | | **134テスト** |
 
-### Phase 1 (v0.9): コアエンジン拡張
+### 収入モデル
 
-SimulationInput を拡張し、runTrial のロジックを強化する。
+- **給与所得**: 所得税・住民税・社会保険料を控除した手取り
+- **公的年金**: 厚生年金 + 国民年金、繰上げ(0.4%/月減額)・繰下げ(0.7%/月増額)
+  - 公的年金等控除(65歳未満/65歳以上)適用
+- **退職金**: 退職所得控除(勤続年数ベース) + 分離課税
+- **副収入**: 退職後のフリーランス/不労所得(基礎控除のみ)
 
-#### 1-A. 年金統合
+### 支出モデル
 
-```typescript
-interface PensionInput {
-  /** 厚生年金の見込み月額（ねんきん定期便の値） */
-  kosei: number;
-  /** 国民年金の見込み月額（満額: 68,000円） */
-  kokumin: number;
-  /** 受給開始年齢（60-75歳、デフォルト65歳） */
-  startAge: number;
-}
+- **定額生活費**: 月間生活費 × 12 (インフレ率反映)
+- **ライフイベント**: 年齢指定の一時支出(住宅購入・教育費・結婚・車等)
+- **社会保険料**: 退職後は所得0ベースで再計算
+
+### 積立モデル
+
+- **NISA枠管理**: 年間投資枠(360万) + 生涯投資枠(1,800万)の追跡
+- **余剰配分**: 手取り − 費用負担 → NISA → 特定口座の順
+- **退職前赤字**: ライフイベント等で赤字時は口座から取り崩し
+
+### 世帯シミュレーション
+
+- **配偶者サポート**: 年齢差・退職時期差に対応した2人分の同時シミュレーション
+- **費用負担**: 在職者数に応じた均等分担、退職者の年金・副収入を統合
+- **取り崩し順序**: Primary口座 → Spouse口座(各withdrawal order順)
+
+### ポートフォリオ最適化
+
+- **効率的フロンティア**: モンテカルロ法(10,000サンプル、ディリクレ分布)で近似
+- **リスク許容度**: 0(最小リスク) → 1(最大リターン)のスライダー
+- **SVGチャート**: フロンティア曲線 + 推奨点
+- **ワンクリック適用**: 最適配分をポートフォリオに即反映
+
+### 処方箋エンジン
+
+- **3軸の二分探索**: 支出削減 / 退職延期 / 追加投資
+- **年金・退職金・副収入・ライフイベント反映済み**
+- **難易度タグ**: やさしい / ふつう / むずかしい
+
+### シナリオ管理
+
+- 名前付きパラメータセット保存(localStorage)
+- シナリオ比較画面(並列シミュレーション)
+- JSON エクスポート / インポート
+
+## アーキテクチャ
+
+```
+src/
+├── App.tsx                    # 4フェーズステートマシン
+├── components/
+│   ├── wizard.tsx             # オーケストレーター(~90行)
+│   ├── wizard/                # セクション別サブコンポーネント
+│   │   ├── shared.tsx         # NumberInput, SliderInput, format関数
+│   │   ├── scenario-section   # シナリオ管理 + エクスポート/インポート
+│   │   ├── basic-section      # 年齢・年収・生活費
+│   │   ├── portfolio-section  # 資産入力 + 合成計算 + 最適化
+│   │   ├── income-section     # 年金・退職金・副収入
+│   │   ├── events-section     # ライフイベント
+│   │   ├── spouse-section     # 配偶者
+│   │   └── advanced-section   # インフレ率・含み益率・シミュレーション回数
+│   ├── results.tsx            # 成功率 + チャート + What-if
+│   ├── prescription-card.tsx  # 処方箋UI
+│   ├── portfolio-optimizer.tsx # 最適化UI
+│   ├── scenario-compare.tsx   # シナリオ比較
+│   └── ui/                    # shadcn/ui コンポーネント
+├── lib/
+│   ├── form-state.ts          # FormState永続化(v3スキーマ)
+│   ├── simulation/            # モンテカルロエンジン + Worker
+│   ├── tax/                   # 2026年度税制エンジン
+│   ├── portfolio/             # 合成計算 + 最適化
+│   ├── prescription/          # 処方箋(二分探索)
+│   └── withdrawal/            # 取り崩し最適化
+└── config/
+    ├── asset-class-data.json  # 10資産クラス + 相関行列
+    └── tax-config-2026.json   # 税率テーブル + 年金控除
 ```
 
-- 繰下げ増額: `(startAge - 65) * 12 * 0.007` (65歳以降、月0.7%増額)
-- 繰上げ減額: `(65 - startAge) * 12 * 0.004` (65歳未満、月0.4%減額)
-- 年金収入は雑所得として課税（公的年金等控除を適用）
+### 技術スタック
 
-#### 1-B. 退職金
+- **Vite 6** + React 19 (SPA, SSRなし)
+- **Tailwind CSS v4** + shadcn/ui (base-nova)
+- **Web Worker**: モンテカルロをオフスレッド実行
+- **Vitest**: 134テスト, ~2秒
+- **TypeScript strict**: 全ファイル
 
-```typescript
-interface RetirementBonusInput {
-  /** 退職金の見込み額 */
-  amount: number;
-  /** 勤続年数（退職所得控除の計算用） */
-  yearsOfService: number;
-}
-```
+### 設計原則
 
-- 退職年に一括で受け取り
-- 退職所得控除は既存の税制エンジン (`retirementIncomeDeduction`) を再利用
-- 手取り額を特定口座に加算
+- **後方互換**: 新フィールドはすべてオプショナル、デフォルト値で既存動作を維持
+- **エンジン分離**: `src/lib/` は純TypeScript、React非依存
+- **FormState v3**: スキーマバージョン管理 + v2→v3マイグレーション
+- **テスト駆動**: 税制計算・シミュレーション・最適化は独立テスト
 
-#### 1-C. 退職後の副収入（サイドFIRE）
+## 今後の方針 (v1.1: 磨き込みフェーズ)
 
-```typescript
-interface SideIncomeInput {
-  /** 退職後の年間副収入（税引前） */
-  annualAmount: number;
-  /** 副収入が続く年齢の上限 */
-  untilAge: number;
-}
-```
+機能追加は一段落。既存機能の品質向上にフォーカスする。
 
-- 事業所得 or 雑所得として課税（簡易計算: 給与所得控除なし、基礎控除のみ）
-- 取り崩し必要額を減らす効果
-
-#### 1-D. ライフイベント（一時支出）
-
-```typescript
-interface LifeEvent {
-  /** イベント名 */
-  label: string;
-  /** 発生年齢 */
-  age: number;
-  /** 金額（円） */
-  amount: number;
-}
-```
-
-- 住宅購入、教育費、結婚、車、リフォーム等
-- 該当年齢で追加支出として計上
-- UI: 年齢と金額のペアを複数入力
-
-#### 1-E. NISA年間積立枠
-
-```typescript
-interface NisaConfig {
-  /** 年間投資枠（円、デフォルト3,600,000） */
-  annualLimit: number;
-  /** 生涯投資枠（円、デフォルト18,000,000） */
-  lifetimeLimit: number;
-}
-```
-
-- 退職前の余剰積立を NISA → 特定口座の順に配分
-- 生涯枠を超えたら自動的に特定口座へ
-- NISA枠の残高を追跡
-
-### Phase 2 (v1.0): 世帯シミュレーション
-
-```typescript
-interface HouseholdInput {
-  primary: PersonInput;    // 自分
-  spouse?: PersonInput;    // 配偶者（任意）
-  sharedExpense: number;   // 世帯の年間生活費
-  lifeEvents: LifeEvent[]; // 世帯共通のライフイベント
-}
-
-interface PersonInput {
-  currentAge: number;
-  retirementAge: number;
-  annualSalary: number;
-  accounts: AccountBalance;
-  portfolio: PortfolioEntry[];
-  pension: PensionInput;
-  retirementBonus: RetirementBonusInput;
-  sideIncome?: SideIncomeInput;
-}
-```
-
-- 2人の収入・資産・年金を統合してシミュレーション
-- 年齢差を考慮（配偶者の退職時期・年金開始が異なる）
-- 世帯の税制最適化（配偶者控除等は将来的に検討）
-
-### Phase 3 (v1.1): ポートフォリオ最適化
-
-```typescript
-interface OptimizationInput {
-  /** 目標成功率 */
-  targetSuccessRate: number;
-  /** 投資可能な資産クラス */
-  availableAssets: AssetClassId[];
-  /** リスク許容度 (0-1) */
-  riskTolerance: number;
-}
-```
-
-- 既存の10資産クラスのリターン・リスクデータを活用
-- 効率的フロンティアの計算（平均分散最適化）
-- 目標成功率に対する最小リスクポートフォリオを提案
-- 処方箋エンジンとの統合（ポートフォリオ変更も処方箋の一軸に）
-
-## アーキテクチャ方針
-
-- **後方互換**: 新フィールドはすべてオプショナル、デフォルト値で既存の動作を維持
-- **FormState v3**: スキーマバージョンを上げ、マイグレーション関数で v2 → v3 変換
-- **エンジン分離**: simulation/engine.ts の runTrial を拡張。新しい収入・支出ロジックは純粋関数として追加
-- **テスト**: 各機能に対してユニットテスト追加。年金計算・退職金課税は税制エンジンのテストとして独立
+- [ ] プログレッシブ入力: 3項目(年齢・年収・資産)で即座に概算結果表示
+- [ ] recharts遅延ロード: React.lazyでバンドルサイズ削減
+- [ ] E2Eテスト: Playwright で主要フロー検証
+- [ ] アクセシビリティ: キーボード操作・スクリーンリーダー対応
+- [ ] GitHub Pages デプロイ

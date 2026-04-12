@@ -36,6 +36,7 @@ export interface AssetClassData {
 }
 
 export interface PortfolioEntry {
+  id?: string;
   name?: string;
   assetClass: AssetClassId;
   taxCategory: TaxCategory;

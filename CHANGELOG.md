@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.0] - 2026-04-12
+
+CEOレビュー3推奨を実装。wizard分割・プログレッシブUX・コードレビュー修正。
+
+### 追加
+- **wizard分割**: 975行のモノリスを 9 サブコンポーネント + 90行オーケストレーターにリファクタ
+- **QuickPreview**: 入力中に概算成功率をリアルタイム表示 (100回試行, 800msデバウンス, Web Workerオフスレッド)
+- `PortfolioEntry.id` / `LifeEvent.id`: Reactリストの安定キー用一意識別子
+- `FormState.spouseEnabled`: 配偶者トグルOFF時もデータ保持
+
+### 修正
+- QuickPreview: `formFingerprint` が `lifeEvents`/`sideIncome`/`inflationRate` 等を未追跡 → `JSON.stringify(form)` で全フィールド網羅
+- QuickPreview: ランダムseedで同一入力でも±10%ブレ → 固定seed=42で再現性確保
+- 年齢スライダー: `currentAge` 引き上げ時に `retirementAge < currentAge` になる不正状態 → カスケードクランプ追加
+- income-section: 年金フォールバック値が `kokumin: 65000` と `kokumin: 0` で不一致 → `DEFAULT_PENSION` 定数に統一
+
+### 変更
+- DESIGN.md: v0.9設計 → v1.0.0実装現状ドキュメントに書き換え
+
 ## [1.0.0] - 2026-04-12
 
 「人生の資産設計エンジン」として再定義。年金・世帯・ポートフォリオ最適化の3フェーズを一挙実装。
