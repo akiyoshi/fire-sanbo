@@ -59,7 +59,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1
             className="text-lg font-bold cursor-pointer"
             onClick={() => setState({ phase: "input" })}
@@ -105,7 +105,7 @@ export default function App() {
       </main>
 
       <footer className="border-t mt-auto">
-        <div className="max-w-4xl mx-auto px-4 py-3 text-center text-xs text-muted-foreground">
+        <div className="max-w-6xl mx-auto px-4 py-3 text-center text-xs text-muted-foreground">
           FIRE参謀はシミュレーションツールです。投資判断はご自身の責任で行ってください。
         </div>
       </footer>

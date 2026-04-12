@@ -73,7 +73,7 @@ export function Wizard({ onComplete }: WizardProps) {
   const validationError = validate();
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl lg:max-w-6xl mx-auto space-y-6">
       <ScenarioSection
         form={form}
         setForm={setForm}

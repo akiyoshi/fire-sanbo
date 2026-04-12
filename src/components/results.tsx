@@ -215,7 +215,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
   }, [result.successRate, initialResult.successRate]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto space-y-6">
       {/* 成功確率 */}
       <Card>
         <CardContent className="pt-6 relative">
@@ -231,125 +231,134 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
         </CardContent>
       </Card>
 
-      {/* ファンチャート */}
-      <Card>
-        <CardHeader>
-          <CardTitle>資産推移（パーセンタイル）</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AssetChart result={result} />
-        </CardContent>
-      </Card>
+      {/* 2カラムレイアウト: lg以上 */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-6 lg:space-y-0">
+        {/* 左カラム: チャート + What-if */}
+        <div className="space-y-6">
+          {/* ファンチャート */}
+          <Card>
+            <CardHeader>
+              <CardTitle>資産推移（パーセンタイル）</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AssetChart result={result} />
+            </CardContent>
+          </Card>
 
-      {/* What-if スライダー */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            What-if シミュレーション
-            {delta && (
-              <span
-                className={`ml-2 text-sm ${
-                  delta.startsWith("+") ? "text-success" : "text-danger"
-                }`}
-              >
-                ({delta})
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>退職年齢</Label>
-              <span className="text-sm font-medium">
-                {form.retirementAge}歳
-              </span>
-            </div>
-            <Slider
-              value={[form.retirementAge]}
-              onValueChange={(v) => updateAndRecalc("retirementAge", Array.isArray(v) ? v[0] : v)}
-              min={form.currentAge + 1}
-              max={75}
-              step={1}
-            />
-          </div>
+          {/* What-if スライダー */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                What-if シミュレーション
+                {delta && (
+                  <span
+                    className={`ml-2 text-sm ${
+                      delta.startsWith("+") ? "text-success" : "text-danger"
+                    }`}
+                  >
+                    ({delta})
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label>退職年齢</Label>
+                  <span className="text-sm font-medium">
+                    {form.retirementAge}歳
+                  </span>
+                </div>
+                <Slider
+                  value={[form.retirementAge]}
+                  onValueChange={(v) => updateAndRecalc("retirementAge", Array.isArray(v) ? v[0] : v)}
+                  min={form.currentAge + 1}
+                  max={75}
+                  step={1}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>月間生活費</Label>
-              <span className="text-sm font-medium">
-                {form.monthlyExpense.toLocaleString()}円
-              </span>
-            </div>
-            <Slider
-              value={[form.monthlyExpense]}
-              onValueChange={(v) => updateAndRecalc("monthlyExpense", Array.isArray(v) ? v[0] : v)}
-              min={100000}
-              max={500000}
-              step={10000}
-            />
-          </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label>月間生活費</Label>
+                  <span className="text-sm font-medium">
+                    {form.monthlyExpense.toLocaleString()}円
+                  </span>
+                </div>
+                <Slider
+                  value={[form.monthlyExpense]}
+                  onValueChange={(v) => updateAndRecalc("monthlyExpense", Array.isArray(v) ? v[0] : v)}
+                  min={100000}
+                  max={500000}
+                  step={10000}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>シミュレーション終了年齢</Label>
-              <span className="text-sm font-medium">{form.endAge}歳</span>
-            </div>
-            <Slider
-              value={[form.endAge]}
-              onValueChange={(v) => updateAndRecalc("endAge", Array.isArray(v) ? v[0] : v)}
-              min={form.retirementAge}
-              max={100}
-              step={1}
-            />
-          </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label>シミュレーション終了年齢</Label>
+                  <span className="text-sm font-medium">{form.endAge}歳</span>
+                </div>
+                <Slider
+                  value={[form.endAge]}
+                  onValueChange={(v) => updateAndRecalc("endAge", Array.isArray(v) ? v[0] : v)}
+                  min={form.retirementAge}
+                  max={100}
+                  step={1}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>想定インフレ率</Label>
-              <span className="text-sm font-medium">
-                {form.inflationRate}%
-              </span>
-            </div>
-            <Slider
-              value={[form.inflationRate]}
-              onValueChange={(v) => updateAndRecalc("inflationRate", Array.isArray(v) ? v[0] : v)}
-              min={0}
-              max={5}
-              step={0.1}
-            />
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <Label>想定インフレ率</Label>
+                  <span className="text-sm font-medium">
+                    {form.inflationRate}%
+                  </span>
+                </div>
+                <Slider
+                  value={[form.inflationRate]}
+                  onValueChange={(v) => updateAndRecalc("inflationRate", Array.isArray(v) ? v[0] : v)}
+                  min={0}
+                  max={5}
+                  step={0.1}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* 税金ブレイクダウン */}
-      <Card>
-        <CardContent className="pt-6">
-          <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
-        </CardContent>
-      </Card>
+        {/* 右カラム: 処方箋 + 取り崩し + 税金 */}
+        <div className="space-y-6">
+          {/* 税金ブレイクダウン */}
+          <Card>
+            <CardContent className="pt-6">
+              <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
+            </CardContent>
+          </Card>
 
-      {/* 処方箋 */}
-      <PrescriptionCard
-        worker={worker}
-        input={formToSimulationInput(form)}
-        currentRate={result.successRate}
-      />
+          {/* 処方箋 */}
+          <PrescriptionCard
+            worker={worker}
+            input={formToSimulationInput(form)}
+            currentRate={result.successRate}
+          />
 
-      {/* 取り崩し順序 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>口座取り崩し順序</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-2">
-            現在の推奨順序: <strong>NISA → 特定口座 → 金現物 → iDeCo</strong>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            NISA（非課税）を先に使い切ることで、課税口座の運用期間を最大化し税引後資産を最大化します。
-          </p>
-        </CardContent>
-      </Card>
+          {/* 取り崩し順序 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>口座取り崩し順序</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                現在の推奨順序: <strong>NISA → 特定口座 → 金現物 → iDeCo</strong>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                NISA（非課税）を先に使い切ることで、課税口座の運用期間を最大化し税引後資産を最大化します。
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <div className="flex justify-center">
         <Button variant="outline" onClick={onBack}>
