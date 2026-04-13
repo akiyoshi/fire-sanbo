@@ -9,6 +9,7 @@ import { Results } from "@/components/results";
 import { ScenarioCompare } from "@/components/scenario-compare";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MethodologyPage } from "@/components/methodology/methodology-page";
+import { Flame } from "lucide-react";
 
 type AppState =
   | { phase: "input" }
@@ -63,10 +64,11 @@ export default function App() {
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1
-            className="text-lg font-bold cursor-pointer"
+            className="text-lg font-bold cursor-pointer flex items-center gap-1.5"
             onClick={() => setState({ phase: "input" })}
           >
-            🔥 FIRE参謀
+            <Flame className="h-5 w-5 text-orange-500" aria-hidden="true" />
+            FIRE参謀
           </h1>
           <div className="flex items-center gap-2">
             {scenarioCount >= 2 && state.phase === "input" && (

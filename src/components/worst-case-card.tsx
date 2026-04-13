@@ -3,18 +3,19 @@ import type { SimulationResult } from "@/lib/simulation";
 import { findP5Trial, diagnoseFailure } from "@/lib/simulation/diagnosis";
 import type { Diagnosis } from "@/lib/simulation/diagnosis";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingDown, Wallet, Target, Hourglass, CheckCircle, AlertCircle } from "lucide-react";
 
 interface WorstCaseCardProps {
   result: SimulationResult;
   retirementAge: number;
 }
 
-const CAUSE_ICON: Record<string, string> = {
-  crash: "📉",
-  underfunded: "💰",
-  life_event: "🎯",
-  longevity: "⏳",
-  none: "✅",
+const CAUSE_ICON: Record<string, React.ReactNode> = {
+  crash: <TrendingDown className="h-4 w-4 inline text-danger" />,
+  underfunded: <Wallet className="h-4 w-4 inline text-danger" />,
+  life_event: <Target className="h-4 w-4 inline text-danger" />,
+  longevity: <Hourglass className="h-4 w-4 inline text-danger" />,
+  none: <CheckCircle className="h-4 w-4 inline text-success" />,
 };
 
 function formatManYen(n: number): string {
@@ -32,7 +33,7 @@ function formatReturn(r: number): string {
 }
 
 function DiagnosisSummary({ diagnosis }: { diagnosis: Diagnosis }) {
-  const icon = CAUSE_ICON[diagnosis.cause] ?? "❓";
+  const icon = CAUSE_ICON[diagnosis.cause] ?? <AlertCircle className="h-4 w-4 inline text-warning" />;
   const bgColor = diagnosis.cause === "none"
     ? "bg-success/10 border-success/30"
     : "bg-danger/10 border-danger/30";
@@ -127,7 +128,7 @@ function ComparisonTable({
                 <td className="py-1.5 pr-2 tabular-nums">
                   {age}歳
                   {age === retAge && <span className="text-xs text-muted-foreground ml-1">(退職)</span>}
-                  {isDepletionYear && <span className="text-xs text-danger ml-1">🔴</span>}
+                  {isDepletionYear && <span className="text-xs text-danger ml-1" aria-label="枯渇">●</span>}
                 </td>
                 <td className={`text-right py-1.5 pr-2 tabular-nums ${y.totalAssets <= 0 ? "text-danger font-bold" : ""}`}>
                   {formatManYen(y.totalAssets)}
@@ -140,7 +141,7 @@ function ComparisonTable({
                 </td>
                 <td className={`text-right py-1.5 pr-2 tabular-nums ${isCrashYear ? "text-danger font-bold" : y.portfolioReturn < 0 ? "text-danger" : ""}`}>
                   {formatReturn(y.portfolioReturn)}
-                  {isCrashYear && <span className="ml-0.5">🔴</span>}
+                  {isCrashYear && <span className="ml-0.5 text-danger" aria-label="暴落">●</span>}
                 </td>
                 <td className="text-right py-1.5 pr-2 tabular-nums text-muted-foreground">
                   {formatManYen(y.income)}

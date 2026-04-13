@@ -44,10 +44,10 @@ export function Wizard({ onComplete }: WizardProps) {
       if (key === "currentAge") {
         const age = value as number;
         if (next.retirementAge <= age) next.retirementAge = age + 1;
-        if (next.endAge < next.retirementAge) next.endAge = next.retirementAge;
+        if (next.endAge <= next.retirementAge) next.endAge = next.retirementAge + 1;
       }
       if (key === "retirementAge") {
-        if (next.endAge < (value as number)) next.endAge = value as number;
+        if (next.endAge <= (value as number)) next.endAge = (value as number) + 1;
       }
       return next;
     });
@@ -63,7 +63,7 @@ export function Wizard({ onComplete }: WizardProps) {
 
   const validate = (): string | null => {
     if (form.retirementAge <= form.currentAge) return "退職年齢は現在の年齢より大きくしてください";
-    if (form.endAge < form.retirementAge) return "終了年齢は退職年齢以上にしてください";
+    if (form.endAge <= form.retirementAge) return "終了年齢は退職年齢より大きくしてください";
     if (form.monthlyExpense <= 0) return "月間生活費を入力してください";
     if (form.portfolio.length === 0) return "資産を1行以上追加してください";
     if (totalBalance <= 0 && form.annualSalary <= 0) return "資産残高または年収を入力してください";
@@ -87,7 +87,7 @@ export function Wizard({ onComplete }: WizardProps) {
       <details className="group" open={!!form.pension?.kosei || !!form.pension?.kokumin || !!form.retirementBonus?.amount}>
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90">▶</span>
+            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
             年金・退職金・副収入
             {(form.pension?.kosei || form.pension?.kokumin || form.retirementBonus?.amount) && (
               <span className="text-xs bg-muted px-1.5 py-0.5 rounded">設定済み</span>
@@ -100,7 +100,7 @@ export function Wizard({ onComplete }: WizardProps) {
       <details className="group" open={(form.lifeEvents?.length ?? 0) > 0}>
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90">▶</span>
+            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
             ライフイベント
             {(form.lifeEvents?.length ?? 0) > 0 && (
               <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{form.lifeEvents!.length}件</span>
@@ -128,7 +128,7 @@ export function Wizard({ onComplete }: WizardProps) {
       <details className="group">
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90">▶</span>
+            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
             詳細設定
           </div>
         </summary>
@@ -138,11 +138,11 @@ export function Wizard({ onComplete }: WizardProps) {
       {/* 概算プレビュー */}
       <QuickPreview form={form} isValid={!validationError} />
 
-      {/* バリデーション + 実行ボタン */}
-      {validationError && (
-        <p role="alert" aria-live="polite" className="text-sm text-destructive text-center">{validationError}</p>
-      )}
-      <div className="flex flex-col items-center gap-3">
+      {/* バリデーション + 実行ボタン (スティッキー) */}
+      <div className="sticky bottom-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur-sm border-t">
+        {validationError && (
+          <p role="alert" aria-live="polite" className="text-sm text-destructive text-center mb-2">{validationError}</p>
+        )}
         <div className="flex justify-center gap-4">
           <Button variant="outline" onClick={handleReset}>
             入力をリセット

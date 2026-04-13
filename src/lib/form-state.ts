@@ -235,10 +235,14 @@ export function formToSimulationInput(form: FormState): SimulationInput {
   // 残高を課税種別から自動集計
   const balances = deriveBalancesByTaxCategory(form.portfolio);
 
+  const currentAge = safeNum(form.currentAge, 35, 18);
+  const retirementAge = Math.min(Math.max(safeNum(form.retirementAge, 50, 19), currentAge + 1), 120);
+  const endAge = Math.min(Math.max(safeNum(form.endAge, 95, 60), retirementAge + 1), 120);
+
   return {
-    currentAge: safeNum(form.currentAge, 35, 18),
-    retirementAge: safeNum(form.retirementAge, 50, 19),
-    endAge: safeNum(form.endAge, 95, 60),
+    currentAge,
+    retirementAge,
+    endAge,
     annualSalary: safeNum(form.annualSalary),
     annualExpense: safeNum(form.monthlyExpense) * 12,
     accounts: {
@@ -257,15 +261,32 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     goldGainRatio: safeNum(form.goldGainRatio, 30) / 100,
     inflationRate: safeNum(form.inflationRate, 2.0) / 100,
     withdrawalOrder: ["cash", "nisa", "tokutei", "gold_physical", "ideco"],
-    numTrials: safeNum(form.numTrials, 1000, 10),
+    numTrials: Math.min(safeNum(form.numTrials, 1000, 10), 10_000),
     seed: Math.floor(Math.random() * 2 ** 32),
 
-    // v0.9 拡張
-    pension: form.pension,
-    retirementBonus: form.retirementBonus,
-    sideIncome: form.sideIncome,
-    lifeEvents: form.lifeEvents,
-    nisaConfig: form.nisaConfig,
+    // v0.9 拡張 (safeNum で負値・NaN 防御)
+    pension: form.pension ? {
+      kosei: safeNum(form.pension.kosei, 0),
+      kokumin: safeNum(form.pension.kokumin, 0),
+      startAge: Math.min(Math.max(safeNum(form.pension.startAge, 65, 60), 60), 75),
+    } : undefined,
+    retirementBonus: form.retirementBonus ? {
+      amount: safeNum(form.retirementBonus.amount, 0),
+      yearsOfService: safeNum(form.retirementBonus.yearsOfService, 20, 1),
+    } : undefined,
+    sideIncome: form.sideIncome ? {
+      annualAmount: safeNum(form.sideIncome.annualAmount, 0),
+      untilAge: Math.min(safeNum(form.sideIncome.untilAge, 70, currentAge), 120),
+    } : undefined,
+    lifeEvents: form.lifeEvents?.map((e) => ({
+      ...e,
+      age: Math.min(safeNum(e.age, currentAge, currentAge), endAge),
+      amount: safeNum(e.amount, 0),
+    })),
+    nisaConfig: form.nisaConfig ? {
+      annualLimit: safeNum(form.nisaConfig.annualLimit, 3_600_000),
+      lifetimeLimit: safeNum(form.nisaConfig.lifetimeLimit, 18_000_000),
+    } : undefined,
 
     // v1.0 世帯シミュレーション
     spouse: (form.spouse && form.spouseEnabled !== false) ? spouseFormToInput(form.spouse) : undefined,
@@ -278,9 +299,12 @@ function spouseFormToInput(sp: SpouseFormState): SpouseInput {
   const standardDeviation = portfolioResult.totalAmount > 0 ? Math.max(0.001, portfolioResult.risk) : 0.15;
   const balances = deriveBalancesByTaxCategory(sp.portfolio);
 
+  const currentAge = safeNum(sp.currentAge, 35, 18);
+  const retirementAge = Math.min(Math.max(safeNum(sp.retirementAge, 55, 19), currentAge + 1), 120);
+
   return {
-    currentAge: safeNum(sp.currentAge, 35, 18),
-    retirementAge: safeNum(sp.retirementAge, 55, 19),
+    currentAge,
+    retirementAge,
     annualSalary: safeNum(sp.annualSalary),
     accounts: {
       nisa: balances.nisa,
@@ -293,9 +317,22 @@ function spouseFormToInput(sp: SpouseFormState): SpouseInput {
     idecoYearsOfService: safeNum(sp.idecoYearsOfService, 20, 1),
     tokuteiGainRatio: safeNum(sp.tokuteiGainRatio, 50) / 100,
     goldGainRatio: safeNum(sp.goldGainRatio, 30) / 100,
-    pension: sp.pension,
-    retirementBonus: sp.retirementBonus,
-    sideIncome: sp.sideIncome,
-    nisaConfig: sp.nisaConfig,
+    pension: sp.pension ? {
+      kosei: safeNum(sp.pension.kosei, 0),
+      kokumin: safeNum(sp.pension.kokumin, 0),
+      startAge: Math.min(Math.max(safeNum(sp.pension.startAge, 65, 60), 60), 75),
+    } : undefined,
+    retirementBonus: sp.retirementBonus ? {
+      amount: safeNum(sp.retirementBonus.amount, 0),
+      yearsOfService: safeNum(sp.retirementBonus.yearsOfService, 20, 1),
+    } : undefined,
+    sideIncome: sp.sideIncome ? {
+      annualAmount: safeNum(sp.sideIncome.annualAmount, 0),
+      untilAge: Math.min(safeNum(sp.sideIncome.untilAge, 70, currentAge), 120),
+    } : undefined,
+    nisaConfig: sp.nisaConfig ? {
+      annualLimit: safeNum(sp.nisaConfig.annualLimit, 3_600_000),
+      lifetimeLimit: safeNum(sp.nisaConfig.lifetimeLimit, 18_000_000),
+    } : undefined,
   };
 }

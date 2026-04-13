@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.0] - 2026-04-13
+
+デザイン品質向上 + 入力バリデーション強化。
+
+### 改善
+- **emoji→lucide-react SVG**: ヘッダー火炉アイコン、テーマトグル(Sun/Moon)、処方箋アイコン(Wallet/CalendarClock/TrendingUp)、診断書アイコンを環境非依存のSVGに置換
+- **スティッキーCTAボタン**: 「シミュレーション開始」ボタンを画面下部に固定表示(sticky bottom + backdrop-blur)
+- **a11y**: テーマトグルにaria-label追加、チェブロンにaria-hidden追加、枯渇・暴落マーカーにaria-label追加
+
+### セキュリティ
+- **年齢整合性ガード**: retirementAge > currentAge、endAge > retirementAge を`formToSimulationInput`で強制
+- **年齢上限120歳**: endAge/retirementAgeに上限キャップ追加(DoS防止)
+- **numTrials上限**: 10,000回にキャップ(JSON import経由の過大値防止)
+- **pension/sideIncome/lifeEventsサニタイズ**: 全拡張フィールドにsafeNum適用(負値・NaN防御)
+- **配偶者年齢ガード**: spouseFormToInputに同等の年齢整合性ガード適用
+- **Worker cancelデッドコード除去**: 未実装のcancel型をWorkerMessageから削除
+
+### テスト
+- 年齢整合性テスト3件 + numTrials上限テスト + 年齢上限テスト2件 = **6テスト追加** (147テスト)
+
 ## [1.4.0] - 2026-04-12
 
 最悪ケース診断書（p5シナリオの失敗原因分析）を追加。

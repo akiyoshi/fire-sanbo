@@ -5,8 +5,7 @@ import type { PrescriptionResult } from "@/lib/prescription";
 
 export type WorkerMessage =
   | { type: "run"; input: SimulationInput }
-  | { type: "prescribe"; input: SimulationInput; targetRate: number; seed: number }
-  | { type: "cancel" };
+  | { type: "prescribe"; input: SimulationInput; targetRate: number; seed: number };
 
 export type WorkerResponse =
   | { type: "result"; data: SimulationResult }

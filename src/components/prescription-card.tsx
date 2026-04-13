@@ -5,6 +5,7 @@ import type { PrescriptionResult, Prescription, Difficulty } from "@/lib/prescri
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { Wallet, CalendarClock, TrendingUp } from "lucide-react";
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easy: "やさしい",
@@ -18,16 +19,16 @@ const DIFFICULTY_COLOR: Record<Difficulty, string> = {
   hard: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
-const AXIS_ICON: Record<string, string> = {
-  expense: "💰",
-  retirement: "📅",
-  investment: "📈",
+const AXIS_ICON: Record<string, React.ReactNode> = {
+  expense: <Wallet className="h-5 w-5 text-muted-foreground" />,
+  retirement: <CalendarClock className="h-5 w-5 text-muted-foreground" />,
+  investment: <TrendingUp className="h-5 w-5 text-muted-foreground" />,
 };
 
 function PrescriptionItem({ rx }: { rx: Prescription }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
-      <span className="text-2xl" aria-hidden="true">
+      <span className="shrink-0 mt-0.5" aria-hidden="true">
         {AXIS_ICON[rx.axis]}
       </span>
       <div className="flex-1 min-w-0">

@@ -94,6 +94,47 @@ describe("formToSimulationInput", () => {
       const input = formToSimulationInput(broken);
       expect(input.numTrials).toBeGreaterThanOrEqual(10);
     });
+
+    it("numTrialsの上限は10,000", () => {
+      const form: FormState = { ...DEFAULT_FORM, numTrials: 100_000 };
+      const input = formToSimulationInput(form);
+      expect(input.numTrials).toBe(10_000);
+    });
+  });
+
+  describe("年齢整合性ガード", () => {
+    it("retirementAge < currentAge の場合 currentAge+1 に補正される", () => {
+      const form: FormState = { ...DEFAULT_FORM, currentAge: 50, retirementAge: 40 };
+      const input = formToSimulationInput(form);
+      expect(input.retirementAge).toBeGreaterThan(input.currentAge);
+    });
+
+    it("endAge < retirementAge の場合 retirementAge+1 に補正される", () => {
+      const form: FormState = { ...DEFAULT_FORM, retirementAge: 60, endAge: 55 };
+      const input = formToSimulationInput(form);
+      expect(input.endAge).toBeGreaterThan(input.retirementAge);
+    });
+
+    it("全年齢が同値の場合でも currentAge < retirementAge < endAge が保証される", () => {
+      const form: FormState = { ...DEFAULT_FORM, currentAge: 50, retirementAge: 50, endAge: 50 };
+      const input = formToSimulationInput(form);
+      expect(input.currentAge).toBe(50);
+      expect(input.retirementAge).toBe(51);
+      // endAge は safeNum の min=60 が適用された上で retirementAge+1 との max
+      expect(input.endAge).toBe(60);
+    });
+
+    it("endAge が120歳を超えない（DoS防止）", () => {
+      const form: FormState = { ...DEFAULT_FORM, endAge: 999999 };
+      const input = formToSimulationInput(form);
+      expect(input.endAge).toBeLessThanOrEqual(120);
+    });
+
+    it("retirementAge が120歳を超えない", () => {
+      const form: FormState = { ...DEFAULT_FORM, currentAge: 118, retirementAge: 200 };
+      const input = formToSimulationInput(form);
+      expect(input.retirementAge).toBeLessThanOrEqual(120);
+    });
   });
 
   describe("ポートフォリオ合成", () => {
