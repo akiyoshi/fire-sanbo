@@ -1,7 +1,8 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v1.0.0
-> **更新日**: 2026-04-12
+> **バージョン**: v1.5.0
+> **更新日**: 2026-04-13
+> **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
 ## ビジョン
 
@@ -17,13 +18,14 @@
 | 機能 | 実装 | テスト |
 |------|------|--------|
 | モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 29テスト |
+| 最悪ケース診断 | `simulation/diagnosis.ts` | 7テスト |
 | 日本税制エンジン (2026年度) | `tax/engine.ts` | 39テスト |
 | 処方箋 (3軸二分探索) | `prescription/engine.ts` runTrialLite | 10テスト |
 | 取り崩し最適化 | `withdrawal/optimizer.ts` | 6テスト |
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
 | ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
-| FormState永続化 | `form-state.ts` | 27テスト |
-| **合計** | | **134テスト** |
+| FormState永続化 + バリデーション | `form-state.ts` | 33テスト |
+| **合計** | | **147テスト** |
 
 ### 収入モデル
 
@@ -64,6 +66,19 @@
 - **年金・退職金・副収入・ライフイベント反映済み**
 - **難易度タグ**: やさしい / ふつう / むずかしい
 
+### 最悪ケース診断書
+
+- **p5失敗シナリオ分析**: 下位5%パーセンタイルの試行を抽出し失敗原因を自動分類
+- **4分類**: 暴落型 / 資金不足型 / ライフイベント集中型 / 長寿リスク型
+- **p5 vs 中央値 対比テーブル**: 重要年を間引き表示、暴落年・枯渇年をハイライト
+
+### 計算根拠書
+
+- **12セクション構成**: 収入と税金(5) / 資産の取り崩し(3) / シミュレーションの仕組み(4)
+- **動的計算例**: 税エンジン関数を呼び出し、JSON設定変更に自動追従
+- **スティッキー目次**: IntersectionObserverで現在セクションをハイライト
+- **出典リンク**: 国税庁・厚労省・金融庁等の公式URL
+
 ### シナリオ管理
 
 - 名前付きパラメータセット保存(localStorage)
@@ -87,13 +102,21 @@ src/
 │   │   ├── spouse-section     # 配偶者
 │   │   └── advanced-section   # インフレ率・含み益率・シミュレーション回数
 │   ├── results.tsx            # 成功率 + チャート + What-if
-│   ├── prescription-card.tsx  # 処方箋UI
+│   ├── prescription-card.tsx  # 処方箋UI (lucide-react SVG)
+│   ├── worst-case-card.tsx    # 最悪ケース診断書
 │   ├── portfolio-optimizer.tsx # 最適化UI
 │   ├── scenario-compare.tsx   # シナリオ比較
+│   ├── theme-toggle.tsx       # ダーク/ライト切替 (Sun/Moon SVG)
+│   ├── methodology/           # 計算根拠書 (12セクション)
+│   │   ├── methodology-page.tsx
+│   │   ├── sections/          # 各セクションコンポーネント
+│   │   ├── table-of-contents.tsx
+│   │   ├── progress-bar.tsx
+│   │   └── example-card.tsx
 │   └── ui/                    # shadcn/ui コンポーネント
 ├── lib/
 │   ├── form-state.ts          # FormState永続化(v3スキーマ)
-│   ├── simulation/            # モンテカルロエンジン + Worker
+│   ├── simulation/            # モンテカルロエンジン + Worker + diagnosis.ts
 │   ├── tax/                   # 2026年度税制エンジン
 │   ├── portfolio/             # 合成計算 + 最適化
 │   ├── prescription/          # 処方箋(二分探索)
@@ -108,7 +131,7 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 134テスト, ~2秒
+- **Vitest**: 147テスト, ~2秒
 - **TypeScript strict**: 全ファイル
 
 ### 設計原則
@@ -118,12 +141,61 @@ src/
 - **FormState v3**: スキーマバージョン管理 + v2→v3マイグレーション
 - **テスト駆動**: 税制計算・シミュレーション・最適化は独立テスト
 
-## 今後の方針 (v1.1: 磨き込みフェーズ)
+### セキュリティ (v1.5.0)
 
-機能追加は一段落。既存機能の品質向上にフォーカスする。
+- **年齢整合性ガード**: retirementAge > currentAge, endAge > retirementAge を `formToSimulationInput()` で強制
+- **年齢上限120歳**: endAge/retirementAge にキャップ (DoS防止)
+- **numTrials上限10,000**: JSON import経由の過大値を防御
+- **全拡張フィールド safeNum**: pension/sideIncome/lifeEvents/nisaConfig に NaN・負値ガード
+- **配偶者ガード**: spouseFormToInput に同等の整合性チェック
 
-- [ ] プログレッシブ入力: 3項目(年齢・年収・資産)で即座に概算結果表示
-- [ ] recharts遅延ロード: React.lazyでバンドルサイズ削減
-- [ ] E2Eテスト: Playwright で主要フロー検証
-- [ ] アクセシビリティ: キーボード操作・スクリーンリーダー対応
-- [ ] GitHub Pages デプロイ
+### デプロイ
+
+- **GitHub Pages**: https://akiyoshi.github.io/fire-sanbo/
+- **CI/CD**: GitHub Actions (`deploy.yml`) — test → build → deploy-pages
+- **OGP/Twitter Card**: `summary_large_image` + 1200×630 OGP画像
+- **favicon**: SVG + 32px PNG + 180px Apple Touch Icon
+
+---
+
+## ロードマップ
+
+### 完了済み
+
+- [x] ~~GitHub Pages デプロイ~~ (v1.5.0)
+- [x] ~~a11y基盤~~: aria-label, aria-hidden, role="alert", 色+アイコン二重伝達 (v1.5.0)
+- [x] ~~emoji→SVG~~: lucide-react に全面移行 (v1.5.0)
+- [x] ~~スティッキーCTA~~: 画面下部固定 + backdrop-blur (v1.5.0)
+- [x] ~~OGP/Twitter Card~~: メタタグ + 画像 + favicon
+- [x] ~~入力バリデーション強化~~: 年齢ガード + numTrialsキャップ + safeNum (v1.5.0)
+
+### Phase 1: バイラル装置 (次の優先)
+
+- [ ] **共有URL**: パラメータをBase64エンコード → URLフラグメント、サーバー不要
+  - 処方箋結果ページからワンクリックでURL生成
+  - 「私のFIRE計画を見て」がTwitterで回る装置
+
+### Phase 2: Time to Value 革命
+
+- [ ] **プログレッシブ入力**: 3項目(年齢・年収・資産)で即座に概算結果表示
+  - 現在20項目のフォームは初見離脱率が高い
+  - Step 1: 3項目 → 即概算 / Step 2: 詳細入力 / Step 3: 高度な設定
+- [ ] **結果ページ再構成**: KPI → 処方箋(アクション) → チャート+What-if の順
+  - 成功率だけ見て離脱するユーザーを処方箋に誘導
+
+### Phase 3: 品質・堅牢性
+
+- [ ] **WCAG AA完全準拠**: チャート代替テキスト、色+アイコン二重伝達の残り、コントラスト比4.5:1
+- [ ] **フルレスポンシブ**: mdブレークポイント追加、チャート高さ可変、タブレット2カラム
+- [ ] **デザイントークン統一**: OKLCH変数 → 全コンポーネント浸透、ダーク/ライト完全対称
+
+### Phase 4: パフォーマンス・テスト
+
+- [ ] recharts遅延ロード: React.lazyでバンドルサイズ削減 (現在752KB gzip 227KB)
+- [ ] E2Eテスト: Playwright で入力→結果→処方箋→シナリオ比較フロー検証
+
+### 将来構想 (CEOレビューより)
+
+- [ ] **名前遷移**: FIRE参謀 → 資産参謀 (FIRE以外のユーザー層拡大時)
+- [ ] **動的OGP**: シミュレーション結果をOGP画像に反映 (Edge Function)
+- [ ] **PWA対応**: オフライン実行、ホーム画面追加

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.1] - 2026-04-13
+
+OGP/Twitter Card + favicon 追加。共有時のリンクプレビューを有効化。
+
+### 追加
+- **OGP メタタグ**: og:title, og:description, og:image, og:url, og:locale, og:site_name
+- **Twitter Card**: summary_large_image 対応
+- **OGP画像**: 1200×630 ダークテーマ（炎アイコン、機能ピル、タグライン）
+- **favicon**: SVG + 32px PNG + 180px Apple Touch Icon
+- **theme-color**: ダークスレートブルー (#0f172a)
+- **description更新**: 処方箋エンジンの説明を追加
+
 ## [1.5.0] - 2026-04-13
 
 デザイン品質向上 + 入力バリデーション強化。

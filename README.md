@@ -1,5 +1,7 @@
 # 🔥 FIRE参謀
 
+> **ライブ**: https://akiyoshi.github.io/fire-sanbo/
+
 日本の税制・社会保険料を反映したモンテカルロFIREシミュレーター。
 
 「成功確率67%」で終わらない — 支出削減・退職時期・追加投資の3軸で「90%にするには？」を逆算する処方箋エンジン搭載。
@@ -7,22 +9,26 @@
 ## 機能
 
 - **モンテカルロシミュレーション** — 1,000回の確率的試行で成功率を算出
-- **日本の税制エンジン** — 所得税・住民税・社会保険料・iDeCo退職所得控除・特定口座譲渡益税・金現物譲渡税を反映
+- **日本の税制エンジン** — 所得税・住民税・社会保険料・iDeCo退職所得控除・特定口座譲渡益税・金現物譲渡税を反映（2026年度税制対応）
 - **処方箋エンジン** — 目標成功率に対して3軸で二分探索し、Top 3の改善案を提示
-- **4口座種別** — NISA / 特定口座 / iDeCo / 金現物の取り崩し順序を最適化
-- **ポートフォリオ・ブリッジ** — 8資産クラス＋現金の保有額から合成リターン・リスクを自動計算（GPIF相関行列ベース）
+- **最悪ケース診断書** — p5（下位5%）シナリオを分析し、暴落型・資金不足型・長寿リスク型等に自動分類
+- **5口座種別** — 現金 / NISA / 特定口座 / iDeCo / 金現物の取り崩し順序を最適化
+- **ポートフォリオ最適化** — 効率的フロンティア(モンテカルロ10,000サンプル)で最適配分を提案、ワンクリック適用
+- **計算根拠書** — 12セクション・動的計算例・出典リンク付きで全ルールを解説
 - **What-ifスライダー** — 結果画面でリアルタイムにパラメータを変更して再計算
-- **インフレ率対応** — 実質リターン＝名目リターン−インフレ率
+- **シナリオ管理** — 名前付き保存・比較・JSON エクスポート/インポート
 
 ## 技術スタック
 
 | レイヤー | 技術 |
 |---------|------|
-| フレームワーク | Vite + React 19 (SPA) |
-| スタイル | Tailwind CSS v4 + shadcn/ui |
+| フレームワーク | Vite 6 + React 19 (SPA) |
+| スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
+| アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |
-| テスト | Vitest + Testing Library (86テスト) |
+| テスト | Vitest (147テスト, ~2秒) |
 | 言語 | TypeScript (strict) |
+| CI/CD | GitHub Actions → GitHub Pages |
 
 ## セットアップ
 
@@ -37,20 +43,24 @@ npm run build      # 本番ビルド → dist/
 
 ```
 src/
-├── App.tsx              # エントリポイント
+├── App.tsx              # エントリポイント (4フェーズステートマシン)
 ├── main.tsx             # ReactDOM.createRoot
-├── app/globals.css      # Tailwind + テーマ変数
+├── app/globals.css      # Tailwind + テーマ変数 (OKLCH)
 ├── components/          # UI コンポーネント
-│   ├── wizard.tsx       # 入力フォーム
+│   ├── wizard.tsx       # 入力フォーム (9サブコンポーネント)
+│   ├── wizard/          # セクション別入力
 │   ├── results.tsx      # 結果画面 + What-if
-│   ├── prescription-card.tsx
-│   ├── tax-breakdown-card.tsx
+│   ├── prescription-card.tsx  # 処方箋
+│   ├── worst-case-card.tsx    # 最悪ケース診断書
+│   ├── portfolio-optimizer.tsx # 効率的フロンティア
+│   ├── scenario-compare.tsx   # シナリオ比較
+│   ├── methodology/     # 計算根拠書 (12セクション)
 │   └── ui/              # shadcn/ui
 ├── config/              # 税制・資産クラスデータ (JSON)
 └── lib/                 # 計算エンジン (フレームワーク非依存)
-    ├── simulation/      # モンテカルロ + Worker
+    ├── simulation/      # モンテカルロ + Worker + 診断
     ├── prescription/    # 処方箋 (二分探索)
     ├── tax/             # 税制エンジン
-    ├── portfolio/       # ポートフォリオ合成
+    ├── portfolio/       # ポートフォリオ合成 + 最適化
     └── withdrawal/      # 取り崩し順序最適化
 ```
