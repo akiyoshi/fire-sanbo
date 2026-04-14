@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v1.6.1
+> **バージョン**: v1.9.0
 > **更新日**: 2026-04-14
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -25,7 +25,8 @@
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
 | ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
 | FormState永続化 + バリデーション | `form-state.ts` | 33テスト |
-| **合計** | | **147テスト** |
+| 共有URL圧縮 | `url-share.ts` | 15テスト |
+| **合計** | | **162テスト** |
 
 ### 収入モデル
 
@@ -85,15 +86,29 @@
 - シナリオ比較画面(並列シミュレーション)
 - JSON エクスポート / インポート
 
+### 共有URL (v1.7.0)
+
+- **DeflateRaw + Base64url圧縮**: pakoでFormStateを圧縮、URLフラグメント `#s=` に格納
+- **サーバー不要**: 全データがURL内に完結
+- **Web Share API / クリップボードフォールバック**: 「コピーしました」フィードバック
+- **セキュリティ**: portfolio上隘8件、label上限50文字、numTrials固定1000、importFormFromJSONでバリデーション
+
+### クイックスタート (v1.8.0)
+
+- **3項目即座シミュレーション**: 年齢・年収・資産総額だけで即開始
+- **デフォルト補完**: 省略フィールドはDEFAULT_FORMの合理的デフォルトで補完
+- **詳しく設定する**: リンクでフルフォームに展開、入力値は自動反映
+
 ## アーキテクチャ
 
 ```
 src/
-├── App.tsx                    # 5フェーズステートマシン
+├── App.tsx                    # 5フェーズステートマシン + 共有URL復元
 ├── components/
-│   ├── wizard.tsx             # オーケストレーター(~90行)
+│   ├── wizard.tsx             # オーケストレーター(~90行) + QuickStart統合
 │   ├── wizard/                # セクション別サブコンポーネント
     │   ├── shared.tsx         # NumberInput, SliderInput
+│   │   ├── quick-start.tsx    # 3項目クイックスタート
 │   │   ├── scenario-section   # シナリオ管理 + エクスポート/インポート
 │   │   ├── basic-section      # 年齢・年収・生活費
 │   │   ├── portfolio-section  # 資産入力 + 合成計算 + 最適化
@@ -115,6 +130,7 @@ src/
 │   │   └── example-card.tsx
 │   └── ui/                    # shadcn/ui コンポーネント
 ├── lib/    ├── utils.ts               # cn(), formatManYen()│   ├── form-state.ts          # FormState永続化(v3スキーマ)
+│   ├── url-share.ts           # 共有URL圧縮/展開 (DeflateRaw+Base64url)
 │   ├── simulation/            # モンテカルロエンジン + Worker + diagnosis.ts
 │   ├── tax/                   # 2026年度税制エンジン
 │   ├── portfolio/             # 合成計算 + 最適化
@@ -130,7 +146,7 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 147テスト, ~2秒
+- **Vitest**: 162テスト, ~2秒
 - **TypeScript strict**: 全ファイル
 
 ### 設計原則
@@ -176,25 +192,9 @@ src/
 - [x] ~~a11y拡充~~: navランドマーク, skip-to-content, チャートaria-label, WCAG AAコントラスト (v1.6.0-1.6.1)
 - [x] ~~コード品質~~: formatManYen一元化, 削除ボタンlucide-react統一 (v1.6.1)
 
-### Phase 1: バイラル装置 (次の優先)
-
-- [ ] **共有URL**: パラメータをBase64エンコード → URLフラグメント、サーバー不要
-  - 処方箋結果ページからワンクリックでURL生成
-  - 「私のFIRE計画を見て」がTwitterで回る装置
-
-### Phase 2: Time to Value 革命
-
-- [ ] **プログレッシブ入力**: 3項目(年齢・年収・資産)で即座に概算結果表示
-  - 現在20項目のフォームは初見離脱率が高い
-  - Step 1: 3項目 → 即概算 / Step 2: 詳細入力 / Step 3: 高度な設定
-- [ ] **結果ページ再構成**: KPI → 処方箋(アクション) → チャート+What-if の順
-  - 成功率だけ見て離脱するユーザーを処方箋に誘導
-
-### Phase 3: 品質・堅牢性
-
-- [ ] **WCAG AA完全準拚**: 残りのチャート代替テキスト、フォーカス管理の精練
-- [ ] **フルレスポンシブ**: mdブレークポイント追加、チャート高さ可変、タブレット2カラム
-- [ ] **デザイントークン統一**: OKLCH変数 → 全コンポーネント浸透、ダーク/ライト完全対称
+- [x] ~~共有URL~~: DeflateRaw+Base64url圧縮でサーバーレス共有、Web Share API対応 (v1.7.0)
+- [x] ~~クイックスタート~~: 3項目(年齢・年収・資産)で即座シミュレーション、結果ページアクション優先レイアウト (v1.8.0)
+- [x] ~~品質・堅牢性~~: レスポンシブ(smブレークポイント), a11y(dialog/aria-modal/Esc), チャート高さ可変, OKLCHトークン統一 (v1.9.0)
 
 ### Phase 4: パフォーマンス・テスト
 
