@@ -144,14 +144,6 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
     }
   }, [recommended, currentPortfolio, onApply]);
 
-  if (!open) {
-    return (
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        📊 最適配分を提案
-      </Button>
-    );
-  }
-
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -163,6 +155,14 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
     dialogRef.current?.focus();
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        📊 最適配分を提案
+      </Button>
+    );
+  }
 
   const rec = recommended;
   const riskLabel =
