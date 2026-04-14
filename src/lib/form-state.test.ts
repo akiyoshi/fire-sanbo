@@ -326,4 +326,20 @@ describe("JSON エクスポート/インポート", () => {
     const json = JSON.stringify({ version: 3, form });
     expect(importFormFromJSON(json)).toBeNull();
   });
+
+  it("spouse.portfolioが20件を超える場合 null を返す（DoS防御）", () => {
+    const form = {
+      ...DEFAULT_FORM,
+      spouse: {
+        ...DEFAULT_FORM,
+        portfolio: Array.from({ length: 21 }, () => ({
+          assetClass: "developed_stock",
+          taxCategory: "nisa",
+          amount: 1_000_000,
+        })),
+      },
+    };
+    const json = JSON.stringify({ version: 3, form });
+    expect(importFormFromJSON(json)).toBeNull();
+  });
 });

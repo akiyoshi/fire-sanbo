@@ -123,6 +123,9 @@ export function importFormFromJSON(json: string): FormState | null {
       }
     }
     if (form.lifeEvents && (!Array.isArray(form.lifeEvents) || form.lifeEvents.length > 30)) return null;
+    if (form.spouse && typeof form.spouse === "object") {
+      if (form.spouse.portfolio && (!Array.isArray(form.spouse.portfolio) || form.spouse.portfolio.length > 20)) return null;
+    }
     if (data.version === 2) {
       return migrateV2toV3(form as Record<string, unknown>);
     }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback, lazy, Suspense, Component } from "react";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput, loadScenarios } from "@/lib/form-state";
 import type { Scenario } from "@/lib/form-state";
@@ -12,6 +12,30 @@ import { Flame } from "lucide-react";
 const Results = lazy(() => import("@/components/results").then(m => ({ default: m.Results })));
 const ScenarioCompare = lazy(() => import("@/components/scenario-compare").then(m => ({ default: m.ScenarioCompare })));
 const MethodologyPage = lazy(() => import("@/components/methodology/methodology-page").then(m => ({ default: m.MethodologyPage })));
+
+class ChunkErrorBoundary extends Component<
+  { children: React.ReactNode; onReset: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <p className="text-sm text-destructive">読み込みに失敗しました。</p>
+          <button
+            className="text-sm underline text-primary"
+            onClick={() => { this.setState({ hasError: false }); this.props.onReset(); }}
+          >
+            入力画面に戻る
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type AppState =
   | { phase: "input" }
@@ -120,6 +144,7 @@ export default function App() {
             <p className="text-sm text-muted-foreground">シミュレーション実行中...</p>
           </div>
         )}
+        <ChunkErrorBoundary onReset={() => setState({ phase: "input" })}>
         <Suspense fallback={
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -151,6 +176,7 @@ export default function App() {
           <MethodologyPage onBack={() => setState({ phase: "input" })} />
         )}
         </Suspense>
+        </ChunkErrorBoundary>
       </main>
 
       <footer className="border-t mt-auto">
