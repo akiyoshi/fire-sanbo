@@ -20,21 +20,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { formatManYen } from "@/lib/utils";
 
 interface ResultsProps {
   initialForm: FormState;
   initialResult: SimulationResult;
   worker: SimulationWorker | null;
   onBack: () => void;
-}
-
-function formatManYen(value: number): string {
-  const man = Math.round(value / 10000);
-  if (man >= 10000) {
-    const oku = man / 10000;
-    return oku % 1 === 0 ? `${oku}億` : `${oku.toFixed(1)}億`;
-  }
-  return `${man.toLocaleString()}万`;
 }
 
 function SuccessRateDisplay({ rate }: { rate: number }) {
@@ -94,6 +86,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
 
   return (
     <>
+    <div role="img" aria-label="資産推移チャート。5〜95パーセンタイルの信頼区間と中央値を表示">
     <ResponsiveContainer width="100%" height={350}>
       <AreaChart data={data}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -103,7 +96,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
           className="text-xs"
         />
         <YAxis
-          tickFormatter={formatManYen}
+          tickFormatter={(v) => formatManYen(v)}
           width={80}
           label={{ value: "資産（万円）", angle: -90, position: "insideLeft", offset: 10 }}
           className="text-xs"
@@ -143,6 +136,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
         />
       </AreaChart>
     </ResponsiveContainer>
+    </div>
     <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
       <span className="flex items-center gap-1">
         <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.3 }} />

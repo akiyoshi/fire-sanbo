@@ -9,6 +9,7 @@ import { TAX_CATEGORIES, TAX_CATEGORY_LABELS } from "@/lib/portfolio";
 import type { AssetClassId, PortfolioEntry, TaxCategory } from "@/lib/portfolio";
 import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
 import { formatManYen } from "./shared";
+import { X } from "lucide-react";
 
 const SELECTABLE_CLASSES = ASSET_CLASS_IDS.filter((id) => id !== "cash");
 const assetClassData = getAssetClassData();
@@ -153,7 +154,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
                     aria-label="削除"
                     className="text-muted-foreground px-2"
                   >
-                    ✕
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 )}
               </div>

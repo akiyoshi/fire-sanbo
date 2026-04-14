@@ -101,6 +101,4 @@ export function formatYen(n: number): string {
   return new Intl.NumberFormat("ja-JP").format(n) + "円";
 }
 
-export function formatManYen(n: number): string {
-  return `${Math.round(n / 10000).toLocaleString()}万`;
-}
+export { formatManYen } from "@/lib/utils";

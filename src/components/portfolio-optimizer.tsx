@@ -6,6 +6,7 @@ import type { EfficientFrontierPoint } from "@/lib/portfolio/optimizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { X } from "lucide-react";
 
 const assetClassData = getAssetClassData();
 const INVESTABLE = ASSET_CLASS_IDS.filter((id) => id !== "cash");
@@ -166,7 +167,7 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
           <span>ポートフォリオ最適化</span>
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>✕</Button>
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} aria-label="閉じる"><X className="h-4 w-4" aria-hidden="true" /></Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

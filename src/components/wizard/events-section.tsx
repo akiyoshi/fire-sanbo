@@ -2,6 +2,7 @@ import type { FormState } from "@/lib/form-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 interface EventsSectionProps {
   form: FormState;
@@ -91,7 +92,7 @@ export function EventsSection({ form, update }: EventsSectionProps) {
                 aria-label="削除"
                 className="text-muted-foreground px-2"
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           ))

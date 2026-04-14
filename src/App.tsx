@@ -61,6 +61,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-2 focus:bg-background focus:text-foreground focus:border"
+      >
+        メインコンテンツへスキップ
+      </a>
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1
@@ -70,7 +76,7 @@ export default function App() {
             <Flame className="h-5 w-5 text-orange-500" aria-hidden="true" />
             FIRE参謀
           </h1>
-          <div className="flex items-center gap-2">
+          <nav aria-label="メインナビゲーション" className="flex items-center gap-2">
             {scenarioCount >= 2 && state.phase === "input" && (
               <button
                 onClick={() => setState({ phase: "compare" })}
@@ -86,11 +92,11 @@ export default function App() {
               計算根拠
             </button>
             <ThemeToggle />
-          </div>
+          </nav>
         </div>
       </header>
 
-      <main className="py-8 px-4">
+      <main id="main-content" className="py-8 px-4">
         {state.phase === "input" && <Wizard onComplete={handleComplete} />}
         {state.phase === "calculating" && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">

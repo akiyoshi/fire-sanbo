@@ -10,6 +10,8 @@ interface WorstCaseCardProps {
   retirementAge: number;
 }
 
+import { formatManYen } from "@/lib/utils";
+
 const CAUSE_ICON: Record<string, React.ReactNode> = {
   crash: <TrendingDown className="h-4 w-4 inline text-danger" />,
   underfunded: <Wallet className="h-4 w-4 inline text-danger" />,
@@ -17,15 +19,6 @@ const CAUSE_ICON: Record<string, React.ReactNode> = {
   longevity: <Hourglass className="h-4 w-4 inline text-danger" />,
   none: <CheckCircle className="h-4 w-4 inline text-success" />,
 };
-
-function formatManYen(n: number): string {
-  const man = Math.round(n / 10000);
-  if (Math.abs(man) >= 10000) {
-    const oku = man / 10000;
-    return oku % 1 === 0 ? `${oku}億` : `${oku.toFixed(1)}億`;
-  }
-  return `${man.toLocaleString()}万`;
-}
 
 function formatReturn(r: number): string {
   const pct = (r * 100).toFixed(1);

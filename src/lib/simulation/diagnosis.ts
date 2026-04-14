@@ -182,11 +182,8 @@ function formatReturn(r: number): string {
   return `${(r * 100).toFixed(0)}%`;
 }
 
+import { formatManYen as _formatManYen } from "@/lib/utils";
+
 function formatManYen(n: number): string {
-  const man = Math.round(n / 10000);
-  if (Math.abs(man) >= 10000) {
-    const oku = man / 10000;
-    return oku % 1 === 0 ? `${oku}億円` : `${oku.toFixed(1)}億円`;
-  }
-  return `${man.toLocaleString()}万円`;
+  return _formatManYen(n, true);
 }
