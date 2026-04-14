@@ -2,8 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   calcEmploymentIncome,
   calcSocialInsurancePremium,
-  calcTaxableIncome,
-  calcIncomeTax,
   calcResidentTax,
   calcAnnualTax,
   calcRetirementIncomeDeduction,

@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback, lazy, Suspense, Component } from "react";
+import { useState, useRef, useEffect, lazy, Suspense, Component } from "react";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput, loadScenarios } from "@/lib/form-state";
-import type { Scenario } from "@/lib/form-state";
 import { SimulationWorker } from "@/lib/simulation";
 import type { SimulationResult } from "@/lib/simulation";
 import { Wizard } from "@/components/wizard";
@@ -68,7 +67,6 @@ export default function App() {
     if (!form) return;
     setSharedBanner(true);
     handleComplete(form);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // input画面に戻るたびにシナリオ数を更新

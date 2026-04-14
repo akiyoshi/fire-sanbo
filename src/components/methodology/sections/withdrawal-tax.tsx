@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { calcWithdrawalTax } from "@/lib/tax/accounts";
 import taxConfig from "@/config/tax-config-2026.json";
-import { TwoColumn, ExampleCard, ExampleInput, Step, SourceLink, fmtExact, fmtPct } from "../example-card";
+import { TwoColumn, ExampleCard, ExampleInput, SourceLink, fmtExact, fmtPct } from "../example-card";
 
 export function WithdrawalTaxSection() {
   const cfg = taxConfig;

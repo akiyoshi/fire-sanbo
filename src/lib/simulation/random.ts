@@ -20,7 +20,7 @@ export class PRNG {
   /** Box-Muller法で標準正規分布の乱数を生成 */
   normalRandom(): number {
     let u1 = this.next();
-    let u2 = this.next();
+    const u2 = this.next();
     // u1が0だとlog(0)=-Infinityになるためガード
     while (u1 === 0) u1 = this.next();
     return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);

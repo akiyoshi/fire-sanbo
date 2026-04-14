@@ -1,4 +1,4 @@
-import type { AssetClassId, AssetClassData, PortfolioResult } from "./types";
+import type { AssetClassId, AssetClassData } from "./types";
 import { ASSET_CLASS_IDS } from "./types";
 import rawData from "@/config/asset-class-data.json";
 

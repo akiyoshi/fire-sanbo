@@ -104,7 +104,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
           className="text-xs"
         />
         <Tooltip
-          formatter={(value, name) => {
+          formatter={(value, _name) => {
             if (Array.isArray(value)) {
               return `${formatManYen(Number(value[0]))} 〜 ${formatManYen(Number(value[1]))}`;
             }

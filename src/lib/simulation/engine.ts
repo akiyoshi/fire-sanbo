@@ -5,7 +5,6 @@ import type {
   YearResult,
   TaxBreakdown,
   PensionInput,
-  SpouseInput,
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
 import {

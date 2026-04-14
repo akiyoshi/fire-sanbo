@@ -1,5 +1,5 @@
 import { runSimulation } from "@/lib/simulation";
-import type { SimulationInput, SimulationResult } from "@/lib/simulation";
+import type { SimulationInput } from "@/lib/simulation";
 import type { TaxCategory } from "@/lib/tax";
 
 /** 取り崩し順序の全パターン（4! = 24通り） */

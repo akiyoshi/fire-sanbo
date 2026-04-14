@@ -13,7 +13,7 @@ import { BasicSection } from "./wizard/basic-section";
 import { PortfolioSection } from "./wizard/portfolio-section";
 import { IncomeSection } from "./wizard/income-section";
 import { EventsSection } from "./wizard/events-section";
-import { SpouseSection } from "./wizard/spouse-section";
+import { SpouseSection as _SpouseSection } from "./wizard/spouse-section";  // 将来復活予定
 import { AdvancedSection } from "./wizard/advanced-section";
 import { QuickPreview } from "./wizard/quick-preview";
 import { QuickStart } from "./wizard/quick-start";

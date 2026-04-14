@@ -6,7 +6,6 @@ import {
   calcSocialInsurancePremium,
   calcTaxableIncome,
   calcIncomeTax,
-  calcResidentTax,
   calcAnnualTax,
 } from "@/lib/tax/engine";
 import taxConfig from "@/config/tax-config-2026.json";

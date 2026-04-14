@@ -94,7 +94,6 @@ export function PrescriptionCard({ worker, input, currentRate }: PrescriptionCar
   // input変更時に再計算
   useEffect(() => {
     recalculate(targetRate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input]);
 
   // cleanup

@@ -65,11 +65,11 @@ export function calcSocialInsurancePremium(
   const nhi = cfg.socialInsurance.nationalHealthInsurance;
   const base = Math.max(0, totalIncome - nhi.baseDeduction);
 
-  let medical = Math.min(
+  const medical = Math.min(
     Math.floor(base * nhi.medical.incomeRate) + nhi.medical.perCapita,
     nhi.medical.cap
   );
-  let support = Math.min(
+  const support = Math.min(
     Math.floor(base * nhi.support.incomeRate) + nhi.support.perCapita,
     nhi.support.cap
   );

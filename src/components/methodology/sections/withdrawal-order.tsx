@@ -1,4 +1,4 @@
-import { TwoColumn, ExampleCard, SourceLink } from "../example-card";
+import { TwoColumn, ExampleCard } from "../example-card";
 
 export function WithdrawalOrderSection() {
   return (

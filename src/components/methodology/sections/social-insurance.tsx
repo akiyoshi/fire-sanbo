@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { calcSocialInsurancePremium, calcEmploymentIncome } from "@/lib/tax/engine";
 import taxConfig from "@/config/tax-config-2026.json";
-import { TwoColumn, ExampleCard, ExampleInput, Step, SourceLink, fmtExact, fmtYen, fmtPct } from "../example-card";
+import { TwoColumn, ExampleCard, ExampleInput, Step, SourceLink, fmtExact, fmtPct } from "../example-card";
 
 export function SocialInsuranceSection() {
   const cfg = taxConfig;

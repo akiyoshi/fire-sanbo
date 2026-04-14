@@ -245,8 +245,8 @@ describe("シナリオ管理", () => {
   });
 
   it("saveScenario → loadScenarios でラウンドトリップ", () => {
-    const s1 = saveScenario("現状維持", DEFAULT_FORM);
-    const s2 = saveScenario("転職ケース", { ...DEFAULT_FORM, annualSalary: 8_000_000 });
+    saveScenario("現状維持", DEFAULT_FORM);
+    saveScenario("転職ケース", { ...DEFAULT_FORM, annualSalary: 8_000_000 });
     const scenarios = loadScenarios();
     expect(scenarios).toHaveLength(2);
     expect(scenarios[0].name).toBe("現状維持");
@@ -263,7 +263,7 @@ describe("シナリオ管理", () => {
 
   it("deleteScenario でシナリオを削除", () => {
     const s1 = saveScenario("A", DEFAULT_FORM);
-    const s2 = saveScenario("B", DEFAULT_FORM);
+    saveScenario("B", DEFAULT_FORM);
     deleteScenario(s1.id);
     const scenarios = loadScenarios();
     expect(scenarios).toHaveLength(1);
