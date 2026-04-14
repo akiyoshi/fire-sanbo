@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v1.9.0
+> **バージョン**: v2.0.0
 > **更新日**: 2026-04-14
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -24,9 +24,9 @@
 | 取り崩し最適化 | `withdrawal/optimizer.ts` | 6テスト |
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
 | ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
-| FormState永続化 + バリデーション | `form-state.ts` | 33テスト |
-| 共有URL圧縮 | `url-share.ts` | 15テスト |
-| **合計** | | **162テスト** |
+| FormState永続化 + バリデーション | `form-state.ts` | 35テスト |
+| 共有URL圧縮 | `url-share.ts` | 16テスト |
+| **合計** | | **165テスト** |
 
 ### 収入モデル
 
@@ -103,7 +103,7 @@
 
 ```
 src/
-├── App.tsx                    # 5フェーズステートマシン + 共有URL復元
+├── App.tsx                    # 5フェーズステートマシン + 共有URL復元 + React.lazy
 ├── components/
 │   ├── wizard.tsx             # オーケストレーター(~90行) + QuickStart統合
 │   ├── wizard/                # セクション別サブコンポーネント
@@ -146,7 +146,8 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 162テスト, ~2秒
+- **Vitest**: 165テスト, ~2秒
+- **Playwright**: E2E 4テスト (Chromium)
 - **TypeScript strict**: 全ファイル
 
 ### 設計原則
@@ -165,12 +166,14 @@ src/
 - **年齢上限120歳**: endAge/retirementAge にキャップ (DoS防止)
 - **numTrials上限10,000**: JSON import経由の過大値を防御
 - **全拡張フィールド safeNum**: pension/sideIncome/lifeEvents/nisaConfig に NaN・負値ガード
+- **共有URL圧縮サイズ上限**: 圧縮入力50KB・展開後500KB上限 (decompression bomb防御)
+- **配列長上限**: portfolio≤20件、lifeEvents≤30件 (O(n²) DoS防御)
 - **配偶者ガード**: spouseFormToInput に同等の整合性チェック
 
 ### デプロイ
 
 - **GitHub Pages**: https://akiyoshi.github.io/fire-sanbo/
-- **CI/CD**: GitHub Actions (`deploy.yml`) — test → build → deploy-pages (全アクション SHA-pinned)
+- **CI/CD**: GitHub Actions (`deploy.yml`) — test → E2E → build → deploy-pages (全アクション SHA-pinned)
 - **Dependabot**: github-actions + npm の週次自動更新 (`dependabot.yml`)
 - **OGP/Twitter Card**: `summary_large_image` + 1200×630 OGP画像
 - **favicon**: SVG + 32px PNG + 180px Apple Touch Icon
@@ -195,11 +198,7 @@ src/
 - [x] ~~共有URL~~: DeflateRaw+Base64url圧縮でサーバーレス共有、Web Share API対応 (v1.7.0)
 - [x] ~~クイックスタート~~: 3項目(年齢・年収・資産)で即座シミュレーション、結果ページアクション優先レイアウト (v1.8.0)
 - [x] ~~品質・堅牢性~~: レスポンシブ(smブレークポイント), a11y(dialog/aria-modal/Esc), チャート高さ可変, OKLCHトークン統一 (v1.9.0)
-
-### Phase 4: パフォーマンス・テスト
-
-- [ ] recharts遅延ロード: React.lazyでバンドルサイズ削減 (現在752KB gzip 227KB)
-- [ ] E2Eテスト: Playwright で入力→結果→処方箋→シナリオ比較フロー検証
+- [x] ~~パフォーマンス・E2E~~: React.lazyコード分割(初期368KB, 49%削減), Playwright E2E 4テスト, CI E2Eゲート (v2.0.0)
 
 ### 将来構想 (CEOレビューより)
 
