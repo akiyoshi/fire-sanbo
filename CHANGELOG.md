@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.1] - 2026-04-14
+
+安定版ポリシー採用。エコシステム未追従のメジャーバンプをロールバックし、開発ルールを明文化。
+
+### 変更
+- **TypeScript 6→5.9.3**: TS6のCSS import型宣言要件(`types: ["vite/client"]`)が不要に。最新機能は未使用
+- **ESLint 10→9.39.4**: flat config APIの`defineConfig`/`globalIgnores`が不要に。プラグインエコシステムが安定
+- **eslint-plugin-react-hooks canary→7.0.1**: ESLint 9対応安定版。React Compiler向け実験的ルールを回避
+- **@types/node 25→22**: CI Node.js 22と一致させる
+- **vite-tsconfig-paths 6→5**: TS5対応安定版
+
+### 追加
+- **Dependabotメジャーバンプ制御**: typescript/eslint/vite/@types/nodeのメジャーバンプをignore
+- **依存関係ポリシー**: DESIGN.mdにバージョン選定基準・Dependabotルール・安定版ベースラインを明文化
+- **CI lintステップ**: deploy.ymlのtestジョブに`npm run lint`追加
+
+### 修正
+- **react-dom バージョン不整合**: `19.2.5`(pin)→`^19.2.5`(caret)に統一。`npm update`時のpeer dep不整合を防止
+- **ChunkErrorBoundary**: React.lazy読み込み失敗時の白画面を防止するErrorBoundary追加
+- **spouse.portfolio長さガード**: importFormFromJSONに配列長20件上限を追加
+- **未使用import整理**: 12ファイルの未使用import/変数を削除（ESLint TSパーサー導入で初めて検出）
+
 ## [2.0.0] - 2026-04-14
 
 Phase 4: パフォーマンス・テスト。コード分割で初期ロード半減、E2Eテスト導入。
