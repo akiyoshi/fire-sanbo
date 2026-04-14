@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v2.0.0
+> **バージョン**: v3.0.0
 > **更新日**: 2026-04-14
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -146,7 +146,7 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 166テスト, ~2秒
+- **Vitest**: 180テスト, ~2秒
 - **Playwright**: E2E 4テスト (Chromium)
 - **TypeScript 5 strict**: 全ファイル
 - **ESLint 9** + typescript-eslint + eslint-plugin-react-hooks
