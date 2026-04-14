@@ -285,6 +285,13 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
         </CardContent>
       </Card>
 
+      {/* 処方箋（フル幅: アクション最優先） */}
+      <PrescriptionCard
+        worker={worker}
+        input={formToSimulationInput(form)}
+        currentRate={result.successRate}
+      />
+
       {/* 2カラムレイアウト: lg以上 */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-6 lg:space-y-0">
         {/* 左カラム: チャート + What-if */}
@@ -381,15 +388,8 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </Card>
         </div>
 
-        {/* 右カラム: 処方箋 + 診断書 + 取り崩し + 税金 */}
+        {/* 右カラム: 診断書 + 税金 + 取り崩し */}
         <div className="space-y-6">
-          {/* 処方箋 */}
-          <PrescriptionCard
-            worker={worker}
-            input={formToSimulationInput(form)}
-            currentRate={result.successRate}
-          />
-
           {/* 最悪ケース診断書 */}
           <WorstCaseCard result={result} retirementAge={form.retirementAge} />
 

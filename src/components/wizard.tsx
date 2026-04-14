@@ -16,6 +16,7 @@ import { EventsSection } from "./wizard/events-section";
 import { SpouseSection } from "./wizard/spouse-section";
 import { AdvancedSection } from "./wizard/advanced-section";
 import { QuickPreview } from "./wizard/quick-preview";
+import { QuickStart } from "./wizard/quick-start";
 
 interface WizardProps {
   onComplete: (form: FormState) => void;
@@ -74,6 +75,7 @@ export function Wizard({ onComplete }: WizardProps) {
 
   return (
     <div className="w-full max-w-4xl lg:max-w-6xl mx-auto space-y-6">
+      <QuickStart form={form} update={update} onQuickRun={onComplete} />
       <ScenarioSection
         form={form}
         setForm={setForm}
