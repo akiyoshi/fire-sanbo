@@ -159,6 +159,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
       </summary>
       <div className="overflow-x-auto mt-2">
         <table className="w-full text-xs border-collapse">
+          <caption className="sr-only">資産推移データ（5年間隔）</caption>
           <thead>
             <tr className="border-b">
               <th className="text-left py-1 pr-3 font-medium">年齢</th>

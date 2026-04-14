@@ -34,8 +34,9 @@ export function TemplateSelector({ form, setForm, onOpenSections }: TemplateSele
         {SCENARIO_TEMPLATES.map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => handleSelect(t)}
-            className="text-left"
+            className="text-left focus-visible:ring-2 focus-visible:ring-primary/50 rounded-xl"
           >
             <Card className="h-full hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer" size="sm">
               <CardContent className="flex flex-col items-center gap-1.5 py-3 px-2 text-center">

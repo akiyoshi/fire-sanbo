@@ -55,4 +55,42 @@ describe("テンプレートシナリオ", () => {
     const result = applyTemplate(base, template);
     expect(result.retirementAge).toBeGreaterThan(result.currentAge);
   });
+
+  it("endAge が retirementAge 以下の場合 自動調整される", () => {
+    const base = { ...DEFAULT_FORM, currentAge: 50, endAge: 52 };
+    const template = SCENARIO_TEMPLATES.find((t) => t.id === "early-retirement")!;
+    const result = applyTemplate(base, template);
+    expect(result.endAge).toBeGreaterThan(result.retirementAge);
+  });
+
+  it("pension マージが既存値を保持しつつ delta で上書き", () => {
+    const base = { ...DEFAULT_FORM, pension: { kosei: 80_000, kokumin: 50_000, startAge: 65 } };
+    const template = SCENARIO_TEMPLATES.find((t) => t.id === "pension-defer")!;
+    const result = applyTemplate(base, template);
+    // delta は startAge:70, kosei:100_000, kokumin:65_000 で全上書き
+    expect(result.pension!.startAge).toBe(70);
+    expect(result.pension!.kosei).toBe(100_000);
+  });
+
+  it("lifeEvents の age が endAge を超えない (上限クランプ)", () => {
+    const base = { ...DEFAULT_FORM, currentAge: 80, endAge: 95 };
+    const template = SCENARIO_TEMPLATES.find((t) => t.id === "education")!;
+    const result = applyTemplate(base, template);
+    for (const ev of result.lifeEvents!) {
+      expect(ev.age).toBeLessThan(base.endAge);
+      expect(ev.age).toBeGreaterThan(base.currentAge);
+    }
+  });
+
+  it("lifeEvents の重複IDは上書きされる", () => {
+    const base = {
+      ...DEFAULT_FORM,
+      lifeEvents: [{ id: "tpl-home", label: "旧住宅", age: 45, amount: 1_000_000 }],
+    };
+    const template = SCENARIO_TEMPLATES.find((t) => t.id === "home-purchase")!;
+    const result = applyTemplate(base, template);
+    const homeEvents = result.lifeEvents!.filter((e) => e.id === "tpl-home");
+    expect(homeEvents).toHaveLength(1);
+    expect(homeEvents[0].amount).toBe(5_000_000); // テンプレートの値で上書き
+  });
 });

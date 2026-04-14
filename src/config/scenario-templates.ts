@@ -87,7 +87,8 @@ export function applyTemplate(base: FormState, template: ScenarioTemplate): Form
     for (const ev of delta.lifeEvents) {
       // 年齢をユーザーの現在年齢に相対化 (テンプレートは35歳基準)
       const relativeAge = ev.age - 35 + base.currentAge;
-      const adjusted = { ...ev, age: Math.max(relativeAge, base.currentAge + 1) };
+      const clampedAge = Math.min(Math.max(relativeAge, base.currentAge + 1), base.endAge - 1);
+      const adjusted = { ...ev, age: clampedAge };
       const idx = existing.findIndex((e) => e.id === adjusted.id);
       if (idx >= 0) existing[idx] = adjusted;
       else existing.push(adjusted);
