@@ -88,8 +88,8 @@ function AssetChart({ result }: { result: SimulationResult }) {
 
   return (
     <>
-    <div role="img" aria-label="資産推移チャート。5〜95パーセンタイルの信頼区間と中央値を表示">
-    <ResponsiveContainer width="100%" height={350}>
+    <div role="img" aria-label="資産推移チャート。5〜95パーセンタイルの信頼区間と中央値を表示" className="h-[250px] sm:h-[350px]">
+    <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data}>
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis

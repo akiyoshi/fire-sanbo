@@ -104,7 +104,7 @@ export function ScenarioCompare({ worker, onBack }: ScenarioCompareProps) {
       </div>
 
       {/* 比較テーブル */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(results.length, 3)}, 1fr)` }}>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {results.map(({ scenario, result, calculating }) => (
           <Card key={scenario.id}>
             <CardHeader>

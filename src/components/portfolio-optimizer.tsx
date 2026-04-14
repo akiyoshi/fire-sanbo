@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { optimizePortfolio, selectRecommended } from "@/lib/portfolio/optimizer";
 import { ASSET_CLASS_IDS, getAssetClassData } from "@/lib/portfolio";
 import type { AssetClassId, PortfolioEntry, TaxCategory } from "@/lib/portfolio";
@@ -152,6 +152,18 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
     );
   }
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    dialogRef.current?.focus();
+    return () => document.removeEventListener("keydown", handler);
+  }, [open]);
+
   const rec = recommended;
   const riskLabel =
     riskTolerance <= 0.2
@@ -163,7 +175,7 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
           : "攻撃的";
 
   return (
-    <Card>
+    <Card ref={dialogRef} role="dialog" aria-modal="true" aria-label="ポートフォリオ最適化" tabIndex={-1} className="outline-none">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
           <span>ポートフォリオ最適化</span>

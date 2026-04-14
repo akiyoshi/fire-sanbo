@@ -86,8 +86,8 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
               onChange={(e) => updateEntry(i, "name", e.target.value)}
               className="text-xs text-muted-foreground h-7 border-0 px-1 focus-visible:ring-0 shadow-none"
             />
-            <div className="flex items-center gap-2">
-              <div className="w-[30%] min-w-0">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <div className="min-w-0 sm:w-[30%]">
                 <select
                   value={entry.assetClass}
                   onChange={(e) => {
@@ -112,7 +112,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
                   <option value="cash">{assetClassData.cash.label}</option>
                 </select>
               </div>
-              <div className="w-[25%] min-w-0">
+              <div className="min-w-0 sm:w-[25%]">
                 <select
                   value={entry.taxCategory}
                   onChange={(e) => updateEntry(i, "taxCategory", e.target.value)}
@@ -131,7 +131,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
                   }
                 </select>
               </div>
-              <div className="w-[35%] min-w-0">
+              <div className="col-span-full sm:col-span-1 sm:w-[35%] min-w-0">
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -145,7 +145,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
                   className="text-right font-bold tabular-nums"
                 />
               </div>
-              <div className="w-[10%] flex justify-center">
+              <div className="col-span-full flex justify-end sm:w-[10%] sm:justify-center">
                 {form.portfolio.length > 1 && (
                   <Button
                     variant="ghost"

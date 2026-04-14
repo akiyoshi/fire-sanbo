@@ -35,7 +35,7 @@ export function EventsSection({ form, update }: EventsSectionProps) {
           </p>
         ) : (
           form.lifeEvents.map((event, i) => (
-            <div key={event.id ?? i} className="flex items-center gap-2">
+            <div key={event.id ?? i} className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:items-center border-b pb-3 last:border-b-0 last:pb-0">
               <Input
                 type="text"
                 placeholder="イベント名"
@@ -46,9 +46,9 @@ export function EventsSection({ form, update }: EventsSectionProps) {
                   events[i] = { ...events[i], label: e.target.value };
                   update("lifeEvents", events);
                 }}
-                className="w-[30%]"
+                className="sm:w-[30%]"
               />
-              <div className="w-[20%]">
+              <div className="flex items-center gap-1 sm:w-[20%]">
                 <Input
                   type="number"
                   inputMode="numeric"
@@ -63,9 +63,9 @@ export function EventsSection({ form, update }: EventsSectionProps) {
                   min={form.currentAge}
                   max={form.endAge}
                 />
+                <span className="text-xs text-muted-foreground">歳</span>
               </div>
-              <span className="text-xs text-muted-foreground">歳</span>
-              <div className="flex-1">
+              <div className="col-span-full flex items-center gap-2 sm:col-span-1 sm:flex-1">
                 <Input
                   type="text"
                   inputMode="numeric"

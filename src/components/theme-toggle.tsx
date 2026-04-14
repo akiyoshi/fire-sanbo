@@ -18,7 +18,7 @@ export function ThemeToggle() {
       className="w-9 h-9 p-0"
       aria-label={theme === "dark" ? "ライトモードに切り替え" : "ダークモードに切り替え"}
     >
-      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {theme === "dark" ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
     </Button>
   );
 }
