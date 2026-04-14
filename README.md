@@ -28,8 +28,9 @@
 | スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
 | アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |
-| テスト | Vitest (165テスト, ~2秒) + Playwright E2E (4テスト) |
-| 言語 | TypeScript (strict) |
+| テスト | Vitest (166テスト, ~2秒) + Playwright E2E (4テスト) |
+| 言語 | TypeScript 5 (strict) |
+| 品質 | ESLint 9 + typescript-eslint + react-hooks |
 | CI/CD | GitHub Actions → GitHub Pages |
 
 ## セットアップ
