@@ -17,6 +17,8 @@
 - **計算根拠書** — 12セクション・動的計算例・出典リンク付きで全ルールを解説
 - **What-ifスライダー** — 結果画面でリアルタイムにパラメータを変更して再計算
 - **シナリオ管理** — 名前付き保存・比較・JSON エクスポート/インポート
+- **共有URL** — DeflateRaw+Base64url圧縮でサーバーレス共有、Web Share API対応
+- **クイックスタート** — 3項目（年齢・年収・資産）だけで即座にシミュレーション開始
 
 ## 技術スタック
 
@@ -26,7 +28,7 @@
 | スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
 | アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |
-| テスト | Vitest (147テスト, ~2秒) |
+| テスト | Vitest (162テスト, ~2秒) |
 | 言語 | TypeScript (strict) |
 | CI/CD | GitHub Actions → GitHub Pages |
 
@@ -47,8 +49,8 @@ src/
 ├── main.tsx             # ReactDOM.createRoot
 ├── app/globals.css      # Tailwind + テーマ変数 (OKLCH)
 ├── components/          # UI コンポーネント
-│   ├── wizard.tsx       # 入力フォーム (9サブコンポーネント)
-│   ├── wizard/          # セクション別入力
+│   ├── wizard.tsx       # 入力フォーム (9サブコンポーネント) + クイックスタート
+│   ├── wizard/          # セクション別入力 + quick-start.tsx
 │   ├── results.tsx      # 結果画面 + What-if
 │   ├── prescription-card.tsx  # 処方箋
 │   ├── worst-case-card.tsx    # 最悪ケース診断書
@@ -58,6 +60,7 @@ src/
 │   └── ui/              # shadcn/ui
 ├── config/              # 税制・資産クラスデータ (JSON)
 └── lib/                 # 計算エンジン (フレームワーク非依存)
+    ├── url-share.ts     # 共有URL圧縮/展開
     ├── simulation/      # モンテカルロ + Worker + 診断
     ├── prescription/    # 処方箋 (二分探索)
     ├── tax/             # 税制エンジン
