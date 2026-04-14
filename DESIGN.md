@@ -1,7 +1,7 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v1.5.0
-> **更新日**: 2026-04-13
+> **バージョン**: v1.5.2
+> **更新日**: 2026-04-14
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
 ## ビジョン
@@ -141,8 +141,11 @@ src/
 - **FormState v3**: スキーマバージョン管理 + v2→v3マイグレーション
 - **テスト駆動**: 税制計算・シミュレーション・最適化は独立テスト
 
-### セキュリティ (v1.5.0)
+### セキュリティ (v1.5.2)
 
+- **CSP (Content Security Policy)**: `vite.config.ts` の `cspPlugin()` で本番ビルド時のみ `<meta>` タグを注入。`script-src 'self'`、`object-src 'none'`、`base-uri 'self'`、`form-action 'self'` 等の defense-in-depth ディレクティブ適用
+- **GitHub Actions SHA-pin**: 全5アクションをコミットSHAで固定 (サプライチェーン攻撃防止)
+- **Dependabot**: `github-actions` + `npm` エコシステムの週次自動更新
 - **年齢整合性ガード**: retirementAge > currentAge, endAge > retirementAge を `formToSimulationInput()` で強制
 - **年齢上限120歳**: endAge/retirementAge にキャップ (DoS防止)
 - **numTrials上限10,000**: JSON import経由の過大値を防御
@@ -152,7 +155,8 @@ src/
 ### デプロイ
 
 - **GitHub Pages**: https://akiyoshi.github.io/fire-sanbo/
-- **CI/CD**: GitHub Actions (`deploy.yml`) — test → build → deploy-pages
+- **CI/CD**: GitHub Actions (`deploy.yml`) — test → build → deploy-pages (全アクション SHA-pinned)
+- **Dependabot**: github-actions + npm の週次自動更新 (`dependabot.yml`)
 - **OGP/Twitter Card**: `summary_large_image` + 1200×630 OGP画像
 - **favicon**: SVG + 32px PNG + 180px Apple Touch Icon
 
