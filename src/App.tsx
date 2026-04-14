@@ -9,6 +9,7 @@ import { Results } from "@/components/results";
 import { ScenarioCompare } from "@/components/scenario-compare";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MethodologyPage } from "@/components/methodology/methodology-page";
+import { parseShareHash } from "@/lib/url-share";
 import { Flame } from "lucide-react";
 
 type AppState =
@@ -21,6 +22,7 @@ type AppState =
 export default function App() {
   const [state, setState] = useState<AppState>({ phase: "input" });
   const [scenarioCount, setScenarioCount] = useState(() => loadScenarios().length);
+  const [sharedBanner, setSharedBanner] = useState(false);
   const workerRef = useRef<SimulationWorker | null>(null);
 
   useEffect(() => {
@@ -29,6 +31,19 @@ export default function App() {
       workerRef.current?.dispose();
       workerRef.current = null;
     };
+  }, []);
+
+  // 共有URLからの復元
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#s=")) return;
+    const form = parseShareHash(hash);
+    // ハッシュをクリア（リロードループ防止）
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    if (!form) return;
+    setSharedBanner(true);
+    handleComplete(form);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // input画面に戻るたびにシナリオ数を更新
@@ -105,12 +120,19 @@ export default function App() {
           </div>
         )}
         {state.phase === "result" && (
-          <Results
-            initialForm={state.form}
-            initialResult={state.result}
-            worker={workerRef.current}
-            onBack={() => setState({ phase: "input" })}
-          />
+          <>
+            {sharedBanner && (
+              <div className="max-w-6xl mx-auto mb-4 rounded-lg bg-primary/10 px-4 py-2 text-center text-sm text-primary">
+                共有されたプランを表示中
+              </div>
+            )}
+            <Results
+              initialForm={state.form}
+              initialResult={state.result}
+              worker={workerRef.current}
+              onBack={() => { setSharedBanner(false); setState({ phase: "input" }); }}
+            />
+          </>
         )}
         {state.phase === "compare" && (
           <ScenarioCompare

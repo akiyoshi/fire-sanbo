@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Link2, Check } from "lucide-react";
+import { buildShareUrl } from "@/lib/url-share";
 import {
   AreaChart,
   Area,
@@ -155,6 +157,56 @@ function AssetChart({ result }: { result: SimulationResult }) {
   );
 }
 
+function ShareButton({ form }: { form: FormState }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    const base = window.location.origin + window.location.pathname;
+    const url = buildShareUrl(form, base);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "FIRE参謀 シミュレーション結果", url });
+        return;
+      } catch {
+        // ユーザーがキャンセル or 非対応 → clipboard fallback
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // clipboard API 非対応 → 何もしない
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [form]);
+
+  return (
+    <div className="flex justify-center mt-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleShare}
+        className="gap-1.5"
+      >
+        {copied ? (
+          <>
+            <Check className="h-4 w-4" aria-hidden="true" />
+            コピーしました
+          </>
+        ) : (
+          <>
+            <Link2 className="h-4 w-4" aria-hidden="true" />
+            このプランを共有
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 export function Results({ initialForm, initialResult, worker, onBack }: ResultsProps) {
   const [form, setForm] = useState(initialForm);
   const [result, setResult] = useState(initialResult);
@@ -229,6 +281,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           <p className="text-xs text-center text-muted-foreground mt-3">
             🏛️ 2026年度 税制・社会保険料 反映済み ・ インフレ率 {form.inflationRate}% 考慮済み
           </p>
+          <ShareButton form={form} />
         </CardContent>
       </Card>
 
