@@ -2,19 +2,13 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'" />
     <title>FIRE参謀</title>
     <script>
-      // GitHub Pages SPA fallback
-      // Redirects 404 to index.html with the path preserved as a query parameter
-      var pathSegmentsToKeep = 1; // /fire-sanbo/ = 1 segment
-      var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/' +
-        '?/' +
-        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
+      // GitHub Pages SPA fallback — redirect to app root
+      var base = '/fire-sanbo/';
+      window.location.replace(
+        location.protocol + '//' + location.host + base + location.hash
       );
     </script>
   </head>

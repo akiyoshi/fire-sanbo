@@ -123,7 +123,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
           name="5th-95th"
           stroke="none"
           fill="var(--chart-1)"
-          fillOpacity={0.1}
+          fillOpacity={0.15}
         />
         <Area
           type="monotone"
@@ -131,7 +131,7 @@ function AssetChart({ result }: { result: SimulationResult }) {
           name="25th-75th"
           stroke="none"
           fill="var(--chart-1)"
-          fillOpacity={0.2}
+          fillOpacity={0.3}
         />
         <Area
           type="monotone"
