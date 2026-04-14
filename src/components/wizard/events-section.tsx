@@ -90,7 +90,7 @@ export function EventsSection({ form, update }: EventsSectionProps) {
                   update("lifeEvents", events);
                 }}
                 aria-label="削除"
-                className="text-muted-foreground px-2"
+                className="text-muted-foreground px-2 min-h-[44px] min-w-[44px]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Button>

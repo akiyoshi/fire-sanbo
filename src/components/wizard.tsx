@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { FormState } from "@/lib/form-state";
 import {
   DEFAULT_FORM,
@@ -17,6 +17,7 @@ import { EventsSection } from "./wizard/events-section";
 import { AdvancedSection } from "./wizard/advanced-section";
 import { QuickPreview } from "./wizard/quick-preview";
 import { QuickStart } from "./wizard/quick-start";
+import { TemplateSelector } from "./wizard/template-selector";
 
 interface WizardProps {
   onComplete: (form: FormState) => void;
@@ -25,6 +26,13 @@ interface WizardProps {
 export function Wizard({ onComplete }: WizardProps) {
   const [form, setForm] = useState<FormState>(() => loadForm() ?? DEFAULT_FORM);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
+  const incomeRef = useRef<HTMLDetailsElement>(null);
+  const eventsRef = useRef<HTMLDetailsElement>(null);
+
+  const handleOpenSections = (sections: string[]) => {
+    if (sections.includes("income") && incomeRef.current) incomeRef.current.open = true;
+    if (sections.includes("events") && eventsRef.current) eventsRef.current.open = true;
+  };
 
   // FormState変更時にlocalStorageへ自動保存（500msデバウンス）
   useEffect(() => {
@@ -76,6 +84,7 @@ export function Wizard({ onComplete }: WizardProps) {
   return (
     <div className="w-full max-w-4xl lg:max-w-6xl mx-auto space-y-6">
       <QuickStart form={form} update={update} onQuickRun={onComplete} />
+      <TemplateSelector form={form} setForm={setForm} onOpenSections={handleOpenSections} />
       <ScenarioSection
         form={form}
         setForm={setForm}
@@ -86,7 +95,7 @@ export function Wizard({ onComplete }: WizardProps) {
       <PortfolioSection form={form} setForm={setForm} />
 
       {/* 任意セクション: 折りたたみ */}
-      <details className="group" open={!!form.pension?.kosei || !!form.pension?.kokumin || !!form.retirementBonus?.amount}>
+      <details ref={incomeRef} className="group" open={!!form.pension?.kosei || !!form.pension?.kokumin || !!form.retirementBonus?.amount}>
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
@@ -99,7 +108,7 @@ export function Wizard({ onComplete }: WizardProps) {
         <IncomeSection form={form} update={update} />
       </details>
 
-      <details className="group" open={(form.lifeEvents?.length ?? 0) > 0}>
+      <details ref={eventsRef} className="group" open={(form.lifeEvents?.length ?? 0) > 0}>
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>

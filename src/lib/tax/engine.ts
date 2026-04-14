@@ -1,7 +1,7 @@
 import type { TaxConfig } from "./types";
-import defaultConfig from "@/config/tax-config-2026.json";
+import { getTaxConfig } from "@/config/tax-config-index";
 
-const config: TaxConfig = defaultConfig as TaxConfig;
+const config: TaxConfig = getTaxConfig();
 
 /**
  * 給与所得控除を計算

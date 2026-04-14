@@ -15,7 +15,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="sm"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="w-9 h-9 p-0"
+      className="w-11 h-11 p-0"
       aria-label={theme === "dark" ? "ライトモードに切り替え" : "ダークモードに切り替え"}
     >
       {theme === "dark" ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}

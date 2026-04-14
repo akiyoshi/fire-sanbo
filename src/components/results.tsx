@@ -153,6 +153,37 @@ function AssetChart({ result }: { result: SimulationResult }) {
         中央値
       </span>
     </div>
+    <details className="mt-2">
+      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+        データテーブルで見る
+      </summary>
+      <div className="overflow-x-auto mt-2">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-1 pr-3 font-medium">年齢</th>
+              <th className="text-right py-1 px-2 font-medium">p5</th>
+              <th className="text-right py-1 px-2 font-medium">p25</th>
+              <th className="text-right py-1 px-2 font-medium">中央値</th>
+              <th className="text-right py-1 px-2 font-medium">p75</th>
+              <th className="text-right py-1 px-2 font-medium">p95</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.filter((_, i) => i % 5 === 0 || i === data.length - 1).map((row) => (
+              <tr key={row.age} className="border-b border-muted">
+                <td className="py-1 pr-3">{row.age}歳</td>
+                <td className="text-right py-1 px-2">{formatManYen(row.band90[0])}</td>
+                <td className="text-right py-1 px-2">{formatManYen(row.band50[0])}</td>
+                <td className="text-right py-1 px-2 font-medium">{formatManYen(row.p50)}</td>
+                <td className="text-right py-1 px-2">{formatManYen(row.band50[1])}</td>
+                <td className="text-right py-1 px-2">{formatManYen(row.band90[1])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
     </>
   );
 }

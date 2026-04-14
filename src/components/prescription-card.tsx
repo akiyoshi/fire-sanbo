@@ -138,12 +138,22 @@ export function PrescriptionCard({ worker, input, currentRate }: PrescriptionCar
           />
         </div>
 
-        {/* ローディング */}
+        {/* ローディング: スケルトンUI */}
         {isLoading && (
-          <div className="flex items-center justify-center py-6">
-            <p className="text-sm text-muted-foreground animate-pulse">
-              処方箋を計算中...
-            </p>
+          <div className="space-y-3" aria-label="処方箋を計算中">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card animate-pulse">
+                <div className="shrink-0 mt-0.5 h-5 w-5 rounded bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-2/3 rounded bg-muted" />
+                  <div className="h-3 w-1/3 rounded bg-muted" />
+                </div>
+                <div className="text-right space-y-1">
+                  <div className="h-6 w-10 rounded bg-muted" />
+                  <div className="h-3 w-8 rounded bg-muted" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
