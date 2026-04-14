@@ -19,6 +19,7 @@
 - **シナリオ管理** — 名前付き保存・比較・JSON エクスポート/インポート
 - **共有URL** — DeflateRaw+Base64url圧縮でサーバーレス共有、Web Share API対応
 - **クイックスタート** — 3項目（年齢・年収・資産）だけで即座にシミュレーション開始
+- **テンプレートシナリオ** — 転職/住宅購入/教育費/早期退職/年金繰下げの5プリセットで即座に開始
 
 ## 技術スタック
 
@@ -28,7 +29,7 @@
 | スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
 | アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |
-| テスト | Vitest (166テスト, ~2秒) + Playwright E2E (4テスト) |
+| テスト | Vitest (180テスト, ~2秒) + Playwright E2E (4テスト) |
 | 言語 | TypeScript 5 (strict) |
 | 品質 | ESLint 9 + typescript-eslint + react-hooks |
 | CI/CD | GitHub Actions → GitHub Pages |
@@ -60,7 +61,7 @@ src/
 │   ├── scenario-compare.tsx   # シナリオ比較
 │   ├── methodology/     # 計算根拠書 (12セクション)
 │   └── ui/              # shadcn/ui
-├── config/              # 税制・資産クラスデータ (JSON)
+├── config/              # 税制・資産クラスデータ (JSON) + テンプレート + 年度切替
 └── lib/                 # 計算エンジン (フレームワーク非依存)
     ├── url-share.ts     # 共有URL圧縮/展開
     ├── simulation/      # モンテカルロ + Worker + 診断
