@@ -43,7 +43,7 @@ npm run build      # 本番ビルド → dist/
 
 ```
 src/
-├── App.tsx              # エントリポイント (4フェーズステートマシン)
+├── App.tsx              # エントリポイント (5フェーズステートマシン)
 ├── main.tsx             # ReactDOM.createRoot
 ├── app/globals.css      # Tailwind + テーマ変数 (OKLCH)
 ├── components/          # UI コンポーネント
