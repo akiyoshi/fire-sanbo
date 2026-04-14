@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v1.6.0
+> **バージョン**: v1.6.1
 > **更新日**: 2026-04-14
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -89,11 +89,11 @@
 
 ```
 src/
-├── App.tsx                    # 4フェーズステートマシン
+├── App.tsx                    # 5フェーズステートマシン
 ├── components/
 │   ├── wizard.tsx             # オーケストレーター(~90行)
 │   ├── wizard/                # セクション別サブコンポーネント
-│   │   ├── shared.tsx         # NumberInput, SliderInput, format関数
+    │   ├── shared.tsx         # NumberInput, SliderInput
 │   │   ├── scenario-section   # シナリオ管理 + エクスポート/インポート
 │   │   ├── basic-section      # 年齢・年収・生活費
 │   │   ├── portfolio-section  # 資産入力 + 合成計算 + 最適化
@@ -114,8 +114,7 @@ src/
 │   │   ├── progress-bar.tsx
 │   │   └── example-card.tsx
 │   └── ui/                    # shadcn/ui コンポーネント
-├── lib/
-│   ├── form-state.ts          # FormState永続化(v3スキーマ)
+├── lib/    ├── utils.ts               # cn(), formatManYen()│   ├── form-state.ts          # FormState永続化(v3スキーマ)
 │   ├── simulation/            # モンテカルロエンジン + Worker + diagnosis.ts
 │   ├── tax/                   # 2026年度税制エンジン
 │   ├── portfolio/             # 合成計算 + 最適化
@@ -172,6 +171,10 @@ src/
 - [x] ~~スティッキーCTA~~: 画面下部固定 + backdrop-blur (v1.5.0)
 - [x] ~~OGP/Twitter Card~~: メタタグ + 画像 + favicon
 - [x] ~~入力バリデーション強化~~: 年齢ガード + numTrialsキャップ + safeNum (v1.5.0)
+- [x] ~~CSP + セキュリティ強化~~: ViteプラグインCSP, SHA-pin, Dependabot (v1.5.2)
+- [x] ~~UI品質改善~~: 免責条項強化, 情報優先度修正, セマンティックトークン統一 (v1.6.0)
+- [x] ~~a11y拡充~~: navランドマーク, skip-to-content, チャートaria-label, WCAG AAコントラスト (v1.6.0-1.6.1)
+- [x] ~~コード品質~~: formatManYen一元化, 削除ボタンlucide-react統一 (v1.6.1)
 
 ### Phase 1: バイラル装置 (次の優先)
 
@@ -189,7 +192,7 @@ src/
 
 ### Phase 3: 品質・堅牢性
 
-- [ ] **WCAG AA完全準拠**: チャート代替テキスト、色+アイコン二重伝達の残り、コントラスト比4.5:1
+- [ ] **WCAG AA完全準拚**: 残りのチャート代替テキスト、フォーカス管理の精練
 - [ ] **フルレスポンシブ**: mdブレークポイント追加、チャート高さ可変、タブレット2カラム
 - [ ] **デザイントークン統一**: OKLCH変数 → 全コンポーネント浸透、ダーク/ライト完全対称
 
