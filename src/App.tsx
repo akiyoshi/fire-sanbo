@@ -1,16 +1,17 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput, loadScenarios } from "@/lib/form-state";
 import type { Scenario } from "@/lib/form-state";
 import { SimulationWorker } from "@/lib/simulation";
 import type { SimulationResult } from "@/lib/simulation";
 import { Wizard } from "@/components/wizard";
-import { Results } from "@/components/results";
-import { ScenarioCompare } from "@/components/scenario-compare";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { MethodologyPage } from "@/components/methodology/methodology-page";
 import { parseShareHash } from "@/lib/url-share";
 import { Flame } from "lucide-react";
+
+const Results = lazy(() => import("@/components/results").then(m => ({ default: m.Results })));
+const ScenarioCompare = lazy(() => import("@/components/scenario-compare").then(m => ({ default: m.ScenarioCompare })));
+const MethodologyPage = lazy(() => import("@/components/methodology/methodology-page").then(m => ({ default: m.MethodologyPage })));
 
 type AppState =
   | { phase: "input" }
@@ -119,7 +120,13 @@ export default function App() {
             <p className="text-sm text-muted-foreground">シミュレーション実行中...</p>
           </div>
         )}
-        {state.phase === "result" && (
+        <Suspense fallback={
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+            <p className="text-sm text-muted-foreground">読み込み中...</p>
+          </div>
+        }>
+          {state.phase === "result" && (
           <>
             {sharedBanner && (
               <div className="max-w-6xl mx-auto mb-4 rounded-lg bg-primary/10 px-4 py-2 text-center text-sm text-primary">
@@ -143,6 +150,7 @@ export default function App() {
         {state.phase === "methodology" && (
           <MethodologyPage onBack={() => setState({ phase: "input" })} />
         )}
+        </Suspense>
       </main>
 
       <footer className="border-t mt-auto">

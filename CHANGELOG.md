@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0] - 2026-04-14
+
+Phase 4: パフォーマンス・テスト。コード分割で初期ロード半減、E2Eテスト導入。
+
+### 追加
+- **React.lazyコード分割**: Results/ScenarioCompare/MethodologyPageを遅延ロード
+  - 初期バンドル: 752KB → 368KB (gzip 227KB → 118KB) — **49%削減**
+  - recharts(372KB)は結果画面遷移時にオンデマンドロード
+- **E2Eテスト**: Playwright + Chromium。4テストケース
+  - QuickStart→結果画面→チャート・処方箋表示
+  - 計算根拠ページ遷移・戻る
+  - 共有URLボタン存在確認
+  - ダークモード切替
+- **CI E2Eゲート**: deploy.ymlにPlaywrightテスト追加（デプロイ前に実行）
+
 ## [1.9.0] - 2026-04-14
 
 Phase 3: 品質・堅牢性。レスポンシブ対応、a11y強化、ダイアログa11y。
