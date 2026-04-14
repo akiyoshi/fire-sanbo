@@ -118,8 +118,9 @@ export default function App() {
       </main>
 
       <footer className="border-t mt-auto">
-        <div className="max-w-6xl mx-auto px-4 py-3 text-center text-xs text-muted-foreground">
-          FIRE参謀はシミュレーションツールです。投資判断はご自身の責任で行ってください。
+        <div className="max-w-6xl mx-auto px-4 py-4 text-center text-xs text-muted-foreground space-y-1">
+          <p>本ツールはシミュレーションであり、投資助言・税務助言ではありません。</p>
+          <p>過去の市場データに基づく確率的推計であり、将来の投資成果を保証するものではありません。実際の資産運用・税務処理は専門家にご相談ください。</p>
         </div>
       </footer>
     </div>

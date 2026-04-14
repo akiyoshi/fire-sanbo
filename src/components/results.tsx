@@ -145,11 +145,11 @@ function AssetChart({ result }: { result: SimulationResult }) {
     </ResponsiveContainer>
     <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
       <span className="flex items-center gap-1">
-        <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.1 }} />
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.3 }} />
         90%信頼区間
       </span>
       <span className="flex items-center gap-1">
-        <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.2 }} />
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--chart-1)", opacity: 0.5 }} />
         50%信頼区間
       </span>
       <span className="flex items-center gap-1">
@@ -334,21 +334,24 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </Card>
         </div>
 
-        {/* 右カラム: 処方箋 + 取り崩し + 税金 */}
+        {/* 右カラム: 処方箋 + 診断書 + 取り崩し + 税金 */}
         <div className="space-y-6">
-          {/* 税金ブレイクダウン */}
-          <Card>
-            <CardContent className="pt-6">
-              <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
-            </CardContent>
-          </Card>
-
           {/* 処方箋 */}
           <PrescriptionCard
             worker={worker}
             input={formToSimulationInput(form)}
             currentRate={result.successRate}
           />
+
+          {/* 最悪ケース診断書 */}
+          <WorstCaseCard result={result} retirementAge={form.retirementAge} />
+
+          {/* 税金ブレイクダウン */}
+          <Card>
+            <CardContent className="pt-6">
+              <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
+            </CardContent>
+          </Card>
 
           {/* 取り崩し順序 */}
           <Card>
@@ -366,9 +369,6 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </Card>
         </div>
       </div>
-
-      {/* 最悪ケース診断書 */}
-      <WorstCaseCard result={result} retirementAge={form.retirementAge} />
 
       <div className="flex justify-center">
         <Button variant="outline" onClick={onBack}>

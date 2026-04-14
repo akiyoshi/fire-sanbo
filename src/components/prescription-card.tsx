@@ -14,9 +14,9 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 };
 
 const DIFFICULTY_COLOR: Record<Difficulty, string> = {
-  easy: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  moderate: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-  hard: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  easy: "bg-success/15 text-success",
+  moderate: "bg-warning/15 text-warning",
+  hard: "bg-danger/15 text-danger",
 };
 
 const AXIS_ICON: Record<string, React.ReactNode> = {
