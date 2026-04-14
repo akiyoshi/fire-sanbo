@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.2] - 2026-04-14
+
+CSP をビルド時のみ注入に変更。dev サーバーの HMR 破壊を修正し、defense-in-depth ディレクティブを追加。
+
+### 修正
+- **CSP meta タグ → Vite プラグイン移行**: `index.html` の静的 CSP が Vite dev サーバーの HMR (React Fast Refresh) を破壊していた問題を修正。本番ビルド時のみ `transformIndexHtml` で CSP を注入する `cspPlugin()` に移行
+
+### セキュリティ
+- **defense-in-depth ディレクティブ追加**: `object-src 'none'` (プラグイン攻撃防止)、`base-uri 'self'` (base タグインジェクション防止)、`form-action 'self'` (フォーム送信先制限)
+
 ## [1.5.1] - 2026-04-13
 
 OGP/Twitter Card + favicon 追加。共有時のリンクプレビューを有効化。
