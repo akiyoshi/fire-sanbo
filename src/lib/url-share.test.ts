@@ -155,6 +155,13 @@ describe("url-share", () => {
     it("#s= のみ（データなし） → null", () => {
       expect(parseShareHash("#s=")).toBeNull();
     });
+
+    it("圧縮データが50KBを超える → null（decompression bomb防御）", () => {
+      // 50KB超のBase64url文字列を生成
+      const fakeCompressed = new Uint8Array(60_000).fill(0x41);
+      const encoded = Buffer.from(fakeCompressed).toString("base64url");
+      expect(decompressForm(encoded)).toBeNull();
+    });
   });
 
   describe("buildShareUrl", () => {

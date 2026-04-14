@@ -7,6 +7,8 @@ const FORM_SCHEMA_VERSION = 3;
 const MAX_PORTFOLIO_ENTRIES = 8;
 const MAX_LABEL_LENGTH = 50;
 const SHARED_NUM_TRIALS = 1000;
+const MAX_COMPRESSED_SIZE = 50_000;
+const MAX_JSON_SIZE = 500_000;
 
 /** Base64url encode (RFC 4648 §5, no padding) */
 function toBase64url(bytes: Uint8Array): string {
@@ -48,7 +50,10 @@ export function compressForm(form: FormState): string {
 export function decompressForm(encoded: string): FormState | null {
   try {
     const compressed = fromBase64url(encoded);
-    const json = new TextDecoder().decode(inflateRaw(compressed));
+    if (compressed.byteLength > MAX_COMPRESSED_SIZE) return null;
+    const raw = inflateRaw(compressed);
+    if (raw.byteLength > MAX_JSON_SIZE) return null;
+    const json = new TextDecoder().decode(raw);
     return importFormFromJSON(json);
   } catch {
     return null;

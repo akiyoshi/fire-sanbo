@@ -300,4 +300,30 @@ describe("JSON エクスポート/インポート", () => {
     const json = JSON.stringify({ version: 2, form: { foo: "bar" } });
     expect(importFormFromJSON(json)).toBeNull();
   });
+
+  it("portfolioが20件を超える場合 null を返す（DoS防御）", () => {
+    const form = {
+      ...DEFAULT_FORM,
+      portfolio: Array.from({ length: 21 }, () => ({
+        assetClass: "developed_stock",
+        taxCategory: "nisa",
+        amount: 1_000_000,
+      })),
+    };
+    const json = JSON.stringify({ version: 3, form });
+    expect(importFormFromJSON(json)).toBeNull();
+  });
+
+  it("lifeEventsが30件を超える場合 null を返す（DoS防御）", () => {
+    const form = {
+      ...DEFAULT_FORM,
+      lifeEvents: Array.from({ length: 31 }, (_, i) => ({
+        label: `event-${i}`,
+        age: 40 + i,
+        amount: 1_000_000,
+      })),
+    };
+    const json = JSON.stringify({ version: 3, form });
+    expect(importFormFromJSON(json)).toBeNull();
+  });
 });

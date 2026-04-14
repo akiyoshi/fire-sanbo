@@ -116,11 +116,13 @@ export function importFormFromJSON(json: string): FormState | null {
     if (typeof form.retirementAge !== "number" || typeof form.endAge !== "number") return null;
     if (typeof form.annualSalary !== "number") return null;
     if (!Array.isArray(form.portfolio)) return null;
+    if (form.portfolio.length > 20) return null;
     for (const entry of form.portfolio) {
       if (typeof entry.assetClass !== "string" || typeof entry.taxCategory !== "string" || typeof entry.amount !== "number") {
         return null;
       }
     }
+    if (form.lifeEvents && (!Array.isArray(form.lifeEvents) || form.lifeEvents.length > 30)) return null;
     if (data.version === 2) {
       return migrateV2toV3(form as Record<string, unknown>);
     }
