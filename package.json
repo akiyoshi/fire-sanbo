@@ -38,7 +38,7 @@
     "eslint": "^9",
     "jsdom": "^29.0.2",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "typescript": "^6",
     "vite": "^6.3.5",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.1.4"
