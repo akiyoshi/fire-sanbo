@@ -146,9 +146,49 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 165テスト, ~2秒
+- **Vitest**: 166テスト, ~2秒
 - **Playwright**: E2E 4テスト (Chromium)
-- **TypeScript strict**: 全ファイル
+- **TypeScript 5 strict**: 全ファイル
+- **ESLint 9** + typescript-eslint + eslint-plugin-react-hooks
+
+### 依存関係ポリシー (v2.0.1)
+
+**原則: 安定版を採用し、最前線を追わない。**
+
+TypeScript 6 + ESLint 10 への同時メジャーバンプで以下の問題が発生した教訓に基づく:
+- ESLint 10にTSパーサー未対応 → eslint.config.mjs全面書き直し
+- eslint-plugin-react-hooks安定版がESLint 10未対応 → canary版を強制使用
+- TypeScript 6のCSS import型宣言要件 → tsconfig.json修正
+- 18件の未使用importが新規検出 → 12ファイル手動修正
+
+#### バージョン選定基準
+
+| 基準 | 説明 |
+|------|------|
+| エコシステム追従 | 主要プラグイン（eslint-plugin-react-hooks等）が安定版で対応済みであること |
+| Breaking Change | 本プロジェクトが使用していない新機能のために破壊的変更を受け入れない |
+| canary/rc禁止 | devDependenciesであっても不安定リリースチャネルは使用しない |
+| tilde指定 | ツールチェーン系（typescript, eslint）はパッチのみ自動更新（`~`） |
+| caret指定 | ランタイム系（react, recharts等）はマイナーまで自動更新（`^`） |
+
+#### Dependabotルール
+
+- **パッチ/マイナー**: 自動PR → CIグリーンなら速やかにマージ
+- **メジャーバンプ**: typescript, eslint, vite, @types/node は `dependabot.yml` で ignore。手動評価時に以下を確認:
+  1. 本プロジェクトが新機能を必要としているか
+  2. 主要プラグインが新バージョンに対応済みか
+  3. 移行ガイドの破壊的変更リストを確認
+
+#### 現在の安定版ベースライン
+
+| パッケージ | バージョン | 指定子 | 理由 |
+|-----------|----------|--------|------|
+| typescript | 5.9.x | `~5.9.3` | strict + bundler moduleResolutionで十分 |
+| eslint | 9.x | `~9.39.4` | flat config対応、プラグインエコシステム安定 |
+| eslint-plugin-react-hooks | 7.x | `^7.0.1` | ESLint 9対応安定版 |
+| @types/node | 22.x | `^22` | CI Node.js 22と一致 |
+| vite | 6.x | `^6.3.5` | 安定リリース |
+| vite-tsconfig-paths | 5.x | `^5.1.4` | TS5対応安定版 |
 
 ### 設計原則
 

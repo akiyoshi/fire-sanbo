@@ -1,13 +1,9 @@
-import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 
-const eslintConfig = defineConfig([
-  globalIgnores([
-    "dist/**",
-    "node_modules/**",
-  ]),
-  tseslint.configs.recommended,
+export default [
+  { ignores: ["dist/**", "node_modules/**"] },
+  ...tseslint.configs.recommended,
   {
     files: ["**/*.{ts,tsx,mts}"],
     plugins: { "react-hooks": reactHooks },
@@ -22,6 +18,4 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-require-imports": "off",
     },
   },
-]);
-
-export default eslintConfig;
+];
