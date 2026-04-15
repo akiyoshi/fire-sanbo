@@ -51,6 +51,12 @@ export interface OptimizeOptions {
   deterministic?: boolean;
 }
 
+/** 対数正規分布の中央値リターン: exp(log(1+r) - σ²/2) - 1 */
+function medianReturn(expectedReturn: number, stdDev: number): number {
+  if (stdDev <= 0) return expectedReturn;
+  return Math.exp(Math.log(1 + expectedReturn) - (stdDev ** 2) / 2) - 1;
+}
+
 function orderLabel(order: TaxCategory[]): string {
   const names: Record<TaxCategory, string> = {
     nisa: "NISA",
@@ -91,14 +97,23 @@ export function optimizeWithdrawalOrder(
           seed: 0,
           allocation: {
             ...baseInput.allocation,
+            // 中央値リターン: exp(log(1+r) - σ²/2) - 1（ボラティリティドラッグ反映）
+            expectedReturn: medianReturn(
+              baseInput.allocation.expectedReturn,
+              baseInput.allocation.standardDeviation
+            ),
             standardDeviation: 0,
           },
-          // 配偶者のstdDevも0にする（決定論的比較の公平性）
+          // 配偶者のstdDevも0 + 中央値リターンにする
           ...(baseInput.spouse && {
             spouse: {
               ...baseInput.spouse,
               allocation: {
                 ...baseInput.spouse.allocation,
+                expectedReturn: medianReturn(
+                  baseInput.spouse.allocation.expectedReturn,
+                  baseInput.spouse.allocation.standardDeviation
+                ),
                 standardDeviation: 0,
               },
             },
