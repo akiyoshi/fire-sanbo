@@ -84,8 +84,8 @@ export function Wizard({ onComplete }: WizardProps) {
       <BasicSection form={form} update={update} />
       <PortfolioSection form={form} setForm={setForm} />
 
-      {/* 任意セクション: 折りたたみ */}
-      <details ref={incomeRef} className="group" open={!!form.pension?.kosei || !!form.pension?.kokumin || !!form.retirementBonus?.amount}>
+      {/* 任意セクション: 折りたたみ（デフォルト閉） */}
+      <details ref={incomeRef} className="group">
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
@@ -98,7 +98,7 @@ export function Wizard({ onComplete }: WizardProps) {
         <IncomeSection form={form} update={update} />
       </details>
 
-      <details ref={eventsRef} className="group" open={(form.lifeEvents?.length ?? 0) > 0}>
+      <details ref={eventsRef} className="group">
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
