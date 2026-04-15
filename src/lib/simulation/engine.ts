@@ -192,6 +192,9 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         for (const taxCategory of input.withdrawalOrder) {
           if (remaining <= 0) break;
 
+          // iDeCoは60歳未満では取り崩し不可（確定拠出年金法）
+          if (taxCategory === "ideco" && age < 60) continue;
+
           const balance = isPrimary
             ? getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold, pCash)
             : getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold, sCash);
@@ -262,6 +265,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
           if (deficit <= 0) break;
+          // iDeCoは60歳未満では取り崩し不可
+          if (taxCategory === "ideco" && age < 60) continue;
           const balance = getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold, pCash);
           if (balance <= 0) continue;
           const draw = Math.min(deficit, balance);

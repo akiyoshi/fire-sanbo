@@ -90,6 +90,14 @@ describe("取り崩し順序最適化（deterministic）", () => {
     expect(result.worst).toBeDefined();
   });
 
+  it("deterministic モードで年次データ（yearlyAssets, ages）が返される", () => {
+    const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
+    expect(result.best.yearlyAssets).toBeDefined();
+    expect(result.best.ages).toBeDefined();
+    expect(result.best.yearlyAssets!.length).toBe(result.best.ages!.length);
+    expect(result.best.ages![0]).toBe(baseInput.currentAge);
+  });
+
   it("deterministic では全パターン同一の成功率（決定論的）", () => {
     const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
     const rates = new Set(result.all.map((r) => r.successRate));

@@ -32,6 +32,10 @@ export interface WithdrawalOrderResult {
   label: string;
   successRate: number;
   medianFinalAssets: number;
+  /** 年次資産推移（deterministicモードのみ） */
+  yearlyAssets?: number[];
+  /** 年齢配列（deterministicモードのみ） */
+  ages?: number[];
 }
 
 export interface OptimizationResult {
@@ -110,6 +114,10 @@ export function optimizeWithdrawalOrder(
         medianFinalAssets: deterministic
           ? sim.trials[0].finalAssets
           : sim.percentiles.p50[lastIdx],
+        ...(deterministic && {
+          yearlyAssets: sim.trials[0].years.map((y) => y.totalAssets),
+          ages: sim.ages,
+        }),
       };
     }
   );

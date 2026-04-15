@@ -483,3 +483,41 @@ describe("世帯シミュレーション", () => {
     expect(atRetirement.income).toBeGreaterThan(0);
   });
 });
+
+describe("iDeCo年齢制約", () => {
+  const idecoInput: SimulationInput = {
+    currentAge: 50,
+    retirementAge: 50,
+    endAge: 70,
+    annualSalary: 0,
+    annualExpense: 2_000_000,
+    accounts: { nisa: 0, tokutei: 0, ideco: 30_000_000, gold_physical: 0, cash: 0 },
+    allocation: { expectedReturn: 0.03, standardDeviation: 0 },
+    idecoYearsOfService: 20,
+    tokuteiGainRatio: 0.5,
+    goldGainRatio: 0.3,
+    withdrawalOrder: ["ideco", "nisa", "tokutei", "gold_physical", "cash"],
+    numTrials: 1,
+    inflationRate: 0,
+    seed: 42,
+  };
+
+  it("60歳未満ではiDeCoから取り崩しできない", () => {
+    const result = runSimulation(idecoInput);
+    // 50-59歳の10年間: iDeCoしかないが取り崩し不可 → 資産が減らない
+    for (let i = 0; i < 10; i++) {
+      const year = result.trials[0].years[i];
+      expect(year.age).toBeLessThan(60);
+      // iDeCo残高はリターン分の増減のみ（取り崩しゼロ）
+      expect(year.withdrawal).toBe(0);
+    }
+  });
+
+  it("60歳以降ではiDeCoから取り崩しできる", () => {
+    const result = runSimulation(idecoInput);
+    // 60歳以降: 取り崩しが発生
+    const at60 = result.trials[0].years[10]; // age=60
+    expect(at60.age).toBe(60);
+    expect(at60.withdrawal).toBeGreaterThan(0);
+  });
+});
