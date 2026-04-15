@@ -67,4 +67,69 @@ describe("取り崩し順序最適化", () => {
       expect(r.label).toContain("→");
     }
   });
+
+  it("cashは末尾固定で順列から除外される", () => {
+    const input = {
+      ...baseInput,
+      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 5_000_000 },
+    };
+    const result = optimizeWithdrawalOrder(input);
+    // nisa, tokutei の2カテゴリ + cash末尾 → 2! = 2パターン
+    expect(result.all).toHaveLength(2);
+    for (const r of result.all) {
+      expect(r.order[r.order.length - 1]).toBe("cash");
+    }
+  });
+});
+
+describe("取り崩し順序最適化（deterministic）", () => {
+  it("deterministic: true で結果が返される", () => {
+    const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
+    expect(result.all.length).toBeGreaterThan(0);
+    expect(result.best).toBeDefined();
+    expect(result.worst).toBeDefined();
+  });
+
+  it("deterministic では全パターン同一の成功率（決定論的）", () => {
+    const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
+    const rates = new Set(result.all.map((r) => r.successRate));
+    // 決定論的なので成功率は全て同じ（成功 or 失敗）
+    expect(rates.size).toBe(1);
+  });
+
+  it("deterministic でも最終資産で差が出る", () => {
+    const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
+    // 税率の違いにより取り崩し順序で最終資産に差が出る
+    expect(result.benefitAmount).toBeGreaterThanOrEqual(0);
+  });
+
+  it("deterministic は高速（<200ms）", () => {
+    const start = performance.now();
+    optimizeWithdrawalOrder(baseInput, { deterministic: true });
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(200);
+  });
+
+  it("0口座では最適化対象なし", () => {
+    const input = {
+      ...baseInput,
+      retirementAge: 80, // 勤労期間なし
+      annualSalary: 0,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+    };
+    const result = optimizeWithdrawalOrder(input, { deterministic: true });
+    expect(result.all).toHaveLength(1); // フォールバック
+  });
+
+  it("1口座では benefitAmount = 0", () => {
+    const input = {
+      ...baseInput,
+      retirementAge: 80,
+      annualSalary: 0,
+      accounts: { nisa: 10_000_000, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+    };
+    const result = optimizeWithdrawalOrder(input, { deterministic: true });
+    expect(result.all).toHaveLength(1);
+    expect(result.benefitAmount).toBe(0);
+  });
 });

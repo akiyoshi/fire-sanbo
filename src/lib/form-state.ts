@@ -41,6 +41,9 @@ export interface FormState {
   spouse?: SpouseFormState;
   /** 配偶者セクション表示フラグ（false でも spouse データは保持） */
   spouseEnabled?: boolean;
+
+  /* v4.0 拡張: 取り崩し順序 */
+  withdrawalOrder?: TaxCategory[];
 }
 
 /* ---------- シナリオ管理 ---------- */
@@ -127,7 +130,10 @@ export function importFormFromJSON(json: string): FormState | null {
       if (form.spouse.portfolio && (!Array.isArray(form.spouse.portfolio) || form.spouse.portfolio.length > 20)) return null;
     }
     if (data.version === 2) {
-      return migrateV2toV3(form as Record<string, unknown>);
+      return migrateV3toV4(migrateV2toV3(form as Record<string, unknown>) as unknown as Record<string, unknown>);
+    }
+    if (data.version === 3) {
+      return migrateV3toV4(form as Record<string, unknown>);
     }
     if (data.version !== FORM_SCHEMA_VERSION) return null;
     return form as FormState;
@@ -160,11 +166,18 @@ export const DEFAULT_FORM: FormState = {
 /* ---------- localStorage 永続化 ---------- */
 
 const STORAGE_KEY = "fire-sanbo-form";
-const FORM_SCHEMA_VERSION = 3;
+const FORM_SCHEMA_VERSION = 4;
 
 interface StoredForm {
   version: number;
   form: FormState;
+}
+
+const VALID_TAX_CATEGORIES: TaxCategory[] = ["cash", "nisa", "tokutei", "ideco", "gold_physical"];
+
+/** v3 → v4 マイグレーション: withdrawalOrder 追加 */
+function migrateV3toV4(form: Record<string, unknown>): FormState {
+  return { ...DEFAULT_FORM, ...(form as Partial<FormState>) };
 }
 
 /** v2 → v3 マイグレーション: 新フィールドにデフォルト値を注入 */
@@ -194,7 +207,8 @@ export function loadForm(): FormState | null {
     if (!raw) return null;
     const data: StoredForm = JSON.parse(raw);
     if (data.version === FORM_SCHEMA_VERSION) return data.form;
-    if (data.version === 2) return migrateV2toV3(data.form as unknown as Record<string, unknown>);
+    if (data.version === 3) return migrateV3toV4(data.form as unknown as Record<string, unknown>);
+    if (data.version === 2) return migrateV3toV4(migrateV2toV3(data.form as unknown as Record<string, unknown>) as unknown as Record<string, unknown>);
     return null;
   } catch {
     return null;
@@ -265,7 +279,10 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     tokuteiGainRatio: safeNum(form.tokuteiGainRatio, 50) / 100,
     goldGainRatio: safeNum(form.goldGainRatio, 30) / 100,
     inflationRate: safeNum(form.inflationRate, 2.0) / 100,
-    withdrawalOrder: ["cash", "nisa", "tokutei", "gold_physical", "ideco"],
+    withdrawalOrder: (form.withdrawalOrder && Array.isArray(form.withdrawalOrder)
+      && form.withdrawalOrder.every((c: TaxCategory) => VALID_TAX_CATEGORIES.includes(c)))
+      ? form.withdrawalOrder
+      : ["cash", "nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: Math.min(safeNum(form.numTrials, 1000, 10), 10_000),
     seed: Math.floor(Math.random() * 2 ** 32),
 

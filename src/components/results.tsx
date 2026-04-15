@@ -4,14 +4,16 @@ import type { SimulationWorker } from "@/lib/simulation";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
+import { optimizeWithdrawalOrder } from "@/lib/withdrawal";
 import { PrescriptionCard } from "@/components/prescription-card";
 import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
 import { WorstCaseCard } from "@/components/worst-case-card";
+import { WithdrawalCard } from "@/components/withdrawal-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Link2, Check } from "lucide-react";
+import { Link2, Check, ChevronRight } from "lucide-react";
 import { buildShareUrl } from "@/lib/url-share";
 import {
   AreaChart,
@@ -248,6 +250,24 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
   const formRef = useRef(form);
   formRef.current = form;
 
+  const prescriptionRef = useRef<HTMLDetailsElement>(null);
+
+  // 取り崩し最適化（中央値シナリオ、debounce付きで再計算）
+  const [withdrawalResult, setWithdrawalResult] = useState(() =>
+    optimizeWithdrawalOrder(formToSimulationInput(form), { deterministic: true })
+  );
+  const woDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (woDebounceRef.current) clearTimeout(woDebounceRef.current);
+    woDebounceRef.current = setTimeout(() => {
+      const input = formToSimulationInput(form);
+      setWithdrawalResult(optimizeWithdrawalOrder(input, { deterministic: true }));
+    }, 400);
+    return () => {
+      if (woDebounceRef.current) clearTimeout(woDebounceRef.current);
+    };
+  }, [form]);
+
   // クリーンアップ
   useEffect(() => {
     return () => {
@@ -301,7 +321,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
-      {/* 成功確率 */}
+      {/* ━━ 1軍: 常時表示 ━━ */}
+
+      {/* 成功確率 + 最優先アクション */}
       <Card>
         <CardContent className="pt-6 relative">
           {isCalculating && (
@@ -316,13 +338,6 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           <ShareButton form={form} />
         </CardContent>
       </Card>
-
-      {/* 処方箋（フル幅: アクション最優先） */}
-      <PrescriptionCard
-        worker={worker}
-        input={formToSimulationInput(form)}
-        currentRate={result.successRate}
-      />
 
       {/* 2カラムレイアウト: lg以上 */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-6 lg:space-y-0">
@@ -420,32 +435,98 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </Card>
         </div>
 
-        {/* 右カラム: 診断書 + 税金 + 取り崩し */}
+        {/* 右カラム: 最悪ケース診断書 */}
         <div className="space-y-6">
-          {/* 最悪ケース診断書 */}
           <WorstCaseCard result={result} retirementAge={form.retirementAge} />
+        </div>
+      </div>
 
-          {/* 税金ブレイクダウン */}
-          <Card>
-            <CardContent className="pt-6">
+      {/* ━━ 2軍: アクション（<details>折りたたみ、フラット）━━ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-1">アクション</h2>
+        <hr className="border-border mb-4" />
+
+        <div className="space-y-2">
+          {/* 処方箋 */}
+          <details className="group" ref={prescriptionRef}>
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">処方箋</span>
+              <span className="text-xs text-muted-foreground">— 支出削減・退職延期・追加積立の3軸提案</span>
+            </summary>
+            <div className="pl-6 pb-4">
+              <PrescriptionCard
+                worker={worker}
+                input={formToSimulationInput(form)}
+                currentRate={result.successRate}
+              />
+            </div>
+          </details>
+
+          {/* 取り崩し最適化 */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">取り崩し戦略</span>
+              {withdrawalResult.benefitAmount > 0 && (
+                <span className="text-xs text-success font-medium">
+                  +{formatManYen(withdrawalResult.benefitAmount)}の改善余地
+                </span>
+              )}
+            </summary>
+            <div className="pl-6 pb-4">
+              <WithdrawalCard
+                result={withdrawalResult}
+                currentOrder={formToSimulationInput(form).withdrawalOrder}
+                onApply={(order) => {
+                  setForm(prev => {
+                    const newForm = { ...prev, withdrawalOrder: order };
+                    formRef.current = newForm;
+                    return newForm;
+                  });
+                  // 再計算トリガー
+                  setIsCalculating(true);
+                  const gen = ++generationRef.current;
+                  if (debounceRef.current) clearTimeout(debounceRef.current);
+                  debounceRef.current = setTimeout(async () => {
+                    const input = formToSimulationInput(formRef.current);
+                    try {
+                      const newResult = worker
+                        ? await worker.run(input)
+                        : runSimulation(input);
+                      if (gen !== generationRef.current) return;
+                      setResult(newResult);
+                    } catch {
+                      if (gen !== generationRef.current) return;
+                      setResult(runSimulation(input));
+                    }
+                    setIsCalculating(false);
+                  }, 300);
+                }}
+                isCalculating={isCalculating}
+              />
+            </div>
+          </details>
+
+          {/* 税負担の内訳 */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">税負担の内訳</span>
+            </summary>
+            <div className="pl-6 pb-4">
               <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
-            </CardContent>
-          </Card>
-
-          {/* 取り崩し順序 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>口座取り崩し順序</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                現在の推奨順序: <strong>現金 → NISA → 特定口座 → 金現物 → iDeCo</strong>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                現金（無リスク）を先に使い切り、次にNISA（非課税）、課税口座の運用期間を最大化し税引後資産を最大化します。
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+          </details>
         </div>
       </div>
 

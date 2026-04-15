@@ -42,6 +42,11 @@ export interface OptimizationResult {
   benefitAmount: number;
 }
 
+export interface OptimizeOptions {
+  /** true: numTrials=1, stdDev=0 の決定論的シナリオで比較（<50ms） */
+  deterministic?: boolean;
+}
+
 function orderLabel(order: TaxCategory[]): string {
   const names: Record<TaxCategory, string> = {
     nisa: "NISA",
@@ -57,21 +62,54 @@ function orderLabel(order: TaxCategory[]): string {
  * 全パターンの取り崩し順序を評価し、最適順序を提案
  */
 export function optimizeWithdrawalOrder(
-  baseInput: SimulationInput
+  baseInput: SimulationInput,
+  options?: OptimizeOptions
 ): OptimizationResult {
+  const { deterministic = false } = options ?? {};
   const active = getActiveCategories(baseInput);
-  const allOrders = active.length > 0 ? permutations(active) : [baseInput.withdrawalOrder];
+  // cashは末尾固定（リターン0・非課税なので順序の影響が小さい）
+  const permutable = active.filter((c) => c !== "cash");
+  const hasCash = active.includes("cash");
+  const allOrders =
+    permutable.length > 0
+      ? permutations(permutable).map((order) =>
+          hasCash ? [...order, "cash" as TaxCategory] : order
+        )
+      : [baseInput.withdrawalOrder];
 
   const results: WithdrawalOrderResult[] = allOrders.map(
     (order) => {
-      const input: SimulationInput = { ...baseInput, withdrawalOrder: order };
+      const input: SimulationInput = {
+        ...baseInput,
+        withdrawalOrder: order,
+        ...(deterministic && {
+          numTrials: 1,
+          seed: 0,
+          allocation: {
+            ...baseInput.allocation,
+            standardDeviation: 0,
+          },
+          // 配偶者のstdDevも0にする（決定論的比較の公平性）
+          ...(baseInput.spouse && {
+            spouse: {
+              ...baseInput.spouse,
+              allocation: {
+                ...baseInput.spouse.allocation,
+                standardDeviation: 0,
+              },
+            },
+          }),
+        }),
+      };
       const sim = runSimulation(input);
       const lastIdx = sim.ages.length - 1;
       return {
         order,
         label: orderLabel(order),
         successRate: sim.successRate,
-        medianFinalAssets: sim.percentiles.p50[lastIdx],
+        medianFinalAssets: deterministic
+          ? sim.trials[0].finalAssets
+          : sim.percentiles.p50[lastIdx],
       };
     }
   );

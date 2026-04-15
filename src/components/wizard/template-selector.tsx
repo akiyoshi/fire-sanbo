@@ -1,8 +1,9 @@
+import { useState } from "react";
 import type { FormState } from "@/lib/form-state";
 import { SCENARIO_TEMPLATES, applyTemplate } from "@/config/scenario-templates";
 import type { ScenarioTemplate } from "@/config/scenario-templates";
 import { Card, CardContent } from "@/components/ui/card";
-import { Briefcase, Home, GraduationCap, Palmtree, Clock } from "lucide-react";
+import { Briefcase, Home, GraduationCap, Palmtree, Clock, Check } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Briefcase: <Briefcase className="h-5 w-5" aria-hidden="true" />,
@@ -19,14 +20,24 @@ interface TemplateSelectorProps {
 }
 
 export function TemplateSelector({ form, setForm, onOpenSections }: TemplateSelectorProps) {
+  const [banner, setBanner] = useState<string | null>(null);
+
   const handleSelect = (template: ScenarioTemplate) => {
     const next = applyTemplate(form, template);
     setForm(next);
     onOpenSections(template.openSections);
+    setBanner(`${template.name}テンプレートを適用: ${template.description}`);
+    setTimeout(() => setBanner(null), 3000);
   };
 
   return (
     <div className="space-y-2">
+      {banner && (
+        <div className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success animate-in fade-in duration-200">
+          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {banner}
+        </div>
+      )}
       <p className="text-sm font-medium text-muted-foreground px-1">
         テンプレートから始める
       </p>
