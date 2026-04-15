@@ -4,15 +4,19 @@ import type { SimulationWorker } from "@/lib/simulation";
 import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
+import { optimizeWithdrawalOrder } from "@/lib/withdrawal";
 import { PrescriptionCard } from "@/components/prescription-card";
 import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
 import { WorstCaseCard } from "@/components/worst-case-card";
+import { WithdrawalCard } from "@/components/withdrawal-card";
+import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Link2, Check } from "lucide-react";
+import { Link2, Check, ChevronRight, Lightbulb } from "lucide-react";
 import { buildShareUrl } from "@/lib/url-share";
+import type { PrescriptionResult } from "@/lib/prescription";
 import {
   AreaChart,
   Area,
@@ -248,12 +252,81 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
   const formRef = useRef(form);
   formRef.current = form;
 
+  const prescriptionRef = useRef<HTMLDetailsElement>(null);
+
+  // 処方箋のtop1（最優先アクション表示用）
+  const [topPrescription, setTopPrescription] = useState<PrescriptionResult | null>(null);
+
+  // 前回結果との差分
+  const PREV_RESULT_KEY = "fire-sanbo-prev-success-rate";
+  const [prevDiff] = useState<number | null>(() => {
+    try {
+      const prev = localStorage.getItem(PREV_RESULT_KEY);
+      if (prev === null) return null;
+      return Math.round(initialResult.successRate * 100) - Number(prev);
+    } catch { return null; }
+  });
+  // 現在の成功率を保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREV_RESULT_KEY, String(Math.round(result.successRate * 100)));
+    } catch { /* ignore */ }
+  }, [result.successRate]);
+
+  // 適用時の+N%バッジ
+  const [applyBadge, setApplyBadge] = useState<string | null>(null);
+
+  // 取り崩し最適化（中央値シナリオ、debounce付きで再計算）
+  const [withdrawalResult, setWithdrawalResult] = useState(() =>
+    optimizeWithdrawalOrder(formToSimulationInput(form), { deterministic: true })
+  );
+  const woDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (woDebounceRef.current) clearTimeout(woDebounceRef.current);
+    woDebounceRef.current = setTimeout(() => {
+      const input = formToSimulationInput(form);
+      setWithdrawalResult(optimizeWithdrawalOrder(input, { deterministic: true }));
+    }, 400);
+    return () => {
+      if (woDebounceRef.current) clearTimeout(woDebounceRef.current);
+    };
+  }, [form]);
+
   // クリーンアップ
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  // 共通の再計算トリガー（debounce 300ms）
+  const triggerRecalc = useCallback((showBadge = false) => {
+    const prevRate = result.successRate;
+    setIsCalculating(true);
+    const gen = ++generationRef.current;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const input = formToSimulationInput(formRef.current);
+      try {
+        const newResult = worker
+          ? await worker.run(input)
+          : runSimulation(input);
+        if (gen !== generationRef.current) return;
+        setResult(newResult);
+        if (showBadge) {
+          const diff = Math.round(newResult.successRate * 100) - Math.round(prevRate * 100);
+          if (diff !== 0) {
+            setApplyBadge(`${diff > 0 ? "+" : ""}${diff}%`);
+            setTimeout(() => setApplyBadge(null), 2000);
+          }
+        }
+      } catch {
+        if (gen !== generationRef.current) return;
+        setResult(runSimulation(input));
+      }
+      setIsCalculating(false);
+    }, 300);
+  }, [worker, result.successRate]);
 
   const updateAndRecalc = useCallback(
     (key: keyof FormState, value: number) => {
@@ -266,29 +339,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
         formRef.current = newForm;
         return newForm;
       });
-      setIsCalculating(true);
-
-      const gen = ++generationRef.current;
-
-      // debounce 300ms
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(async () => {
-        const input = formToSimulationInput(formRef.current);
-        try {
-          const newResult = worker
-            ? await worker.run(input)
-            : runSimulation(input);
-          // stale結果を無視
-          if (gen !== generationRef.current) return;
-          setResult(newResult);
-        } catch {
-          if (gen !== generationRef.current) return;
-          setResult(runSimulation(input));
-        }
-        setIsCalculating(false);
-      }, 300);
+      triggerRecalc();
     },
-    [worker]
+    [triggerRecalc]
   );
 
   const delta = useMemo(() => {
@@ -301,7 +354,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
-      {/* 成功確率 */}
+      {/* ━━ 1軍: 常時表示 ━━ */}
+
+      {/* 成功確率 + 最優先アクション */}
       <Card>
         <CardContent className="pt-6 relative">
           {isCalculating && (
@@ -310,19 +365,38 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </div>
           )}
           <SuccessRateDisplay rate={result.successRate} />
+          {prevDiff !== null && prevDiff !== 0 && (
+            <p className={`text-center text-sm font-medium mt-1 ${prevDiff > 0 ? "text-success" : "text-danger"}`}>
+              前回比 {prevDiff > 0 ? "+" : ""}{prevDiff}%
+            </p>
+          )}
+          {applyBadge && (
+            <p className="text-center text-sm font-medium text-success mt-1 animate-in fade-in duration-200">
+              {applyBadge}
+            </p>
+          )}
+          {topPrescription && !topPrescription.alreadyAchieved && topPrescription.prescriptions.length > 0 && (
+            <button
+              type="button"
+              className="flex items-center gap-2 mx-auto mt-3 px-3 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-sm transition-colors"
+              onClick={() => {
+                if (prescriptionRef.current) {
+                  prescriptionRef.current.open = true;
+                  prescriptionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+            >
+              <Lightbulb className="h-4 w-4 text-warning shrink-0" aria-hidden="true" />
+              <span>{topPrescription.prescriptions[0].label}</span>
+              <span className="text-muted-foreground">→ 詳細を見る▼</span>
+            </button>
+          )}
           <p className="text-xs text-center text-muted-foreground mt-3">
             🏛️ 2026年度 税制・社会保険料 反映済み ・ インフレ率 {form.inflationRate}% 考慮済み
           </p>
           <ShareButton form={form} />
         </CardContent>
       </Card>
-
-      {/* 処方箋（フル幅: アクション最優先） */}
-      <PrescriptionCard
-        worker={worker}
-        input={formToSimulationInput(form)}
-        currentRate={result.successRate}
-      />
 
       {/* 2カラムレイアウト: lg以上 */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-6 lg:space-y-0">
@@ -420,32 +494,106 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           </Card>
         </div>
 
-        {/* 右カラム: 診断書 + 税金 + 取り崩し */}
+        {/* 右カラム: 最悪ケース診断書 */}
         <div className="space-y-6">
-          {/* 最悪ケース診断書 */}
           <WorstCaseCard result={result} retirementAge={form.retirementAge} />
+        </div>
+      </div>
 
-          {/* 税金ブレイクダウン */}
-          <Card>
-            <CardContent className="pt-6">
+      {/* ━━ 2軍: アクション（<details>折りたたみ、フラット）━━ */}
+      <div>
+        <h2 className="text-lg font-semibold mb-1">アクション</h2>
+        <hr className="border-border mb-4" />
+
+        <div className="space-y-2">
+          {/* 処方箋 */}
+          <details className="group" ref={prescriptionRef}>
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">処方箋</span>
+              <span className="text-xs text-muted-foreground">— 支出削減・退職延期・追加積立の3軸提案</span>
+            </summary>
+            <div className="pl-6 pb-4">
+              <PrescriptionCard
+                worker={worker}
+                input={formToSimulationInput(form)}
+                currentRate={result.successRate}
+                onResult={setTopPrescription}
+              />
+            </div>
+          </details>
+
+          {/* 取り崩し最適化 */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">取り崩し戦略</span>
+              {withdrawalResult.benefitAmount > 0 && (
+                <span className="text-xs text-success font-medium">
+                  +{formatManYen(withdrawalResult.benefitAmount)}の改善余地
+                </span>
+              )}
+            </summary>
+            <div className="pl-6 pb-4">
+              <WithdrawalCard
+                result={withdrawalResult}
+                currentOrder={formToSimulationInput(form).withdrawalOrder}
+                onApply={(order) => {
+                  setForm(prev => {
+                    const newForm = { ...prev, withdrawalOrder: order };
+                    formRef.current = newForm;
+                    return newForm;
+                  });
+                  triggerRecalc(true);
+                }}
+                isCalculating={isCalculating}
+              />
+            </div>
+          </details>
+
+          {/* 税負担の内訳 */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">アセットアロケーション最適化</span>
+            </summary>
+            <div className="pl-6 pb-4">
+              <PortfolioOptimizer
+                currentPortfolio={form.portfolio}
+                onApply={(newPortfolio) => {
+                  setForm(prev => {
+                    const newForm = { ...prev, portfolio: newPortfolio };
+                    formRef.current = newForm;
+                    return newForm;
+                  });
+                  triggerRecalc(true);
+                }}
+              />
+            </div>
+          </details>
+
+          {/* 税負担の内訳 */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">税負担の内訳</span>
+            </summary>
+            <div className="pl-6 pb-4">
               <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
-            </CardContent>
-          </Card>
-
-          {/* 取り崩し順序 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>口座取り崩し順序</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                現在の推奨順序: <strong>現金 → NISA → 特定口座 → 金現物 → iDeCo</strong>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                現金（無リスク）を先に使い切り、次にNISA（非課税）、課税口座の運用期間を最大化し税引後資産を最大化します。
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+          </details>
         </div>
       </div>
 

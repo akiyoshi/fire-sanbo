@@ -56,9 +56,10 @@ interface PrescriptionCardProps {
   worker: SimulationWorker | null;
   input: SimulationInput;
   currentRate: number;
+  onResult?: (result: PrescriptionResult | null) => void;
 }
 
-export function PrescriptionCard({ worker, input, currentRate }: PrescriptionCardProps) {
+export function PrescriptionCard({ worker, input, currentRate, onResult }: PrescriptionCardProps) {
   const [targetRate, setTargetRate] = useState(90);
   const [result, setResult] = useState<PrescriptionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,6 +83,7 @@ export function PrescriptionCard({ worker, input, currentRate }: PrescriptionCar
               );
           if (gen !== generationRef.current) return;
           setResult(prescResult);
+          onResult?.(prescResult);
         } catch {
           if (gen !== generationRef.current) return;
         }
