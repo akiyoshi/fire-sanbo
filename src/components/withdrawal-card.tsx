@@ -3,6 +3,16 @@ import type { OptimizationResult, WithdrawalOrderResult } from "@/lib/withdrawal
 import type { TaxCategory } from "@/lib/tax";
 import { formatManYen } from "@/lib/utils";
 import { ArrowRight, Check, ChevronRight } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const CATEGORY_NAME: Record<TaxCategory, string> = {
   nisa: "NISA",
@@ -42,89 +52,89 @@ function StrategyChart({ best, worst, currentResult }: {
   worst: WithdrawalOrderResult;
   currentResult: WithdrawalOrderResult | undefined;
 }) {
-  const lines = useMemo(() => {
-    const entries: { data: WithdrawalOrderResult; color: string; dash: string; label: string }[] = [
-      { data: best, color: "var(--color-success)", dash: "", label: "最適" },
-    ];
-    if (currentResult && JSON.stringify(currentResult.order) !== JSON.stringify(best.order)) {
-      entries.push({ data: currentResult, color: "var(--color-warning)", dash: "6 3", label: "現在" });
-    }
-    if (JSON.stringify(worst.order) !== JSON.stringify(best.order)) {
-      entries.push({ data: worst, color: "var(--color-danger)", dash: "3 3", label: "最悪" });
-    }
-    return entries;
+  const data = useMemo(() => {
+    if (!best.yearlyAssets || !best.ages) return null;
+    return best.ages.map((age, i) => ({
+      age,
+      best: best.yearlyAssets![i],
+      ...(currentResult?.yearlyAssets &&
+        JSON.stringify(currentResult.order) !== JSON.stringify(best.order) && {
+          current: currentResult.yearlyAssets[i],
+        }),
+      ...(worst.yearlyAssets &&
+        JSON.stringify(worst.order) !== JSON.stringify(best.order) && {
+          worst: worst.yearlyAssets[i],
+        }),
+    }));
   }, [best, worst, currentResult]);
 
-  if (!best.yearlyAssets || !best.ages) return null;
+  if (!data) return null;
 
-  const ages = best.ages;
-  const allValues = lines.flatMap((l) => l.data.yearlyAssets ?? []);
-  const maxVal = Math.max(...allValues, 1);
-  const minVal = Math.min(...allValues, 0);
-  const range = maxVal - minVal || 1;
-
-  const W = 320;
-  const H = 140;
-  const PAD_L = 50;
-  const PAD_R = 10;
-  const PAD_T = 10;
-  const PAD_B = 25;
-
-  const toX = (i: number) => PAD_L + (i / Math.max(ages.length - 1, 1)) * (W - PAD_L - PAD_R);
-  const toY = (v: number) => PAD_T + (1 - (v - minVal) / range) * (H - PAD_T - PAD_B);
+  const hasCurrent = data.some((d) => "current" in d);
+  const hasWorst = data.some((d) => "worst" in d);
 
   return (
     <div className="space-y-1">
       <p className="text-xs font-medium text-muted-foreground">資産推移の比較（中央値シナリオ）</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="取り崩し戦略別の資産推移比較グラフ">
-        {/* Grid */}
-        <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="currentColor" strokeOpacity={0.15} />
-        <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="currentColor" strokeOpacity={0.15} />
-        {/* Y labels */}
-        <text x={PAD_L - 4} y={PAD_T + 4} textAnchor="end" fontSize={8} fill="currentColor" opacity={0.5}>{formatManYen(maxVal)}</text>
-        <text x={PAD_L - 4} y={H - PAD_B} textAnchor="end" fontSize={8} fill="currentColor" opacity={0.5}>{formatManYen(minVal)}</text>
-        {/* X labels */}
-        <text x={PAD_L} y={H - 4} textAnchor="middle" fontSize={8} fill="currentColor" opacity={0.5}>{ages[0]}歳</text>
-        <text x={W - PAD_R} y={H - 4} textAnchor="middle" fontSize={8} fill="currentColor" opacity={0.5}>{ages[ages.length - 1]}歳</text>
-        {/* Lines */}
-        {lines.map((line) => {
-          const assets = line.data.yearlyAssets;
-          if (!assets) return null;
-          const points = assets.map((v, i) => `${toX(i)},${toY(v)}`).join(" ");
-          return (
-            <polyline
-              key={line.label}
-              points={points}
-              fill="none"
-              stroke={line.color}
-              strokeWidth={line.dash ? 1.5 : 2}
-              strokeDasharray={line.dash}
-              strokeOpacity={line.dash ? 0.7 : 1}
+      <div
+        role="img"
+        aria-label="取り崩し戦略別の資産推移比較グラフ"
+        className="h-[200px] sm:h-[250px]"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis
+              dataKey="age"
+              label={{ value: "年齢", position: "insideBottomRight", offset: -5 }}
+              className="text-xs"
             />
-          );
-        })}
-      </svg>
-      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-        {lines.map((line) => (
-          <span key={line.label} className="flex items-center gap-1">
-            <span
-              className="inline-block w-4 h-0.5"
-              style={{
-                background: line.color,
-                borderTop: line.dash ? `1.5px dashed ${line.color}` : `2px solid ${line.color}`,
-                height: 0,
-              }}
+            <YAxis
+              tickFormatter={(v) => formatManYen(v)}
+              width={70}
+              className="text-xs"
             />
-            <svg width="16" height="4" className="shrink-0">
-              <line x1="0" y1="2" x2="16" y2="2"
-                stroke={line.color}
-                strokeWidth={line.dash ? 1.5 : 2}
-                strokeDasharray={line.dash}
+            <Tooltip
+              formatter={(value, name) => [
+                formatManYen(Number(value)),
+                name === "best" ? "最適" : name === "current" ? "現在" : "最悪",
+              ]}
+              labelFormatter={(label) => `${label}歳`}
+            />
+            <Legend
+              formatter={(value: string) =>
+                value === "best" ? "最適" : value === "current" ? "現在" : "最悪"
+              }
+            />
+            <Line
+              type="monotone"
+              dataKey="best"
+              stroke="var(--color-success)"
+              strokeWidth={2}
+              dot={false}
+            />
+            {hasCurrent && (
+              <Line
+                type="monotone"
+                dataKey="current"
+                stroke="var(--color-warning)"
+                strokeWidth={1.5}
+                strokeDasharray="6 3"
+                dot={false}
               />
-            </svg>
-            {line.label}
-          </span>
-        ))}
+            )}
+            {hasWorst && (
+              <Line
+                type="monotone"
+                dataKey="worst"
+                stroke="var(--color-danger)"
+                strokeWidth={1.5}
+                strokeDasharray="3 3"
+                dot={false}
+              />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
