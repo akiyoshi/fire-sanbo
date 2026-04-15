@@ -17,18 +17,18 @@
 
 | 機能 | 実装 | テスト |
 |------|------|--------|
-| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 29テスト |
+| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 31テスト |
 | 最悪ケース診断 | `simulation/diagnosis.ts` | 7テスト |
 | 日本税制エンジン (2026年度) | `tax/engine.ts` | 39テスト |
 | 処方箋 (3軸二分探索) | `prescription/engine.ts` runTrialLite | 10テスト |
-| 取り崩し最適化 | `withdrawal/optimizer.ts` | 13テスト |
+| 取り崩し最適化 | `withdrawal/optimizer.ts` | 14テスト |
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
 | ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
 | FormState永続化 + バリデーション | `form-state.ts` | 36テスト |
 | 共有URL圧縮 | `url-share.ts` | 16テスト |
 | シナリオテンプレート | `scenario-templates.ts` | 10テスト |
 | 税制年度切替 | `tax-config-index.ts` | 4テスト |
-| **合計** | | **187テスト** |
+| **合計** | | **190テスト** |
 
 ### 収入モデル
 
@@ -77,14 +77,17 @@
 ### 取り崩し最適化 (v4.0)
 
 - **全パターン評価**: cash末尾固定、残りの口座の全順列(最大4!=24通り)を評価
-- **決定論的モード**: stdDev=0, numTrials=1 の中央値シナリオで<50ms同期計算
+- **決定論的モード**: 中央値リターン(exp(log(1+r)-σ²/2)-1)でボラティリティドラッグ反映、<50ms同期計算
+- **iDeCo年齢制約**: 60歳未満はiDeCo取り崩し不可（確定拠出年金法準拠）
+- **戦略比較グラフ**: Recharts LineChartで最適/現在/最悪の資産推移を重ね描き
 - **UI接続**: 結果画面の2軍セクション(折りたたみ)に最適順序・改善額・全順位表を表示
 - **ワンクリック適用**: 最適順序をFormStateに反映→即再計算
 
 ### 結果画面の情報階層化 (v4.0)
 
-- **1軍(常時表示)**: 成功率・資産推移チャート・What-ifスライダー・最悪ケース診断書
-- **2軍(折りたたみ)**: 処方箋・取り崩し最適化・税負担の内訳
+- **1カラムレイアウト**: 全セクション縦並び（2カラム廃止）
+- **1軍(常時表示)**: 成功率・最優先アクション・資産推移チャート・What-ifスライダー・最悪ケース診断書
+- **2軍(折りたたみ)**: 処方箋・取り崩し最適化・アセットアロケーション最適化・税負担の内訳
 - **`<details>`パターン**: wizard.tsxと同じChevronRight + group-open:rotate-90を踏襲
 - **p5 vs 中央値 対比テーブル**: 重要年を間引き表示、暴落年・枯渇年をハイライト
 
@@ -120,16 +123,15 @@
 src/
 ├── App.tsx                    # 5フェーズステートマシン + 共有URL復元 + React.lazy
 ├── components/
-│   ├── wizard.tsx             # オーケストレーター(~90行) + QuickStart統合
+│   ├── wizard.tsx             # オーケストレーター + 全セクション折りたたみ
 │   ├── wizard/                # セクション別サブコンポーネント
     │   ├── shared.tsx         # NumberInput, SliderInput
-│   │   ├── quick-start.tsx    # 3項目クイックスタート
 │   │   ├── scenario-section   # シナリオ管理 + エクスポート/インポート
 │   │   ├── basic-section      # 年齢・年収・生活費
 │   │   ├── portfolio-section  # 資産入力 + 合成計算 + 最適化
 │   │   ├── income-section     # 年金・退職金・副収入
 │   │   ├── events-section     # ライフイベント
-│   │   ├── spouse-section     # 配偶者
+│   │   ├── template-selector  # テンプレート選択（折りたたみ）
 │   │   └── advanced-section   # インフレ率・含み益率・シミュレーション回数
 │   ├── results.tsx            # 1軍(成功率+チャート+最悪ケース) + 2軍(アクション折りたたみ) + What-if
 │   ├── prescription-card.tsx  # 処方箋UI (lucide-react SVG)
