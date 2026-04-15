@@ -14,8 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Link2, Check, ChevronRight } from "lucide-react";
+import { Link2, Check, ChevronRight, Lightbulb } from "lucide-react";
 import { buildShareUrl } from "@/lib/url-share";
+import type { PrescriptionResult } from "@/lib/prescription";
 import {
   AreaChart,
   Area,
@@ -253,6 +254,28 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
 
   const prescriptionRef = useRef<HTMLDetailsElement>(null);
 
+  // 処方箋のtop1（最優先アクション表示用）
+  const [topPrescription, setTopPrescription] = useState<PrescriptionResult | null>(null);
+
+  // 前回結果との差分
+  const PREV_RESULT_KEY = "fire-sanbo-prev-success-rate";
+  const [prevDiff] = useState<number | null>(() => {
+    try {
+      const prev = localStorage.getItem(PREV_RESULT_KEY);
+      if (prev === null) return null;
+      return Math.round(initialResult.successRate * 100) - Number(prev);
+    } catch { return null; }
+  });
+  // 現在の成功率を保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREV_RESULT_KEY, String(Math.round(result.successRate * 100)));
+    } catch { /* ignore */ }
+  }, [result.successRate]);
+
+  // 適用時の+N%バッジ
+  const [applyBadge, setApplyBadge] = useState<string | null>(null);
+
   // 取り崩し最適化（中央値シナリオ、debounce付きで再計算）
   const [withdrawalResult, setWithdrawalResult] = useState(() =>
     optimizeWithdrawalOrder(formToSimulationInput(form), { deterministic: true })
@@ -276,6 +299,35 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
     };
   }, []);
 
+  // 共通の再計算トリガー（debounce 300ms）
+  const triggerRecalc = useCallback((showBadge = false) => {
+    const prevRate = result.successRate;
+    setIsCalculating(true);
+    const gen = ++generationRef.current;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const input = formToSimulationInput(formRef.current);
+      try {
+        const newResult = worker
+          ? await worker.run(input)
+          : runSimulation(input);
+        if (gen !== generationRef.current) return;
+        setResult(newResult);
+        if (showBadge) {
+          const diff = Math.round(newResult.successRate * 100) - Math.round(prevRate * 100);
+          if (diff !== 0) {
+            setApplyBadge(`${diff > 0 ? "+" : ""}${diff}%`);
+            setTimeout(() => setApplyBadge(null), 2000);
+          }
+        }
+      } catch {
+        if (gen !== generationRef.current) return;
+        setResult(runSimulation(input));
+      }
+      setIsCalculating(false);
+    }, 300);
+  }, [worker, result.successRate]);
+
   const updateAndRecalc = useCallback(
     (key: keyof FormState, value: number) => {
       setForm(prev => {
@@ -287,29 +339,9 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
         formRef.current = newForm;
         return newForm;
       });
-      setIsCalculating(true);
-
-      const gen = ++generationRef.current;
-
-      // debounce 300ms
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(async () => {
-        const input = formToSimulationInput(formRef.current);
-        try {
-          const newResult = worker
-            ? await worker.run(input)
-            : runSimulation(input);
-          // stale結果を無視
-          if (gen !== generationRef.current) return;
-          setResult(newResult);
-        } catch {
-          if (gen !== generationRef.current) return;
-          setResult(runSimulation(input));
-        }
-        setIsCalculating(false);
-      }, 300);
+      triggerRecalc();
     },
-    [worker]
+    [triggerRecalc]
   );
 
   const delta = useMemo(() => {
@@ -333,6 +365,32 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </div>
           )}
           <SuccessRateDisplay rate={result.successRate} />
+          {prevDiff !== null && prevDiff !== 0 && (
+            <p className={`text-center text-sm font-medium mt-1 ${prevDiff > 0 ? "text-success" : "text-danger"}`}>
+              前回比 {prevDiff > 0 ? "+" : ""}{prevDiff}%
+            </p>
+          )}
+          {applyBadge && (
+            <p className="text-center text-sm font-medium text-success mt-1 animate-in fade-in duration-200">
+              {applyBadge}
+            </p>
+          )}
+          {topPrescription && !topPrescription.alreadyAchieved && topPrescription.prescriptions.length > 0 && (
+            <button
+              type="button"
+              className="flex items-center gap-2 mx-auto mt-3 px-3 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-sm transition-colors"
+              onClick={() => {
+                if (prescriptionRef.current) {
+                  prescriptionRef.current.open = true;
+                  prescriptionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+            >
+              <Lightbulb className="h-4 w-4 text-warning shrink-0" aria-hidden="true" />
+              <span>{topPrescription.prescriptions[0].label}</span>
+              <span className="text-muted-foreground">→ 詳細を見る▼</span>
+            </button>
+          )}
           <p className="text-xs text-center text-muted-foreground mt-3">
             🏛️ 2026年度 税制・社会保険料 反映済み ・ インフレ率 {form.inflationRate}% 考慮済み
           </p>
@@ -463,6 +521,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
                 worker={worker}
                 input={formToSimulationInput(form)}
                 currentRate={result.successRate}
+                onResult={setTopPrescription}
               />
             </div>
           </details>
@@ -491,24 +550,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
                     formRef.current = newForm;
                     return newForm;
                   });
-                  // 再計算トリガー
-                  setIsCalculating(true);
-                  const gen = ++generationRef.current;
-                  if (debounceRef.current) clearTimeout(debounceRef.current);
-                  debounceRef.current = setTimeout(async () => {
-                    const input = formToSimulationInput(formRef.current);
-                    try {
-                      const newResult = worker
-                        ? await worker.run(input)
-                        : runSimulation(input);
-                      if (gen !== generationRef.current) return;
-                      setResult(newResult);
-                    } catch {
-                      if (gen !== generationRef.current) return;
-                      setResult(runSimulation(input));
-                    }
-                    setIsCalculating(false);
-                  }, 300);
+                  triggerRecalc(true);
                 }}
                 isCalculating={isCalculating}
               />
@@ -533,23 +575,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
                     formRef.current = newForm;
                     return newForm;
                   });
-                  setIsCalculating(true);
-                  const gen = ++generationRef.current;
-                  if (debounceRef.current) clearTimeout(debounceRef.current);
-                  debounceRef.current = setTimeout(async () => {
-                    const input = formToSimulationInput(formRef.current);
-                    try {
-                      const newResult = worker
-                        ? await worker.run(input)
-                        : runSimulation(input);
-                      if (gen !== generationRef.current) return;
-                      setResult(newResult);
-                    } catch {
-                      if (gen !== generationRef.current) return;
-                      setResult(runSimulation(input));
-                    }
-                    setIsCalculating(false);
-                  }, 300);
+                  triggerRecalc(true);
                 }}
               />
             </div>
