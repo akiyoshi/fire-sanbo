@@ -521,3 +521,125 @@ describe("iDeCo年齢制約", () => {
     expect(at60.withdrawal).toBeGreaterThan(0);
   });
 });
+
+describe("口座別リターン（Stage 1）", () => {
+  const baseInput: SimulationInput = {
+    currentAge: 50,
+    retirementAge: 50,
+    endAge: 60,
+    annualSalary: 0,
+    annualExpense: 0,
+    accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+    allocation: { expectedReturn: 0.05, standardDeviation: 0 },
+    idecoYearsOfService: 20,
+    tokuteiGainRatio: 0.5,
+    goldGainRatio: 0.3,
+    withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+    numTrials: 1,
+    inflationRate: 0,
+    seed: 42,
+  };
+
+  it("accountAllocationsがあると口座別にリターンが適用される", () => {
+    const input: SimulationInput = {
+      ...baseInput,
+      accountAllocations: {
+        nisa: { expectedReturn: 0.08, standardDeviation: 0 },
+        tokutei: { expectedReturn: 0.03, standardDeviation: 0 },
+      },
+    };
+    const result = runSimulation(input);
+    const last = result.trials[0].years[result.trials[0].years.length - 1];
+    // NISA(8%) > tokutei(3%) のリターン差が反映される
+    expect(last.nisa).toBeGreaterThan(last.tokutei);
+    // 社会保険料等の取り崩しで正確な複利計算とは差が出るが、傾向は明確
+    expect(last.nisa).toBeGreaterThan(15_000_000); // 1000万×1.08^10 ≈ 2158万より小さいが十分大きい
+    expect(last.tokutei).toBeLessThan(15_000_000); // 1000万×1.03^10 ≈ 1344万付近
+  });
+
+  it("accountAllocationsがundefinedなら全口座に同一リターン（後方互換）", () => {
+    const result = runSimulation(baseInput);
+    const first = result.trials[0].years[0];
+    // 初年度: 同額・同一リターン（社会保険料による取り崩しで微小差あり）
+    // リターン自体が同一であることが重要（取り崩しの差は既存動作）
+    const nisaGrowth = first.nisa / 10_000_000;
+    const tokuteiGrowth = first.tokutei / 10_000_000;
+    // 成長率の差が小さい（社会保険料がNISAから先に引かれる差のみ）
+    expect(Math.abs(nisaGrowth - tokuteiGrowth)).toBeLessThan(0.1);
+  });
+});
+
+describe("積立リバランス（Stage 2）", () => {
+  it("目標ウェイトに近づくように積立先を選択する", () => {
+    const input: SimulationInput = {
+      currentAge: 35,
+      retirementAge: 45,
+      endAge: 50,
+      annualSalary: 6_000_000,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.05, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      nisaConfig: { annualLimit: 3_600_000, lifetimeLimit: 18_000_000 },
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.6, tokutei: 0.2, ideco: 0, gold_physical: 0, cash: 0.2 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    // 目標: NISA 60%, tokutei 20%, cash 20%
+    // リバランスにより、NISAへの積立が優先されるはず
+    const at40 = result.trials[0].years[5]; // age=40
+    const total40 = at40.nisa + at40.tokutei + at40.ideco + at40.gold_physical + at40.cash;
+    if (total40 > 0) {
+      expect(at40.nisa / total40).toBeGreaterThan(0.45); // NISAの比率が上がっている
+    }
+  });
+});
+
+describe("退職後リバランス（Stage 3）", () => {
+  it("退職後に口座比率が乖離するとリバランスが実行される", () => {
+    const input: SimulationInput = {
+      currentAge: 60,
+      retirementAge: 60,
+      endAge: 70,
+      annualSalary: 0,
+      annualExpense: 1_000_000,
+      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.05, standardDeviation: 0 },
+      accountAllocations: {
+        nisa: { expectedReturn: 0.10, standardDeviation: 0 },
+        tokutei: { expectedReturn: 0.02, standardDeviation: 0 },
+      },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    // リバランスなしだとNISA(10%)がtokutei(2%)を大きく上回る
+    // リバランスありだと50/50に近づくはず
+    const last = result.trials[0].years[result.trials[0].years.length - 1];
+    const total = last.nisa + last.tokutei;
+    if (total > 0) {
+      const nisaRatio = last.nisa / total;
+      // 完全な50/50にはならないが、60/40より均等に近い
+      expect(nisaRatio).toBeLessThan(0.65);
+    }
+  });
+});

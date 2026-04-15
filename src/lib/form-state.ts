@@ -1,5 +1,6 @@
 import type { SimulationInput } from "@/lib/simulation";
 import type { PortfolioEntry, TaxCategory } from "@/lib/portfolio";
+import type { AssetAllocation } from "@/lib/simulation";
 import type { PensionInput, RetirementBonusInput, SideIncomeInput, LifeEvent, NisaConfig, SpouseInput } from "@/lib/simulation";
 import { calcPortfolio } from "@/lib/portfolio";
 
@@ -241,6 +242,59 @@ export function deriveBalancesByTaxCategory(portfolio: PortfolioEntry[]): Record
   return result;
 }
 
+/** 口座別のアロケーション（リターン・リスク）を導出 */
+function deriveAccountAllocations(
+  portfolio: PortfolioEntry[]
+): Partial<Record<TaxCategory, AssetAllocation>> | undefined {
+  const categories: TaxCategory[] = ["nisa", "tokutei", "ideco", "gold_physical", "cash"];
+  const result: Partial<Record<TaxCategory, AssetAllocation>> = {};
+  let hasAny = false;
+
+  for (const cat of categories) {
+    if (cat === "cash") {
+      result.cash = { expectedReturn: 0, standardDeviation: 0 };
+      continue;
+    }
+    const entries = portfolio.filter((e) => e.taxCategory === cat && e.amount > 0);
+    if (entries.length === 0) continue;
+    const pr = calcPortfolio(entries);
+    if (pr.totalAmount > 0) {
+      result[cat] = {
+        expectedReturn: pr.expectedReturn,
+        standardDeviation: Math.max(0.001, pr.risk),
+      };
+      hasAny = true;
+    }
+  }
+
+  return hasAny ? result : undefined;
+}
+
+/** 初期残高比率からリバランス設定を導出 */
+function deriveRebalanceConfig(
+  balances: Record<TaxCategory, number>
+): { enabled: boolean; targetWeights: Record<TaxCategory, number>; threshold: number } {
+  const total = Object.values(balances).reduce((s, v) => s + v, 0);
+  if (total <= 0) {
+    return {
+      enabled: false,
+      targetWeights: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      threshold: 0.05,
+    };
+  }
+  return {
+    enabled: true,
+    targetWeights: {
+      nisa: balances.nisa / total,
+      tokutei: balances.tokutei / total,
+      ideco: balances.ideco / total,
+      gold_physical: balances.gold_physical / total,
+      cash: balances.cash / total,
+    },
+    threshold: 0.05,
+  };
+}
+
 export function formToSimulationInput(form: FormState): SimulationInput {
   // ポートフォリオから合成リターン・リスクを自動計算
   const portfolioResult = calcPortfolio(form.portfolio);
@@ -285,6 +339,11 @@ export function formToSimulationInput(form: FormState): SimulationInput {
       : ["cash", "nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: Math.min(safeNum(form.numTrials, 1000, 10), 10_000),
     seed: Math.floor(Math.random() * 2 ** 32),
+
+    // v4.2: 口座別アロケーション（口座内の資産クラス構成からリターン・リスクを導出）
+    accountAllocations: deriveAccountAllocations(form.portfolio),
+    // v4.2: リバランス設定（目標ウェイト = 初期配分比率）
+    rebalance: deriveRebalanceConfig(balances),
 
     // v0.9 拡張 (safeNum で負値・NaN 防御)
     pension: form.pension ? {

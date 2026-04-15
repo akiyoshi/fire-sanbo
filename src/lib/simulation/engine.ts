@@ -250,7 +250,39 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       const surplus = pIncome - pExpenseShare;
       if (surplus > 0) {
         const nc = input.nisaConfig;
-        if (nc) {
+        const rbCfg = input.rebalance;
+
+        if (rbCfg?.enabled) {
+          // Stage 2: 目標ウェイトに近づくように積立先を選択
+          const pTotal = pNisa + pTokutei + pIdeco + pGold + pCash + surplus;
+          const tw = rbCfg.targetWeights;
+          // 各口座の目標額と不足額を計算
+          const gaps: { cat: "nisa" | "tokutei" | "cash"; gap: number }[] = [
+            { cat: "nisa", gap: Math.max(0, pTotal * tw.nisa - pNisa) },
+            { cat: "tokutei", gap: Math.max(0, pTotal * tw.tokutei - pTokutei) },
+            { cat: "cash", gap: Math.max(0, pTotal * tw.cash - pCash) },
+          ];
+          // iDeCo・金は積立不可（口座移管は簡略化のため対象外）
+          gaps.sort((a, b) => b.gap - a.gap); // 不足が大きい順
+          let remaining = surplus;
+          for (const { cat, gap } of gaps) {
+            if (remaining <= 0) break;
+            if (gap <= 0) continue;
+            const amount = Math.min(remaining, gap);
+            if (cat === "nisa" && nc) {
+              const lifetimeRemaining = nc.lifetimeLimit - pNisaCumulative;
+              const annualAllowance = Math.min(nc.annualLimit, Math.max(0, lifetimeRemaining));
+              const toNisa = Math.min(amount, annualAllowance);
+              if (toNisa > 0) { pNisa += toNisa; pNisaCumulative += toNisa; remaining -= toNisa; }
+            } else if (cat === "tokutei") {
+              pTokutei += amount; remaining -= amount;
+            } else if (cat === "cash") {
+              pCash += amount; remaining -= amount;
+            }
+          }
+          // NISA枠超過分は特定口座へ
+          if (remaining > 0) { pTokutei += remaining; }
+        } else if (nc) {
           const lifetimeRemaining = nc.lifetimeLimit - pNisaCumulative;
           const annualAllowance = Math.min(nc.annualLimit, Math.max(0, lifetimeRemaining));
           const toNisa = Math.min(surplus, annualAllowance);
@@ -320,13 +352,40 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       }
     }
 
-    // ====== ポートフォリオリターン ======
-    const pRealReturn = input.allocation.expectedReturn - input.inflationRate;
-    const pReturn = generateLogNormalReturn(pRealReturn, input.allocation.standardDeviation, rng);
-    pNisa = Math.max(0, pNisa * (1 + pReturn));
-    pTokutei = Math.max(0, pTokutei * (1 + pReturn));
-    pIdeco = Math.max(0, pIdeco * (1 + pReturn));
-    pGold = Math.max(0, pGold * (1 + pReturn));
+    // ====== ポートフォリオリターン（口座別） ======
+    const aa = input.accountAllocations;
+    let pNisaRet: number, pTokuteiRet: number, pIdecoRet: number, pGoldRet: number;
+
+    if (aa) {
+      // Stage 1: 口座別にリターン生成
+      const fallbackReturn = input.allocation.expectedReturn - input.inflationRate;
+      const fallbackStd = input.allocation.standardDeviation;
+      const aaRef = aa; // closure用
+      function acctRet(cat: "nisa" | "tokutei" | "ideco" | "gold_physical"): number {
+        const a = aaRef[cat];
+        if (a) {
+          const realReturn = a.expectedReturn - input.inflationRate;
+          return generateLogNormalReturn(realReturn, a.standardDeviation, rng);
+        }
+        return generateLogNormalReturn(fallbackReturn, fallbackStd, rng);
+      }
+      pNisaRet = acctRet("nisa");
+      pTokuteiRet = acctRet("tokutei");
+      pIdecoRet = acctRet("ideco");
+      pGoldRet = acctRet("gold_physical");
+    } else {
+      // 後方互換: 全口座に同一リターンを適用
+      const realReturn = input.allocation.expectedReturn - input.inflationRate;
+      const ret = generateLogNormalReturn(realReturn, input.allocation.standardDeviation, rng);
+      pNisaRet = ret;
+      pTokuteiRet = ret;
+      pIdecoRet = ret;
+      pGoldRet = ret;
+    }
+    pNisa = Math.max(0, pNisa * (1 + pNisaRet));
+    pTokutei = Math.max(0, pTokutei * (1 + pTokuteiRet));
+    pIdeco = Math.max(0, pIdeco * (1 + pIdecoRet));
+    pGold = Math.max(0, pGold * (1 + pGoldRet));
     // pCash: 現金はリターンなし（元本維持）
 
     let sReturn = 0;
@@ -338,6 +397,84 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       sIdeco = Math.max(0, sIdeco * (1 + sReturn));
       sGold = Math.max(0, sGold * (1 + sReturn));
       // sCash: 現金はリターンなし（元本維持）
+    }
+
+    // ====== 退職後リバランス（Stage 3） ======
+    const rb = input.rebalance;
+    if (rb?.enabled && anyRetired) {
+      const pTotal = pNisa + pTokutei + pIdeco + pGold + pCash;
+      if (pTotal > 0) {
+        const tw = rb.targetWeights;
+        const threshold = rb.threshold ?? 0.05;
+        const currentW = {
+          nisa: pNisa / pTotal,
+          tokutei: pTokutei / pTotal,
+          ideco: pIdeco / pTotal,
+          gold_physical: pGold / pTotal,
+          cash: pCash / pTotal,
+        };
+        // 乖離チェック: いずれかの口座が閾値を超えて乖離しているか
+        const needsRebalance = (["nisa", "tokutei", "ideco", "gold_physical", "cash"] as const).some(
+          (c) => tw[c] > 0 && Math.abs(currentW[c] - tw[c]) > threshold
+        );
+        if (needsRebalance) {
+          // iDeCoは60歳未満で取り崩し不可
+          const idecoLocked = age < 60;
+          const targetNisa = pTotal * tw.nisa;
+          const targetTokutei = pTotal * tw.tokutei;
+          const targetIdeco = idecoLocked ? pIdeco : pTotal * tw.ideco;
+          const targetGold = pTotal * tw.gold_physical;
+          const targetCash = pTotal * tw.cash;
+
+          // 特定口座の売却益課税（リバランスで売却する分）
+          if (pTokutei > targetTokutei) {
+            const sellAmount = pTokutei - targetTokutei;
+            const taxableGain = sellAmount * input.tokuteiGainRatio;
+            const tax = Math.round(taxableGain * 0.20315);
+            taxBd.withdrawalTax += tax;
+            // 税引後の売却額を他口座に再配分
+            pTokutei = targetTokutei;
+            const proceeds = sellAmount - tax;
+            // NISAに振り向け（年間枠は無視: リバランスは既存資産の再配分）
+            if (pNisa < targetNisa) {
+              const toNisa = Math.min(proceeds, targetNisa - pNisa);
+              pNisa += toNisa;
+            }
+          } else {
+            pTokutei = targetTokutei;
+          }
+
+          // 金現物のリバランス売却課税
+          if (pGold > targetGold) {
+            const sellAmount = pGold - targetGold;
+            const taxableGain = Math.max(0, sellAmount * input.goldGainRatio - 500_000) / 2;
+            if (taxableGain > 0) {
+              const tax = Math.round(taxableGain * 0.20315);
+              taxBd.withdrawalTax += tax;
+            }
+          }
+
+          // NISA・iDeCo内のリバランスは非課税
+          if (!idecoLocked) pIdeco = targetIdeco;
+          pNisa = Math.min(pNisa, targetNisa); // 超過分は tokutei に
+          pGold = targetGold;
+          // 残りをcashで調整
+          pCash = Math.max(0, pTotal - pNisa - pTokutei - pIdeco - pGold
+            - taxBd.withdrawalTax + (taxBd.withdrawalTax)); // 税は既に控除済み
+          pCash = targetCash;
+          // 税による目減り分を全体に按分
+          const afterTax = pNisa + pTokutei + pIdeco + pGold + pCash;
+          if (afterTax > pTotal) {
+            // 税がかかった分だけ全体が減る: 按分で調整
+            const ratio = pTotal / afterTax;
+            pNisa *= ratio;
+            pTokutei *= ratio;
+            if (!idecoLocked) pIdeco *= ratio;
+            pGold *= ratio;
+            pCash *= ratio;
+          }
+        }
+      }
     }
 
     // ====== 集計 ======
@@ -363,7 +500,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       expense: input.annualExpense + lifeEventExpense,
       taxBreakdown: taxBd,
       withdrawal: Math.round(withdrawal),
-      portfolioReturn: pReturn,
+      portfolioReturn: (pNisaRet + pTokuteiRet + pIdecoRet + pGoldRet) / 4,
     });
 
     if (totalAssets <= 0 && anyRetired && depletionAge === null) {
