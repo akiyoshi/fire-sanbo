@@ -15,8 +15,6 @@ import { IncomeSection } from "./wizard/income-section";
 import { EventsSection } from "./wizard/events-section";
 // TODO: SpouseSection 将来復活予定 (wizard/spouse-section)
 import { AdvancedSection } from "./wizard/advanced-section";
-import { QuickPreview } from "./wizard/quick-preview";
-import { QuickStart } from "./wizard/quick-start";
 import { TemplateSelector } from "./wizard/template-selector";
 
 interface WizardProps {
@@ -83,14 +81,6 @@ export function Wizard({ onComplete }: WizardProps) {
 
   return (
     <div className="w-full max-w-4xl lg:max-w-6xl mx-auto space-y-6">
-      <QuickStart form={form} update={update} onQuickRun={onComplete} />
-      <TemplateSelector form={form} setForm={setForm} onOpenSections={handleOpenSections} />
-      <ScenarioSection
-        form={form}
-        setForm={setForm}
-        activeScenarioId={activeScenarioId}
-        setActiveScenarioId={setActiveScenarioId}
-      />
       <BasicSection form={form} update={update} />
       <PortfolioSection form={form} setForm={setForm} />
 
@@ -121,21 +111,6 @@ export function Wizard({ onComplete }: WizardProps) {
         <EventsSection form={form} update={update} />
       </details>
 
-      {/* 配偶者セクション: 現在独身のため非表示（将来復活予定）
-      <details className="group" open={!!form.spouseEnabled}>
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90">▶</span>
-            配偶者
-            {form.spouseEnabled && (
-              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">設定済み</span>
-            )}
-          </div>
-        </summary>
-        <SpouseSection form={form} update={update} />
-      </details>
-      */}
-
       <details className="group">
         <summary className="cursor-pointer list-none">
           <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -146,8 +121,34 @@ export function Wizard({ onComplete }: WizardProps) {
         <AdvancedSection form={form} update={update} hasGold={hasGold} />
       </details>
 
-      {/* 概算プレビュー */}
-      <QuickPreview form={form} isValid={!validationError} />
+      <details className="group">
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
+            テンプレート
+          </div>
+        </summary>
+        <div className="pt-2">
+          <TemplateSelector form={form} setForm={setForm} onOpenSections={handleOpenSections} />
+        </div>
+      </details>
+
+      <details className="group">
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
+            シナリオ管理
+          </div>
+        </summary>
+        <div className="pt-2">
+          <ScenarioSection
+            form={form}
+            setForm={setForm}
+            activeScenarioId={activeScenarioId}
+            setActiveScenarioId={setActiveScenarioId}
+          />
+        </div>
+      </details>
 
       {/* バリデーション + 実行ボタン (スティッキー) */}
       <div className="sticky bottom-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur-sm border-t">
