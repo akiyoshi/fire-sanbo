@@ -13,8 +13,9 @@
 - **処方箋エンジン** — 目標成功率に対して3軸で二分探索し、Top 3の改善案を提示
 - **最悪ケース診断書** — p5（下位5%）シナリオを分析し、暴落型・資金不足型・長寿リスク型等に自動分類
 - **5口座種別** — 現金 / NISA / 特定口座 / iDeCo / 金現物の取り崩し順序を最適化、全パターン評価でワンクリック適用
-- **ポートフォリオ最適化** — 効率的フロンティア(モンテカルロ10,000サンプル)で最適配分を提案、ワンクリック適用
-- **計算根拠書** — 12セクション・動的計算例・出典リンク付きで全ルールを解説
+- **ポートフォリオ最適化** — 効率的フロンティア(モンテカルロ10,000サンプル)で最適配分を提案、保有に適用 or 目標に設定
+- **目標アセットアロケーション** — 資産クラスレベルの目標配分を入力、積立時・退職後のリバランスを自動実行
+- **計算根拠書** — 15セクション・4グループ・動的計算例・出典リンク付きで全ルールを解説
 - **What-ifスライダー** — 結果画面でリアルタイムにパラメータを変更して再計算
 - **シナリオ管理** — 名前付き保存・比較・JSON エクスポート/インポート
 - **共有URL** — DeflateRaw+Base64url圧縮でサーバーレス共有、Web Share API対応
@@ -29,7 +30,7 @@
 | スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
 | アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |
-| テスト | Vitest (194テスト, ~2秒) + Playwright E2E (4テスト) |
+| テスト | Vitest (217テスト, ~2秒) + Playwright E2E (4テスト) |
 | 言語 | TypeScript 5 (strict) |
 | 品質 | ESLint 9 + typescript-eslint + react-hooks |
 | CI/CD | GitHub Actions → GitHub Pages |
@@ -52,14 +53,14 @@ src/
 ├── main.tsx             # ReactDOM.createRoot
 ├── app/globals.css      # Tailwind + テーマ変数 (OKLCH)
 ├── components/          # UI コンポーネント
-│   ├── wizard.tsx       # 入力フォーム (9サブコンポーネント) + クイックスタート
-│   ├── wizard/          # セクション別入力 + quick-start.tsx
+│   ├── wizard.tsx       # 入力フォーム + 全セクション折りたたみ
+│   ├── wizard/          # セクション別入力 + 目標アロケーションUI
 │   ├── results.tsx      # 結果画面 + What-if
 │   ├── prescription-card.tsx  # 処方箋
 │   ├── worst-case-card.tsx    # 最悪ケース診断書
 │   ├── portfolio-optimizer.tsx # 効率的フロンティア
 │   ├── scenario-compare.tsx   # シナリオ比較
-│   ├── methodology/     # 計算根拠書 (12セクション)
+│   ├── methodology/     # 計算根拠書 (15セクション・4グループ)
 │   └── ui/              # shadcn/ui
 ├── config/              # 税制・資産クラスデータ (JSON) + テンプレート + 年度切替
 └── lib/                 # 計算エンジン (フレームワーク非依存)
