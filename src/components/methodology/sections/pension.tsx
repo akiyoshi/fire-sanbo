@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { calcPublicPensionDeduction, calcPensionTax } from "@/lib/tax/engine";
+import { calcPublicPensionDeduction, calcComprehensiveTax } from "@/lib/tax/engine";
 import taxConfig from "@/config/tax-config-2026.json";
 import { TwoColumn, ExampleCard, ExampleInput, Step, SourceLink, fmtExact, fmtYen, fmtPct } from "../example-card";
 
@@ -11,7 +11,8 @@ export function PensionSection() {
     const pension = 1_800_000;
     const age = 65;
     const deduction = calcPublicPensionDeduction(pension, age);
-    const tax = calcPensionTax(pension, age);
+    const pensionTaxable = Math.max(0, pension - deduction);
+    const tax = calcComprehensiveTax(pensionTaxable, 0, 0);
     return { pension, age, deduction, ...tax, net: pension - tax.total };
   }, []);
 
@@ -22,7 +23,9 @@ export function PensionSection() {
     const reduction = basePension * 0.004 * earlyMonths;
     const pension = Math.round(basePension - reduction);
     const age = 60;
-    const tax = calcPensionTax(pension, age);
+    const deduction60 = calcPublicPensionDeduction(pension, age);
+    const pensionTaxable60 = Math.max(0, pension - deduction60);
+    const tax = calcComprehensiveTax(pensionTaxable60, 0, 0);
     return { basePension, pension, age, reduction, ...tax, net: pension - tax.total };
   }, []);
 

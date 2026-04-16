@@ -57,6 +57,24 @@ describe("url-share", () => {
       const restored = decompressForm(encoded);
       expect(restored!.numTrials).toBe(1000);
     });
+
+    it("v5フィールド（targetAllocation, rebalanceEnabled）がラウンドトリップする", () => {
+      const form: FormState = {
+        ...DEFAULT_FORM,
+        targetAllocation: [
+          { assetClass: "developed_stock", weight: 0.6 },
+          { assetClass: "developed_bond", weight: 0.3 },
+          { assetClass: "gold", weight: 0.1 },
+        ],
+        rebalanceEnabled: true,
+      };
+      const encoded = compressForm(form);
+      const restored = decompressForm(encoded);
+      expect(restored).not.toBeNull();
+      expect(restored!.targetAllocation).toHaveLength(3);
+      expect(restored!.targetAllocation![0].weight).toBe(0.6);
+      expect(restored!.rebalanceEnabled).toBe(true);
+    });
   });
 
   describe("URL長の安全性", () => {

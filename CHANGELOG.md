@@ -1,5 +1,26 @@
 # Changelog
 
+## [4.3.2] - 2026-04-16
+
+API面積縮小: 旧API一掃 + FormState v5一本化 + QA品質改善。
+
+### 削除
+- **calcPensionTax / calcSideIncomeTax**: 完全削除（calcComprehensiveTaxに統合済み）
+- **FormStateマイグレーションチェーン**: migrateV2toV3/V3toV4/V4toV5を全削除、v5のみ受付
+- **税エンジンexport 20→15**: calcPensionTax・calcSideIncomeTax削除
+
+### 変更
+- **prescription/engine.ts**: calcPensionTax+calcSideIncomeTax → calcComprehensiveTaxに統一、金のotherComprehensiveIncomeも渡す
+- **methodology/pension.tsx**: calcPensionTax → calcPublicPensionDeduction+calcComprehensiveTax
+- **methodology/side-income.tsx**: calcSideIncomeTax → calcComprehensiveTax
+- **url-share.ts**: FORM_SCHEMA_VERSION 3→5に統一
+- **loadForm/importFormFromJSON**: v5のみ受付、v2/v3/v4はnull返却
+- **simulation-flow.tsx**: Phase 3説明を総合課税統合に更新
+
+### 追加
+- **url-shareテスト**: v5フィールド（targetAllocation+rebalanceEnabled）ラウンドトリップ
+- **form-stateテスト**: v5以外のJSONインポートがnullを返す検証
+
 ## [4.3.1] - 2026-04-16
 
 金現物の総合課税修正 + 年金・副収入の総合課税統合。

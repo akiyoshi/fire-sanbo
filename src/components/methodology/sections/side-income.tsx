@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { calcSideIncomeTax } from "@/lib/tax/engine";
+import { calcComprehensiveTax } from "@/lib/tax/engine";
 import taxConfig from "@/config/tax-config-2026.json";
 import { TwoColumn, ExampleCard, ExampleInput, Step, SourceLink, fmtExact } from "../example-card";
 
@@ -8,14 +8,14 @@ export function SideIncomeSection() {
 
   const example = useMemo(() => {
     const income = 1_200_000;
-    const result = calcSideIncomeTax(income);
-    return { income, ...result };
+    const result = calcComprehensiveTax(0, income, 0);
+    return { income, ...result, net: income - result.total };
   }, []);
 
   const exampleHigh = useMemo(() => {
     const income = 3_000_000;
-    const result = calcSideIncomeTax(income);
-    return { income, ...result };
+    const result = calcComprehensiveTax(0, income, 0);
+    return { income, ...result, net: income - result.total };
   }, []);
 
   return (
