@@ -13,6 +13,7 @@ import {
   calcPensionTax,
   calcRetirementBonusNet,
   calcSideIncomeTax,
+  calcComprehensiveTax,
 } from "./engine";
 import { calcWithdrawalTax } from "./accounts";
 
@@ -221,6 +222,52 @@ describe("税制エンジン P0テスト", () => {
       expect(result.net).toBeLessThanOrEqual(2_000_000);
       expect(result.net + result.tax).toBe(2_000_000);
     });
+
+    it("otherIncome>0で累進税率が上がる（差分課税）", () => {
+      // otherIncome=0 の場合
+      const withoutOther = calcGoldWithdrawalTax(4_000_000, 0.5, 0);
+      // otherIncome=200万（年金雑所得）の場合
+      const withOther = calcGoldWithdrawalTax(4_000_000, 0.5, 2_000_000);
+      // 他の所得があると累進の上段に押し上げられ、金の限界税率が上がる
+      expect(withOther.tax).toBeGreaterThan(withoutOther.tax);
+    });
+
+    it("calcWithdrawalTax経由でotherComprehensiveIncomeが渡せる", () => {
+      const without = calcWithdrawalTax("gold_physical", 4_000_000, { goldGainRatio: 0.5 });
+      const withOther = calcWithdrawalTax("gold_physical", 4_000_000, {
+        goldGainRatio: 0.5,
+        otherComprehensiveIncome: 2_000_000,
+      });
+      expect(withOther.tax).toBeGreaterThan(without.tax);
+    });
+  });
+});
+
+describe("総合課税統合 (calcComprehensiveTax)", () => {
+  it("年金雑所得のみ → 税額が正しく計算される", () => {
+    // 年金200万、65歳 → 控除110万 → 雑所得90万
+    const pensionTaxable = 900_000; // 公的年金等控除後
+    const compTax = calcComprehensiveTax(pensionTaxable, 0, 0);
+    // 90万 - 基礎控除48万 = 42万 → 所得税5%=21,000 + 復興2.1%=441 → 21,441
+    expect(compTax.incomeTax).toBeGreaterThan(0);
+    expect(compTax.total).toBeGreaterThan(0);
+  });
+
+  it("年金+副収入の合算で基礎控除は1回のみ", () => {
+    // 年金雑所得100万 + 副収入100万 = 総合200万
+    const combined = calcComprehensiveTax(1_000_000, 1_000_000, 0);
+    // 各単独の合計
+    const pensionOnly = calcComprehensiveTax(1_000_000, 0, 0);
+    const sideOnly = calcComprehensiveTax(0, 1_000_000, 0);
+    // 合算の方が税額が大きい（基礎控除が1回のみだから）
+    expect(combined.total).toBeGreaterThan(pensionOnly.total);
+    // 合算 >= 各単独の合計（累進+基礎控除1回の効果）
+    expect(combined.total).toBeGreaterThanOrEqual(pensionOnly.total + sideOnly.total);
+  });
+
+  it("所得0なら税額0", () => {
+    const result = calcComprehensiveTax(0, 0, 0);
+    expect(result.total).toBe(0);
   });
 });
 

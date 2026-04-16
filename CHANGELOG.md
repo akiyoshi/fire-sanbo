@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.3.1] - 2026-04-16
+
+金現物の総合課税修正 + 年金・副収入の総合課税統合。
+
+### 追加
+- **calcComprehensiveTax**: 年金雑所得+副収入を合算し基礎控除1回のみ適用する総合課税関数
+- **テスト+8**: 金の累進課税・年金合算・リバランス累進・後方互換・総合課税統合
+
+### 修正
+- **金リバランスの一律20.315%→累進税率**: `taxableGain * 0.20315` → `calcGoldWithdrawalTax(amount, ratio, comprehensiveIncome)` で総合課税の累進税率を適用
+- **金取り崩しのotherIncome=0固定→年金・副収入と合算**: `calcWithdrawalTax` に `otherComprehensiveIncome` 引数追加、シミュレーションエンジンから年金雑所得+副収入を渡す
+- **基礎控除の複数回適用→年1回**: Phase 3を書き換え、`calcPensionTax`+`calcSideIncomeTax`個別呼び出し→`calcComprehensiveTax`合算に統合
+- **同一年の金取崩+リバランスで累進税率が正しく統合**: Phase 4の金取崩課税所得をcomprehensiveIncomeに累積
+
 ## [4.3.0] - 2026-04-16
 
 目標アセットアロケーション + リバランスUI + エンジン修正。

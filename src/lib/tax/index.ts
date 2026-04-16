@@ -17,6 +17,7 @@ export {
   calcPensionTax,
   calcRetirementBonusNet,
   calcSideIncomeTax,
+  calcComprehensiveTax,
 } from "./engine";
 export type { AnnualTaxResult } from "./engine";
 

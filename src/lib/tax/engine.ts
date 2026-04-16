@@ -359,3 +359,27 @@ export function calcSideIncomeTax(
 
   return { incomeTax, residentTax, total, net: sideIncome - total };
 }
+
+/**
+ * 総合課税所得（年金雑所得 + 副収入）に対する所得税+住民税を一括計算
+ * 基礎控除は1回のみ適用
+ *
+ * @param pensionTaxable 公的年金等控除後の雑所得
+ * @param sideIncome 副収入（事業/雑所得）
+ * @param socialInsuranceDeduction 社会保険料控除
+ */
+export function calcComprehensiveTax(
+  pensionTaxable: number,
+  sideIncome: number,
+  socialInsuranceDeduction: number,
+  cfg = config
+): { incomeTax: number; residentTax: number; total: number } {
+  const totalIncome = pensionTaxable + sideIncome;
+  if (totalIncome <= 0) return { incomeTax: 0, residentTax: 0, total: 0 };
+
+  const taxableIncome = calcTaxableIncome(totalIncome, socialInsuranceDeduction, cfg);
+  const incomeTax = calcIncomeTax(taxableIncome, cfg);
+  const residentTax = calcResidentTax(totalIncome, socialInsuranceDeduction, cfg);
+
+  return { incomeTax, residentTax, total: incomeTax + residentTax };
+}

@@ -11,9 +11,10 @@ import {
   calcAnnualTax,
   calcWithdrawalTax,
   calcSocialInsurancePremium,
-  calcPensionTax,
+  calcPublicPensionDeduction,
+  calcComprehensiveTax,
   calcRetirementBonusNet,
-  calcSideIncomeTax,
+  calcGoldWithdrawalTax,
 } from "@/lib/tax";
 import type { TaxCategory } from "@/lib/tax";
 
@@ -117,45 +118,69 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       taxBd.withdrawalTax += bonus.tax;
     }
 
-    // ====== 退職後の収入源 ======
+    // ====== 退職後の収入源（総合課税統合） ======
     let postRetirementIncome = 0;
+    // 総合課税所得を集計（年金雑所得 + 副収入）— 基礎控除は1回のみ適用
+    let pComprehensiveIncome = 0; // Primary の総合課税所得（金のotherIncome用）
+    let sComprehensiveIncome = 0; // Spouse の総合課税所得
 
-    // Primary 年金
+    // Primary 年金 → 公的年金等控除後の雑所得
+    let pPensionTaxable = 0;
+    let pPensionGross = 0;
     if (age >= input.retirementAge) {
-      const pensionIncome = calcAnnualPension(input.pension, age);
-      if (pensionIncome > 0) {
-        const pensionTax = calcPensionTax(pensionIncome, age);
-        postRetirementIncome += pensionIncome - pensionTax.total;
-        taxBd.incomeTax += pensionTax.incomeTax;
-        taxBd.residentTax += pensionTax.residentTax;
-      }
-    }
-
-    // Spouse 年金
-    if (sp && spouseAge >= sp.retirementAge) {
-      const pensionIncome = calcAnnualPension(sp.pension, spouseAge);
-      if (pensionIncome > 0) {
-        const pensionTax = calcPensionTax(pensionIncome, spouseAge);
-        postRetirementIncome += pensionIncome - pensionTax.total;
-        taxBd.incomeTax += pensionTax.incomeTax;
-        taxBd.residentTax += pensionTax.residentTax;
+      pPensionGross = calcAnnualPension(input.pension, age);
+      if (pPensionGross > 0) {
+        const deduction = calcPublicPensionDeduction(pPensionGross, age);
+        pPensionTaxable = Math.max(0, pPensionGross - deduction);
       }
     }
 
     // Primary 副収入
+    let pSideIncome = 0;
     if (age >= input.retirementAge && input.sideIncome && age <= input.sideIncome.untilAge) {
-      const sideTax = calcSideIncomeTax(input.sideIncome.annualAmount);
-      postRetirementIncome += sideTax.net;
-      taxBd.incomeTax += sideTax.incomeTax;
-      taxBd.residentTax += sideTax.residentTax;
+      pSideIncome = input.sideIncome.annualAmount;
+    }
+
+    // Primary 総合課税（年金雑所得 + 副収入を合算、基礎控除1回）
+    pComprehensiveIncome = pPensionTaxable + pSideIncome;
+    if (pComprehensiveIncome > 0) {
+      const compTax = calcComprehensiveTax(pPensionTaxable, pSideIncome, 0);
+      const grossIncome = pPensionGross + pSideIncome;
+      postRetirementIncome += grossIncome - compTax.total;
+      taxBd.incomeTax += compTax.incomeTax;
+      taxBd.residentTax += compTax.residentTax;
+    } else {
+      // 年金も副収入もない場合は税金ゼロ
+      postRetirementIncome += pPensionGross + pSideIncome;
+    }
+
+    // Spouse 年金 → 公的年金等控除後の雑所得
+    let sPensionTaxable = 0;
+    let sPensionGross = 0;
+    if (sp && spouseAge >= sp.retirementAge) {
+      sPensionGross = calcAnnualPension(sp.pension, spouseAge);
+      if (sPensionGross > 0) {
+        const deduction = calcPublicPensionDeduction(sPensionGross, spouseAge);
+        sPensionTaxable = Math.max(0, sPensionGross - deduction);
+      }
     }
 
     // Spouse 副収入
+    let sSideIncome = 0;
     if (sp?.sideIncome && spouseAge >= sp.retirementAge && spouseAge <= sp.sideIncome.untilAge) {
-      const sideTax = calcSideIncomeTax(sp.sideIncome.annualAmount);
-      postRetirementIncome += sideTax.net;
-      taxBd.incomeTax += sideTax.incomeTax;
-      taxBd.residentTax += sideTax.residentTax;
+      sSideIncome = sp.sideIncome.annualAmount;
+    }
+
+    // Spouse 総合課税
+    sComprehensiveIncome = sPensionTaxable + sSideIncome;
+    if (sComprehensiveIncome > 0) {
+      const compTax = calcComprehensiveTax(sPensionTaxable, sSideIncome, 0);
+      const grossIncome = sPensionGross + sSideIncome;
+      postRetirementIncome += grossIncome - compTax.total;
+      taxBd.incomeTax += compTax.incomeTax;
+      taxBd.residentTax += compTax.residentTax;
+    } else {
+      postRetirementIncome += sPensionGross + sSideIncome;
     }
 
     // ====== 支出・取り崩しフェーズ ======
@@ -186,8 +211,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         if (pass === 1 && !sp) break;
 
         const txOpts = isPrimary
-          ? { yearsOfService: input.idecoYearsOfService, gainRatio: input.tokuteiGainRatio, goldGainRatio: input.goldGainRatio }
-          : { yearsOfService: sp!.idecoYearsOfService, gainRatio: sp!.tokuteiGainRatio, goldGainRatio: sp!.goldGainRatio };
+          ? { yearsOfService: input.idecoYearsOfService, gainRatio: input.tokuteiGainRatio, goldGainRatio: input.goldGainRatio, otherComprehensiveIncome: pComprehensiveIncome }
+          : { yearsOfService: sp!.idecoYearsOfService, gainRatio: sp!.tokuteiGainRatio, goldGainRatio: sp!.goldGainRatio, otherComprehensiveIncome: sComprehensiveIncome };
 
         for (const taxCategory of input.withdrawalOrder) {
           if (remaining <= 0) break;
@@ -202,6 +227,20 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
           const withdrawAmount = Math.min(remaining, balance);
           const result = calcWithdrawalTax(taxCategory, withdrawAmount, txOpts);
+
+          // 金取り崩し時: 課税所得をcomprehensiveIncomeに累積（同一年のリバランスで正しい累進税率を適用するため）
+          if (taxCategory === "gold_physical") {
+            const goldGainRatio = isPrimary ? input.goldGainRatio : (sp?.goldGainRatio ?? 0.3);
+            const goldGain = withdrawAmount * goldGainRatio;
+            const goldTaxable = Math.max(0, goldGain - 500_000) * 0.5;
+            if (isPrimary) {
+              pComprehensiveIncome += goldTaxable;
+              txOpts.otherComprehensiveIncome = pComprehensiveIncome;
+            } else {
+              sComprehensiveIncome += goldTaxable;
+              txOpts.otherComprehensiveIncome = sComprehensiveIncome;
+            }
+          }
 
           if (isPrimary) {
             switch (taxCategory) {
@@ -460,12 +499,12 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
             pTokutei = targetTokutei;
           }
 
-          // 金現物のリバランス売却課税
+          // 金現物のリバランス売却課税（総合課税: 累進税率）
           let goldSellProceeds = 0;
           if (pGold > targetGold) {
             const sellAmount = pGold - targetGold;
-            const taxableGain = Math.max(0, sellAmount * input.goldGainRatio - 500_000) / 2;
-            const tax = taxableGain > 0 ? Math.round(taxableGain * 0.20315) : 0;
+            const goldTaxResult = calcGoldWithdrawalTax(sellAmount, input.goldGainRatio, pComprehensiveIncome);
+            const tax = goldTaxResult.tax;
             rebalanceTax += tax;
             taxBd.withdrawalTax += tax;
             goldSellProceeds = sellAmount - tax;
