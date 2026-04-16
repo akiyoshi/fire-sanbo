@@ -10,7 +10,7 @@ export function PortfolioReturnSection() {
       </p>
 
       <div className="space-y-4">
-        <div className="bg-muted rounded-lg p-4 space-y-3">
+        <div className="bg-muted rounded-lg p-4 space-y-3 border-l-2 border-primary/30">
           <h4 className="text-sm font-medium">対数正規分布のリターン生成</h4>
           <div className="font-mono text-sm space-y-1">
             <p>μ = ln(1 + 期待リターン) − σ²/2 &nbsp;&nbsp;<span className="text-muted-foreground">…ボラティリティドラグ補正</span></p>
@@ -23,7 +23,7 @@ export function PortfolioReturnSection() {
           </p>
         </div>
 
-        <div className="bg-muted rounded-lg p-4 space-y-3">
+        <div className="bg-muted rounded-lg p-4 space-y-3 border-l-2 border-primary/30">
           <h4 className="text-sm font-medium">実質リターン</h4>
           <div className="font-mono text-sm">
             <p>実質リターン = 名目リターン − インフレ率</p>
@@ -34,7 +34,7 @@ export function PortfolioReturnSection() {
           </p>
         </div>
 
-        <div className="bg-muted rounded-lg p-4 space-y-3">
+        <div className="bg-muted rounded-lg p-4 space-y-3 border-l-2 border-primary/30">
           <h4 className="text-sm font-medium">ポートフォリオの合成リスク</h4>
           <div className="font-mono text-sm">
             <p>σ_p = √(Σ_i Σ_j w_i × w_j × σ_i × σ_j × ρ_ij)</p>

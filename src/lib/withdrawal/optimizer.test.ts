@@ -90,6 +90,14 @@ describe("取り崩し順序最適化（deterministic）", () => {
     expect(result.worst).toBeDefined();
   });
 
+  it("deterministic モードで年次データ（yearlyAssets, ages）が返される", () => {
+    const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
+    expect(result.best.yearlyAssets).toBeDefined();
+    expect(result.best.ages).toBeDefined();
+    expect(result.best.yearlyAssets!.length).toBe(result.best.ages!.length);
+    expect(result.best.ages![0]).toBe(baseInput.currentAge);
+  });
+
   it("deterministic では全パターン同一の成功率（決定論的）", () => {
     const result = optimizeWithdrawalOrder(baseInput, { deterministic: true });
     const rates = new Set(result.all.map((r) => r.successRate));
@@ -131,5 +139,22 @@ describe("取り崩し順序最適化（deterministic）", () => {
     const result = optimizeWithdrawalOrder(input, { deterministic: true });
     expect(result.all).toHaveLength(1);
     expect(result.benefitAmount).toBe(0);
+  });
+
+  it("deterministic + accountAllocations でstdDevが0にされ決定論的になる", () => {
+    const input: SimulationInput = {
+      ...baseInput,
+      accountAllocations: {
+        nisa: { expectedReturn: 0.08, standardDeviation: 0.20 },
+        tokutei: { expectedReturn: 0.04, standardDeviation: 0.10 },
+      },
+    };
+    const result1 = optimizeWithdrawalOrder(input, { deterministic: true });
+    const result2 = optimizeWithdrawalOrder(input, { deterministic: true });
+    // 決定論的: 同じ入力なら同じ結果
+    expect(result1.best.medianFinalAssets).toBe(result2.best.medianFinalAssets);
+    // 全パターンの成功率が同一（σ=0の決定論的シミュレーション）
+    const rates = new Set(result1.all.map((r) => r.successRate));
+    expect(rates.size).toBe(1);
   });
 });

@@ -112,6 +112,22 @@ export interface SimulationInput {
   nisaConfig?: NisaConfig;
   /** 配偶者（世帯シミュレーション用） */
   spouse?: SpouseInput;
+
+  /* v4.2 拡張: 口座別アロケーション + リバランス */
+
+  /** 口座別のリターン・リスク（省略時はallocationを全口座に適用） */
+  accountAllocations?: Partial<Record<"nisa" | "tokutei" | "ideco" | "gold_physical" | "cash", AssetAllocation>>;
+  /** リバランス設定 */
+  rebalance?: RebalanceConfig;
+}
+
+export interface RebalanceConfig {
+  /** リバランス有効化 */
+  enabled: boolean;
+  /** 目標ウェイト（口座別、合計1.0） */
+  targetWeights: Record<"nisa" | "tokutei" | "ideco" | "gold_physical" | "cash", number>;
+  /** 乖離閾値（これを超えたらリバランス実行、デフォルト0.05=5%） */
+  threshold?: number;
 }
 
 export interface TaxBreakdown {

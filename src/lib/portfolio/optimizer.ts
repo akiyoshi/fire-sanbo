@@ -14,7 +14,7 @@ function getCorrelation(a: AssetClassId, b: AssetClassId): number {
 }
 
 /** 指定ウェイトでリターン・リスクを計算 */
-function calcFromWeights(
+export function calcFromWeights(
   assets: AssetClassId[],
   weights: number[],
 ): { expectedReturn: number; risk: number } {

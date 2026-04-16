@@ -32,6 +32,10 @@ export interface WithdrawalOrderResult {
   label: string;
   successRate: number;
   medianFinalAssets: number;
+  /** 年次資産推移（deterministicモードのみ） */
+  yearlyAssets?: number[];
+  /** 年齢配列（deterministicモードのみ） */
+  ages?: number[];
 }
 
 export interface OptimizationResult {
@@ -45,6 +49,12 @@ export interface OptimizationResult {
 export interface OptimizeOptions {
   /** true: numTrials=1, stdDev=0 の決定論的シナリオで比較（<50ms） */
   deterministic?: boolean;
+}
+
+/** 対数正規分布の中央値リターン: exp(log(1+r) - σ²/2) - 1 */
+function medianReturn(expectedReturn: number, stdDev: number): number {
+  if (stdDev <= 0) return expectedReturn;
+  return Math.exp(Math.log(1 + expectedReturn) - (stdDev ** 2) / 2) - 1;
 }
 
 function orderLabel(order: TaxCategory[]): string {
@@ -87,14 +97,35 @@ export function optimizeWithdrawalOrder(
           seed: 0,
           allocation: {
             ...baseInput.allocation,
+            // 中央値リターン: exp(log(1+r) - σ²/2) - 1（ボラティリティドラッグ反映）
+            expectedReturn: medianReturn(
+              baseInput.allocation.expectedReturn,
+              baseInput.allocation.standardDeviation
+            ),
             standardDeviation: 0,
           },
-          // 配偶者のstdDevも0にする（決定論的比較の公平性）
+          // 口座別アロケーションのstdDevも0 + 中央値リターンにする
+          ...(baseInput.accountAllocations && {
+            accountAllocations: Object.fromEntries(
+              Object.entries(baseInput.accountAllocations).map(([k, v]) => [
+                k,
+                v ? {
+                  expectedReturn: medianReturn(v.expectedReturn, v.standardDeviation),
+                  standardDeviation: 0,
+                } : v,
+              ])
+            ),
+          }),
+          // 配偶者のstdDevも0 + 中央値リターンにする
           ...(baseInput.spouse && {
             spouse: {
               ...baseInput.spouse,
               allocation: {
                 ...baseInput.spouse.allocation,
+                expectedReturn: medianReturn(
+                  baseInput.spouse.allocation.expectedReturn,
+                  baseInput.spouse.allocation.standardDeviation
+                ),
                 standardDeviation: 0,
               },
             },
@@ -110,6 +141,10 @@ export function optimizeWithdrawalOrder(
         medianFinalAssets: deterministic
           ? sim.trials[0].finalAssets
           : sim.percentiles.p50[lastIdx],
+        ...(deterministic && {
+          yearlyAssets: sim.trials[0].years.map((y) => y.totalAssets),
+          ages: sim.ages,
+        }),
       };
     }
   );

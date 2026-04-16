@@ -10,7 +10,7 @@ export function SimulationFlowSection() {
 
       <div className="space-y-3">
         {/* フロー図 */}
-        <div className="bg-muted rounded-lg p-4 font-mono text-sm overflow-x-auto">
+        <div className="bg-muted rounded-lg p-4 font-mono text-sm overflow-x-auto border-l-2 border-primary/30">
           <pre className="whitespace-pre leading-relaxed">{`┌─────────────────────────────────────────────────────┐
 │               1年間のシミュレーション                  │
 ├─────────────────────────────────────────────────────┤
@@ -36,12 +36,20 @@ export function SimulationFlowSection() {
 │     → calcWithdrawalTax() で税額計算                  │
 │              ↓                                      │
 │  Phase 5: 余剰積立 / 赤字取り崩し                     │
-│  ├─ 余剰あり → NISA(枠管理) → 特定口座                │
+│  ├─ 余剰あり → リバランス有効?                        │
+│  │  ├─ Yes → gap順に配分(NISA枠制約付き) [Stage 2]   │
+│  │  └─ No  → NISA(枠管理) → 特定口座                 │
 │  └─ 赤字 → 口座から追加取り崩し                       │
 │              ↓                                      │
 │  Phase 6: ポートフォリオリターン                       │
-│  └─ 各口座残高 × generateLogNormalReturn()            │
-│     (実質リターン = 名目 − インフレ率)                 │
+│  ├─ 口座別アロケーション有効? [Stage 1]               │
+│  │  ├─ Yes → 口座ごとに独立リターン生成               │
+│  │  └─ No  → 全口座に同一リターン                     │
+│  └─ 各口座残高 × (1 + ret_i)                         │
+│              ↓                                      │
+│  Phase 6.5: 退職後リバランス [Stage 3]                │
+│  ├─ 乖離 > 閾値(5%)? → 売買実行                      │
+│  └─ 特定口座・金の売却益に課税                        │
 │              ↓                                      │
 │  Phase 7: 年次集計                                   │
 │  ├─ 総資産 = nisa + tokutei + ideco + gold + cash    │

@@ -4,14 +4,17 @@ import { deriveBalancesByTaxCategory } from "@/lib/form-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { ASSET_CLASS_IDS, getAssetClassData, calcPortfolio } from "@/lib/portfolio";
 import { TAX_CATEGORIES, TAX_CATEGORY_LABELS } from "@/lib/portfolio";
-import type { AssetClassId, PortfolioEntry, TaxCategory } from "@/lib/portfolio";
+import type { AssetClassId, PortfolioEntry, TaxCategory, TargetAllocation } from "@/lib/portfolio";
 import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
 import { formatManYen } from "./shared";
 import { X } from "lucide-react";
 
 const SELECTABLE_CLASSES = ASSET_CLASS_IDS.filter((id) => id !== "cash");
+const TARGET_CLASSES = ASSET_CLASS_IDS.filter((id) => id !== "cash");
 const assetClassData = getAssetClassData();
 
 interface PortfolioSectionProps {
@@ -71,6 +74,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
   const totalBalance = balances.nisa + balances.tokutei + balances.ideco + balances.gold_physical + balances.cash;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>資産</CardTitle>
@@ -206,8 +210,149 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
         <PortfolioOptimizer
           currentPortfolio={form.portfolio}
           onApply={(newPortfolio) => setForm((prev) => ({ ...prev, portfolio: newPortfolio }))}
+          onApplyTarget={(target) => setForm((prev) => ({
+            ...prev,
+            targetAllocation: target,
+            rebalanceEnabled: true,
+          }))}
         />
+
+        {/* 目標アセットアロケーション + リバランス */}
       </CardContent>
+    </Card>
+    <TargetAllocationSection form={form} setForm={setForm} />
+    </>
+  );
+}
+
+function TargetAllocationSection({ form, setForm }: PortfolioSectionProps) {
+  const rebalanceEnabled = form.rebalanceEnabled === true;
+  const target = form.targetAllocation ?? [];
+
+  const toggleRebalance = (checked: boolean) => {
+    setForm((prev) => {
+      if (checked && (!prev.targetAllocation || prev.targetAllocation.length === 0)) {
+        // ON時に目標未設定 → 現在のportfolioから自動生成
+        const portfolioResult = calcPortfolio(prev.portfolio);
+        const autoTarget: TargetAllocation[] = TARGET_CLASSES
+          .filter((id) => portfolioResult.weights[id] > 0.01)
+          .map((id) => ({ assetClass: id, weight: portfolioResult.weights[id] }));
+        // 何もなければデフォルト
+        const finalTarget = autoTarget.length > 0 ? autoTarget : [
+          { assetClass: "developed_stock" as AssetClassId, weight: 0.6 },
+          { assetClass: "developed_bond" as AssetClassId, weight: 0.3 },
+          { assetClass: "gold" as AssetClassId, weight: 0.1 },
+        ];
+        return { ...prev, rebalanceEnabled: true, targetAllocation: finalTarget };
+      }
+      return { ...prev, rebalanceEnabled: checked };
+    });
+  };
+
+  const updateWeight = (assetClass: AssetClassId, newWeight: number) => {
+    setForm((prev) => {
+      const current = prev.targetAllocation ?? [];
+      const idx = current.findIndex((t) => t.assetClass === assetClass);
+      let updated: TargetAllocation[];
+      if (idx >= 0) {
+        updated = [...current];
+        updated[idx] = { ...updated[idx], weight: newWeight };
+      } else {
+        updated = [...current, { assetClass, weight: newWeight }];
+      }
+      return { ...prev, targetAllocation: updated };
+    });
+  };
+
+  const addAsset = (assetClass: AssetClassId) => {
+    setForm((prev) => ({
+      ...prev,
+      targetAllocation: [...(prev.targetAllocation ?? []), { assetClass, weight: 0.1 }],
+    }));
+  };
+
+  const removeAsset = (assetClass: AssetClassId) => {
+    setForm((prev) => ({
+      ...prev,
+      targetAllocation: (prev.targetAllocation ?? []).filter((t) => t.assetClass !== assetClass),
+    }));
+  };
+
+  const totalWeight = target.reduce((s, t) => s + t.weight, 0);
+  const isValid = Math.abs(totalWeight - 1.0) < 0.01;
+  const usedClasses = new Set(target.map((t) => t.assetClass));
+  const availableClasses = TARGET_CLASSES.filter((id) => !usedClasses.has(id));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>目標アロケーション + リバランス</span>
+          <Switch
+            checked={rebalanceEnabled}
+            onCheckedChange={toggleRebalance}
+            aria-label="リバランス有効化"
+          />
+        </CardTitle>
+      </CardHeader>
+      {rebalanceEnabled && (
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            積立時・退職後に目標配分に近づくようリバランスします。
+          </p>
+
+          {target.map((t) => (
+            <div key={t.assetClass} className="flex items-center gap-2">
+              <span className="w-28 text-xs truncate" title={assetClassData[t.assetClass]?.label}>
+                {assetClassData[t.assetClass]?.label}
+              </span>
+              <div className="flex-1">
+                <Slider
+                  value={[Math.round(t.weight * 100)]}
+                  onValueChange={(v) => updateWeight(t.assetClass, (Array.isArray(v) ? v[0] : v) / 100)}
+                  min={0}
+                  max={100}
+                  step={5}
+                  aria-label={`${assetClassData[t.assetClass]?.label}のウェイト`}
+                />
+              </div>
+              <span className="w-10 text-right text-xs font-bold tabular-nums">
+                {Math.round(t.weight * 100)}%
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeAsset(t.assetClass)}
+                aria-label={`${assetClassData[t.assetClass]?.label}を削除`}
+                className="text-muted-foreground px-2 min-h-[44px] min-w-[44px]"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </Button>
+            </div>
+          ))}
+
+          {availableClasses.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {availableClasses.map((id) => (
+                <Button
+                  key={id}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addAsset(id)}
+                  className="text-xs h-7"
+                >
+                  + {assetClassData[id].label}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          <div className={`text-xs font-medium ${isValid ? "text-success" : "text-danger"}`}>
+            合計: {Math.round(totalWeight * 100)}%
+            {!isValid && " （100%にしてください）"}
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }

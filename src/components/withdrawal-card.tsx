@@ -1,8 +1,18 @@
-import { useState } from "react";
-import type { OptimizationResult } from "@/lib/withdrawal";
+import { useState, useMemo } from "react";
+import type { OptimizationResult, WithdrawalOrderResult } from "@/lib/withdrawal";
 import type { TaxCategory } from "@/lib/tax";
 import { formatManYen } from "@/lib/utils";
 import { ArrowRight, Check, ChevronRight } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const CATEGORY_NAME: Record<TaxCategory, string> = {
   nisa: "NISA",
@@ -37,6 +47,97 @@ interface WithdrawalCardProps {
   isCalculating: boolean;
 }
 
+function StrategyChart({ best, worst, currentResult }: {
+  best: WithdrawalOrderResult;
+  worst: WithdrawalOrderResult;
+  currentResult: WithdrawalOrderResult | undefined;
+}) {
+  const data = useMemo(() => {
+    if (!best.yearlyAssets || !best.ages) return null;
+    const showCurrent = !!(currentResult?.yearlyAssets &&
+      JSON.stringify(currentResult.order) !== JSON.stringify(best.order));
+    const showWorst = !!(worst.yearlyAssets &&
+      JSON.stringify(worst.order) !== JSON.stringify(best.order));
+    return best.ages.map((age, i) => ({
+      age,
+      best: best.yearlyAssets![i],
+      ...(showCurrent && { current: currentResult!.yearlyAssets![i] }),
+      ...(showWorst && { worst: worst.yearlyAssets![i] }),
+    }));
+  }, [best, worst, currentResult]);
+
+  if (!data) return null;
+
+  const hasCurrent = data.some((d) => "current" in d);
+  const hasWorst = data.some((d) => "worst" in d);
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-muted-foreground">資産推移の比較（中央値シナリオ）</p>
+      <div
+        role="img"
+        aria-label="取り崩し戦略別の資産推移比較グラフ"
+        className="h-[200px] sm:h-[250px]"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis
+              dataKey="age"
+              label={{ value: "年齢", position: "insideBottomRight", offset: -5 }}
+              className="text-xs"
+            />
+            <YAxis
+              tickFormatter={(v) => formatManYen(v)}
+              width={70}
+              className="text-xs"
+            />
+            <Tooltip
+              formatter={(value, name) => [
+                formatManYen(Number(value)),
+                name === "best" ? "最適" : name === "current" ? "現在" : "最悪",
+              ]}
+              labelFormatter={(label) => `${label}歳`}
+            />
+            <Legend
+              formatter={(value: string) =>
+                value === "best" ? "最適" : value === "current" ? "現在" : "最悪"
+              }
+            />
+            <Line
+              type="monotone"
+              dataKey="best"
+              stroke="var(--color-success)"
+              strokeWidth={2}
+              dot={false}
+            />
+            {hasCurrent && (
+              <Line
+                type="monotone"
+                dataKey="current"
+                stroke="var(--color-warning)"
+                strokeWidth={1.5}
+                strokeDasharray="6 3"
+                dot={false}
+              />
+            )}
+            {hasWorst && (
+              <Line
+                type="monotone"
+                dataKey="worst"
+                stroke="var(--color-danger)"
+                strokeWidth={1.5}
+                strokeDasharray="3 3"
+                dot={false}
+              />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 export function WithdrawalCard({
   result,
   currentOrder,
@@ -45,10 +146,16 @@ export function WithdrawalCard({
 }: WithdrawalCardProps) {
   const [applied, setApplied] = useState(false);
   const { best, all, benefitAmount } = result;
+  const worst = all[all.length - 1];
 
   const isAlreadyOptimal =
     JSON.stringify(currentOrder) === JSON.stringify(best.order);
   const noImprovement = all.length <= 1 || benefitAmount === 0;
+
+  // 現在の順序に対応する結果を検索
+  const currentResult = all.find(
+    (r) => JSON.stringify(r.order) === JSON.stringify(currentOrder)
+  );
 
   const handleApply = () => {
     onApply(best.order);
@@ -114,6 +221,11 @@ export function WithdrawalCard({
         <p className="text-sm text-success font-medium">
           現在の順序が最適です
         </p>
+      )}
+
+      {/* 戦略比較グラフ */}
+      {best.yearlyAssets && (
+        <StrategyChart best={best} worst={worst} currentResult={currentResult} />
       )}
 
       <details className="group">
