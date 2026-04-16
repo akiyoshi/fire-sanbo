@@ -74,6 +74,10 @@ export function Wizard({ onComplete }: WizardProps) {
     if (form.monthlyExpense <= 0) return "月間生活費を入力してください";
     if (form.portfolio.length === 0) return "資産を1行以上追加してください";
     if (totalBalance <= 0 && form.annualSalary <= 0) return "資産残高または年収を入力してください";
+    if (form.rebalanceEnabled && form.targetAllocation && form.targetAllocation.length > 0) {
+      const totalWeight = form.targetAllocation.reduce((s, t) => s + t.weight, 0);
+      if (Math.abs(totalWeight - 1.0) >= 0.01) return "目標アロケーションの合計を100%にしてください";
+    }
     return null;
   };
 
