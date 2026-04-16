@@ -145,15 +145,6 @@ export function importFormFromJSON(json: string): FormState | null {
         t.weight = Math.max(0, Math.min(1, t.weight));
       }
     }
-    if (data.version === 2) {
-      return migrateV3toV4(migrateV2toV3(form as Record<string, unknown>) as unknown as Record<string, unknown>);
-    }
-    if (data.version === 3) {
-      return migrateV3toV4(form as Record<string, unknown>);
-    }
-    if (data.version === 4) {
-      return migrateV4toV5(form as Record<string, unknown>);
-    }
     if (data.version !== FORM_SCHEMA_VERSION) return null;
     return form as FormState;
   } catch {
@@ -194,28 +185,6 @@ interface StoredForm {
 
 const VALID_TAX_CATEGORIES: TaxCategory[] = ["cash", "nisa", "tokutei", "ideco", "gold_physical"];
 
-/** v4 → v5 マイグレーション: targetAllocation, rebalanceEnabled 追加 */
-function migrateV4toV5(form: Record<string, unknown>): FormState {
-  return { ...DEFAULT_FORM, ...(form as Partial<FormState>) };
-}
-
-/** v3 → v4 マイグレーション: withdrawalOrder 追加 */
-function migrateV3toV4(form: Record<string, unknown>): FormState {
-  return migrateV4toV5(form);
-}
-
-/** v2 → v3 マイグレーション: 新フィールドにデフォルト値を注入 */
-function migrateV2toV3(form: Record<string, unknown>): FormState {
-  return {
-    ...DEFAULT_FORM,
-    ...(form as Partial<FormState>),
-    pension: (form as Partial<FormState>).pension ?? DEFAULT_FORM.pension,
-    retirementBonus: (form as Partial<FormState>).retirementBonus ?? DEFAULT_FORM.retirementBonus,
-    lifeEvents: (form as Partial<FormState>).lifeEvents ?? [],
-    nisaConfig: (form as Partial<FormState>).nisaConfig ?? DEFAULT_FORM.nisaConfig,
-  };
-}
-
 export function saveForm(form: FormState): void {
   try {
     const data: StoredForm = { version: FORM_SCHEMA_VERSION, form };
@@ -231,9 +200,7 @@ export function loadForm(): FormState | null {
     if (!raw) return null;
     const data: StoredForm = JSON.parse(raw);
     if (data.version === FORM_SCHEMA_VERSION) return data.form;
-    if (data.version === 4) return migrateV4toV5(data.form as unknown as Record<string, unknown>);
-    if (data.version === 3) return migrateV3toV4(data.form as unknown as Record<string, unknown>);
-    if (data.version === 2) return migrateV3toV4(migrateV2toV3(data.form as unknown as Record<string, unknown>) as unknown as Record<string, unknown>);
+    // v5以外は非対応 → null（DEFAULT_FORMで初期化される）
     return null;
   } catch {
     return null;

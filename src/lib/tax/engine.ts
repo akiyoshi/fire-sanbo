@@ -301,30 +301,6 @@ export function calcPublicPensionDeduction(
 }
 
 /**
- * 年金収入にかかる税金（所得税+住民税）を計算
- * 年金は雑所得 = 年金収入 - 公的年金等控除
- */
-export function calcPensionTax(
-  pensionIncome: number,
-  age: number,
-  cfg = config
-): { incomeTax: number; residentTax: number; total: number } {
-  const deduction = calcPublicPensionDeduction(pensionIncome, age, cfg);
-  const pensionTaxableIncome = Math.max(0, pensionIncome - deduction);
-
-  if (pensionTaxableIncome <= 0) {
-    return { incomeTax: 0, residentTax: 0, total: 0 };
-  }
-
-  // 基礎控除を適用して課税所得を算出
-  const taxableIncome = calcTaxableIncome(pensionTaxableIncome, 0, cfg);
-  const incomeTax = calcIncomeTax(taxableIncome, cfg);
-  const residentTax = calcResidentTax(pensionTaxableIncome, 0, cfg);
-
-  return { incomeTax, residentTax, total: incomeTax + residentTax };
-}
-
-/**
  * 退職金の手取りを計算
  * 退職所得控除適用後の税額を差し引く
  */
@@ -343,19 +319,25 @@ export function calcRetirementBonusNet(
 }
 
 /**
- * 副収入（事業/雑所得）にかかる税金を計算
- * 簡易計算: 給与所得控除なし、基礎控除のみ適用
+ * 総合課税所得（年金雑所得 + 副収入）に対する所得税+住民税を一括計算
+ * 基礎控除は1回のみ適用
+ *
+ * @param pensionTaxable 公的年金等控除後の雑所得
+ * @param sideIncome 副収入（事業/雑所得）
+ * @param socialInsuranceDeduction 社会保険料控除
  */
-export function calcSideIncomeTax(
+export function calcComprehensiveTax(
+  pensionTaxable: number,
   sideIncome: number,
+  socialInsuranceDeduction: number,
   cfg = config
-): { incomeTax: number; residentTax: number; total: number; net: number } {
-  if (sideIncome <= 0) return { incomeTax: 0, residentTax: 0, total: 0, net: 0 };
+): { incomeTax: number; residentTax: number; total: number } {
+  const totalIncome = pensionTaxable + sideIncome;
+  if (totalIncome <= 0) return { incomeTax: 0, residentTax: 0, total: 0 };
 
-  const taxableIncome = calcTaxableIncome(sideIncome, 0, cfg);
+  const taxableIncome = calcTaxableIncome(totalIncome, socialInsuranceDeduction, cfg);
   const incomeTax = calcIncomeTax(taxableIncome, cfg);
-  const residentTax = calcResidentTax(sideIncome, 0, cfg);
-  const total = incomeTax + residentTax;
+  const residentTax = calcResidentTax(totalIncome, socialInsuranceDeduction, cfg);
 
-  return { incomeTax, residentTax, total, net: sideIncome - total };
+  return { incomeTax, residentTax, total: incomeTax + residentTax };
 }

@@ -300,7 +300,7 @@ describe("JSON エクスポート/インポート", () => {
   });
 
   it("formフィールドが不正で null を返す", () => {
-    const json = JSON.stringify({ version: 2, form: { foo: "bar" } });
+    const json = JSON.stringify({ version: 5, form: { foo: "bar" } });
     expect(importFormFromJSON(json)).toBeNull();
   });
 
@@ -313,7 +313,7 @@ describe("JSON エクスポート/インポート", () => {
         amount: 1_000_000,
       })),
     };
-    const json = JSON.stringify({ version: 3, form });
+    const json = JSON.stringify({ version: 5, form });
     expect(importFormFromJSON(json)).toBeNull();
   });
 
@@ -326,7 +326,7 @@ describe("JSON エクスポート/インポート", () => {
         amount: 1_000_000,
       })),
     };
-    const json = JSON.stringify({ version: 3, form });
+    const json = JSON.stringify({ version: 5, form });
     expect(importFormFromJSON(json)).toBeNull();
   });
 
@@ -342,7 +342,7 @@ describe("JSON エクスポート/インポート", () => {
         })),
       },
     };
-    const json = JSON.stringify({ version: 3, form });
+    const json = JSON.stringify({ version: 5, form });
     expect(importFormFromJSON(json)).toBeNull();
   });
 });
@@ -498,12 +498,20 @@ describe("目標アセットアロケーション", () => {
     expect(sum).toBeCloseTo(1.0);
   });
 
-  it("v4→v5マイグレーション: targetAllocation未定義で正常動作", () => {
-    // v4 FormStateをシミュレート: targetAllocation/rebalanceEnabled が存在しない
-    const v4Form: FormState = { ...DEFAULT_FORM, targetAllocation: undefined, rebalanceEnabled: undefined };
-    const input = formToSimulationInput(v4Form);
+  it("targetAllocation未定義でも正常動作", () => {
+    const form: FormState = { ...DEFAULT_FORM, targetAllocation: undefined, rebalanceEnabled: undefined };
+    const input = formToSimulationInput(form);
     expect(input.rebalance?.enabled).toBe(false);
     expect(input.allocation.expectedReturn).toBeGreaterThanOrEqual(0);
+  });
+
+  it("v5以外のJSONインポートはnullを返す", () => {
+    const json = JSON.stringify({ version: 4, form: DEFAULT_FORM });
+    expect(importFormFromJSON(json)).toBeNull();
+    const json3 = JSON.stringify({ version: 3, form: DEFAULT_FORM });
+    expect(importFormFromJSON(json3)).toBeNull();
+    const json2 = JSON.stringify({ version: 2, form: DEFAULT_FORM });
+    expect(importFormFromJSON(json2)).toBeNull();
   });
 
   it("rebalanceEnabled=false→targetあっても無視", () => {

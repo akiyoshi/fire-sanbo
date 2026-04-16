@@ -10,9 +10,8 @@ import {
   calcNisaTax,
   calcGoldWithdrawalTax,
   calcPublicPensionDeduction,
-  calcPensionTax,
   calcRetirementBonusNet,
-  calcSideIncomeTax,
+  calcComprehensiveTax,
 } from "./engine";
 import { calcWithdrawalTax } from "./accounts";
 
@@ -221,6 +220,52 @@ describe("税制エンジン P0テスト", () => {
       expect(result.net).toBeLessThanOrEqual(2_000_000);
       expect(result.net + result.tax).toBe(2_000_000);
     });
+
+    it("otherIncome>0で累進税率が上がる（差分課税）", () => {
+      // otherIncome=0 の場合
+      const withoutOther = calcGoldWithdrawalTax(4_000_000, 0.5, 0);
+      // otherIncome=200万（年金雑所得）の場合
+      const withOther = calcGoldWithdrawalTax(4_000_000, 0.5, 2_000_000);
+      // 他の所得があると累進の上段に押し上げられ、金の限界税率が上がる
+      expect(withOther.tax).toBeGreaterThan(withoutOther.tax);
+    });
+
+    it("calcWithdrawalTax経由でotherComprehensiveIncomeが渡せる", () => {
+      const without = calcWithdrawalTax("gold_physical", 4_000_000, { goldGainRatio: 0.5 });
+      const withOther = calcWithdrawalTax("gold_physical", 4_000_000, {
+        goldGainRatio: 0.5,
+        otherComprehensiveIncome: 2_000_000,
+      });
+      expect(withOther.tax).toBeGreaterThan(without.tax);
+    });
+  });
+});
+
+describe("総合課税統合 (calcComprehensiveTax)", () => {
+  it("年金雑所得のみ → 税額が正しく計算される", () => {
+    // 年金200万、65歳 → 控除110万 → 雑所得90万
+    const pensionTaxable = 900_000; // 公的年金等控除後
+    const compTax = calcComprehensiveTax(pensionTaxable, 0, 0);
+    // 90万 - 基礎控除48万 = 42万 → 所得税5%=21,000 + 復興2.1%=441 → 21,441
+    expect(compTax.incomeTax).toBeGreaterThan(0);
+    expect(compTax.total).toBeGreaterThan(0);
+  });
+
+  it("年金+副収入の合算で基礎控除は1回のみ", () => {
+    // 年金雑所得100万 + 副収入100万 = 総合200万
+    const combined = calcComprehensiveTax(1_000_000, 1_000_000, 0);
+    // 各単独の合計
+    const pensionOnly = calcComprehensiveTax(1_000_000, 0, 0);
+    const sideOnly = calcComprehensiveTax(0, 1_000_000, 0);
+    // 合算の方が税額が大きい（基礎控除が1回のみだから）
+    expect(combined.total).toBeGreaterThan(pensionOnly.total);
+    // 合算 >= 各単独の合計（累進+基礎控除1回の効果）
+    expect(combined.total).toBeGreaterThanOrEqual(pensionOnly.total + sideOnly.total);
+  });
+
+  it("所得0なら税額0", () => {
+    const result = calcComprehensiveTax(0, 0, 0);
+    expect(result.total).toBe(0);
   });
 });
 
@@ -243,23 +288,17 @@ describe("公的年金等控除", () => {
   });
 });
 
-describe("年金課税", () => {
-  it("年金200万・65歳以上: 控除110万→雑所得90万→低税額", () => {
-    const result = calcPensionTax(2_000_000, 65);
-    // 雑所得90万 → 基礎控除48万 → 課税所得42万 → 税率5%
+describe("年金課税（calcComprehensiveTax経由）", () => {
+  it("年金雑所得90万（控除後）→低税額", () => {
+    // 年金200万・65歳以上 → 控除110万 → 雑所得90万
+    const result = calcComprehensiveTax(900_000, 0, 0);
     expect(result.incomeTax).toBeGreaterThan(0);
     expect(result.incomeTax).toBeLessThan(50_000);
     expect(result.total).toBeGreaterThan(0);
   });
 
-  it("年金がゼロなら税金ゼロ", () => {
-    const result = calcPensionTax(0, 65);
-    expect(result.total).toBe(0);
-  });
-
-  it("年金が控除額以下なら税金ゼロ", () => {
-    // 65歳以上: 控除110万 → 110万以下の年金は非課税
-    const result = calcPensionTax(1_000_000, 70);
+  it("所得がゼロなら税金ゼロ", () => {
+    const result = calcComprehensiveTax(0, 0, 0);
     expect(result.total).toBe(0);
   });
 });
@@ -288,18 +327,16 @@ describe("退職金手取り", () => {
   });
 });
 
-describe("副収入課税", () => {
+describe("副収入課税（calcComprehensiveTax経由）", () => {
   it("副収入150万の税金計算", () => {
-    const result = calcSideIncomeTax(1_500_000);
+    const result = calcComprehensiveTax(0, 1_500_000, 0);
     // 150万 - 基礎控除48万 = 課税所得102万 → 税率5%
     expect(result.incomeTax).toBeGreaterThan(0);
-    expect(result.net).toBeGreaterThan(1_000_000);
-    expect(result.net + result.total).toBe(1_500_000);
+    expect(result.total).toBeGreaterThan(0);
   });
 
   it("副収入0なら税金0", () => {
-    const result = calcSideIncomeTax(0);
+    const result = calcComprehensiveTax(0, 0, 0);
     expect(result.total).toBe(0);
-    expect(result.net).toBe(0);
   });
 });

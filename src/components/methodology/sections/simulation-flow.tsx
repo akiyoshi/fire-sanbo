@@ -23,11 +23,10 @@ export function SimulationFlowSection() {
 │  └─ age == retirementAge?                           │
 │     → calcRetirementBonusNet() → 特定口座に加算      │
 │              ↓                                      │
-│  Phase 3: 退職後の収入源                              │
-│  ├─ age >= pension.startAge?                        │
-│  │  → 年金受給 → calcPensionTax()                    │
-│  └─ sideIncome && age <= untilAge?                  │
-│     → 副収入 → calcSideIncomeTax()                   │
+│  Phase 3: 退職後の収入源（総合課税統合）               │
+│  ├─ 年金 → 公的年金等控除後の雑所得                   │
+│  ├─ 副収入 → 事業/雑所得                             │
+│  └─ calcComprehensiveTax() で合算、基礎控除1回       │
 │              ↓                                      │
 │  Phase 4: 支出・取り崩しフェーズ                       │
 │  ├─ 年間生活費(×インフレ) + ライフイベント             │

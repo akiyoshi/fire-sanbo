@@ -3,7 +3,7 @@ import { importFormFromJSON } from "@/lib/form-state";
 import type { FormState } from "@/lib/form-state";
 
 const SHARE_PREFIX = "#s=";
-const FORM_SCHEMA_VERSION = 3;
+const FORM_SCHEMA_VERSION = 5;
 const MAX_PORTFOLIO_ENTRIES = 8;
 const MAX_LABEL_LENGTH = 50;
 const SHARED_NUM_TRIALS = 1000;

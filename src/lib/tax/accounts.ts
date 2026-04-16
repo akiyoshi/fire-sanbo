@@ -31,6 +31,8 @@ export function calcWithdrawalTax(
     gainRatio?: number;
     /** 金現物の含み益率 (0-1) */
     goldGainRatio?: number;
+    /** 金の総合課税計算用: 他の総合課税所得（年金雑所得+副収入） */
+    otherComprehensiveIncome?: number;
   },
   cfg = config
 ): WithdrawalResult {
@@ -52,8 +54,8 @@ export function calcWithdrawalTax(
     }
     case "gold_physical": {
       const goldGainRatio = options?.goldGainRatio ?? 0.3;
-      // 退職後の他の総合課税所得は0（B1設計決定）
-      const result = calcGoldWithdrawalTax(amount, goldGainRatio, 0, cfg);
+      const otherIncome = options?.otherComprehensiveIncome ?? 0;
+      const result = calcGoldWithdrawalTax(amount, goldGainRatio, otherIncome, cfg);
       return { gross: amount, tax: result.tax, net: amount - result.tax, taxCategory };
     }
     case "cash": {

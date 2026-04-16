@@ -14,9 +14,9 @@ import {
   calcAnnualTax,
   calcWithdrawalTax,
   calcSocialInsurancePremium,
-  calcPensionTax,
+  calcPublicPensionDeduction,
+  calcComprehensiveTax,
   calcRetirementBonusNet,
-  calcSideIncomeTax,
 } from "@/lib/tax";
 import type { TaxCategory } from "@/lib/tax";
 
@@ -87,19 +87,28 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
       tokutei += bonus.net;
     }
 
-    // 退職後の収入源
+    // 退職後の収入源（総合課税統合）
     let postRetirementIncome = 0;
+    let comprehensiveIncome = 0;
     if (age >= input.retirementAge) {
-      // 年金
-      const pensionIncome = calcAnnualPension(input.pension, age);
-      if (pensionIncome > 0) {
-        const pensionTax = calcPensionTax(pensionIncome, age);
-        postRetirementIncome += pensionIncome - pensionTax.total;
+      // 年金 → 公的年金等控除後の雑所得
+      const pensionGross = calcAnnualPension(input.pension, age);
+      let pensionTaxable = 0;
+      if (pensionGross > 0) {
+        const deduction = calcPublicPensionDeduction(pensionGross, age);
+        pensionTaxable = Math.max(0, pensionGross - deduction);
       }
       // 副収入
-      if (input.sideIncome && age <= input.sideIncome.untilAge) {
-        const sideTax = calcSideIncomeTax(input.sideIncome.annualAmount);
-        postRetirementIncome += sideTax.net;
+      const sideIncome = (input.sideIncome && age <= input.sideIncome.untilAge)
+        ? input.sideIncome.annualAmount : 0;
+      // 総合課税（基礎控除1回のみ）
+      comprehensiveIncome = pensionTaxable + sideIncome;
+      const grossIncome = pensionGross + sideIncome;
+      if (comprehensiveIncome > 0) {
+        const compTax = calcComprehensiveTax(pensionTaxable, sideIncome, 0);
+        postRetirementIncome = grossIncome - compTax.total;
+      } else {
+        postRetirementIncome = grossIncome;
       }
     }
 
@@ -121,6 +130,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
           yearsOfService: input.idecoYearsOfService,
           gainRatio: input.tokuteiGainRatio,
           goldGainRatio: input.goldGainRatio,
+          otherComprehensiveIncome: comprehensiveIncome,
         });
         switch (taxCategory) {
           case "nisa":

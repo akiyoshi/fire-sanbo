@@ -1,5 +1,40 @@
 # Changelog
 
+## [4.3.2] - 2026-04-16
+
+API面積縮小: 旧API一掃 + FormState v5一本化 + QA品質改善。
+
+### 削除
+- **calcPensionTax / calcSideIncomeTax**: 完全削除（calcComprehensiveTaxに統合済み）
+- **FormStateマイグレーションチェーン**: migrateV2toV3/V3toV4/V4toV5を全削除、v5のみ受付
+- **税エンジンexport 20→15**: calcPensionTax・calcSideIncomeTax削除
+
+### 変更
+- **prescription/engine.ts**: calcPensionTax+calcSideIncomeTax → calcComprehensiveTaxに統一、金のotherComprehensiveIncomeも渡す
+- **methodology/pension.tsx**: calcPensionTax → calcPublicPensionDeduction+calcComprehensiveTax
+- **methodology/side-income.tsx**: calcSideIncomeTax → calcComprehensiveTax
+- **url-share.ts**: FORM_SCHEMA_VERSION 3→5に統一
+- **loadForm/importFormFromJSON**: v5のみ受付、v2/v3/v4はnull返却
+- **simulation-flow.tsx**: Phase 3説明を総合課税統合に更新
+
+### 追加
+- **url-shareテスト**: v5フィールド（targetAllocation+rebalanceEnabled）ラウンドトリップ
+- **form-stateテスト**: v5以外のJSONインポートがnullを返す検証
+
+## [4.3.1] - 2026-04-16
+
+金現物の総合課税修正 + 年金・副収入の総合課税統合。
+
+### 追加
+- **calcComprehensiveTax**: 年金雑所得+副収入を合算し基礎控除1回のみ適用する総合課税関数
+- **テスト+8**: 金の累進課税・年金合算・リバランス累進・後方互換・総合課税統合
+
+### 修正
+- **金リバランスの一律20.315%→累進税率**: `taxableGain * 0.20315` → `calcGoldWithdrawalTax(amount, ratio, comprehensiveIncome)` で総合課税の累進税率を適用
+- **金取り崩しのotherIncome=0固定→年金・副収入と合算**: `calcWithdrawalTax` に `otherComprehensiveIncome` 引数追加、シミュレーションエンジンから年金雑所得+副収入を渡す
+- **基礎控除の複数回適用→年1回**: Phase 3を書き換え、`calcPensionTax`+`calcSideIncomeTax`個別呼び出し→`calcComprehensiveTax`合算に統合
+- **同一年の金取崩+リバランスで累進税率が正しく統合**: Phase 4の金取崩課税所得をcomprehensiveIncomeに累積
+
 ## [4.3.0] - 2026-04-16
 
 目標アセットアロケーション + リバランスUI + エンジン修正。

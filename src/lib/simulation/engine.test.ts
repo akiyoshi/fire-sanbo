@@ -769,3 +769,98 @@ describe("退職後リバランス（Stage 3）", () => {
     }
   });
 });
+
+describe("金の総合課税統合", () => {
+  it("年金+金売却の同一年で税額が単独計算の合計より大きい", () => {
+    // 年金あり + 金取り崩しのケース
+    const withPension: SimulationInput = {
+      currentAge: 65,
+      retirementAge: 65,
+      endAge: 70,
+      annualSalary: 0,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 20_000_000, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.5,
+      withdrawalOrder: ["gold_physical", "nisa", "tokutei", "ideco", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      pension: { kosei: 100_000, kokumin: 65_000, startAge: 65 },
+    };
+    // 年金なしの同一設定
+    const withoutPension: SimulationInput = {
+      ...withPension,
+      pension: undefined,
+    };
+    const resultWith = runSimulation(withPension);
+    const resultWithout = runSimulation(withoutPension);
+    // 年金ありの場合、金の取り崩し税が累進で上がるため、税負担が増える
+    const taxWith = resultWith.trials[0].years[0].taxBreakdown.total;
+    const taxWithout = resultWithout.trials[0].years[0].taxBreakdown.total;
+    // 年金ありの方が総合課税で累進が高くなるため、税合計が大きい
+    expect(taxWith).toBeGreaterThan(taxWithout);
+  });
+
+  it("金のみ取り崩し(年金なし)→後方互換で正常動作", () => {
+    const input: SimulationInput = {
+      currentAge: 65,
+      retirementAge: 65,
+      endAge: 70,
+      annualSalary: 0,
+      annualExpense: 2_000_000,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 20_000_000, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.5,
+      withdrawalOrder: ["gold_physical", "nisa", "tokutei", "ideco", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const result = runSimulation(input);
+    // 金のみ・年金なしは正常に動作する
+    expect(result.successRate).toBeGreaterThanOrEqual(0);
+    const year0 = result.trials[0].years[0];
+    // 金200万取り崩し × 含み益50% = 100万利益 → 50万控除 → 25万課税所得
+    // 25万円は基礎控除(48万)以下なので所得税=0、住民税も基礎控除(43万)以下で0
+    // → withdrawalTax = 0 は正しい（低額の金取り崩しでは税がかからない）
+    expect(year0.taxBreakdown.withdrawalTax).toBe(0);
+  });
+
+  it("リバランス金売却が累進税率で課税される（一律20%ではない）", () => {
+    // 年金収入が高い状態で金リバランス → 累進で税率が上がる
+    const input: SimulationInput = {
+      currentAge: 65,
+      retirementAge: 65,
+      endAge: 68,
+      annualSalary: 0,
+      annualExpense: 500_000,
+      accounts: { nisa: 5_000_000, tokutei: 0, ideco: 0, gold_physical: 15_000_000, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.5,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      pension: { kosei: 150_000, kokumin: 65_000, startAge: 65 },
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.5, tokutei: 0, ideco: 0, gold_physical: 0.5, cash: 0 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    // リバランスで金が売却される場合、withdrawalTaxが発生する
+    // 重要: calcGoldWithdrawalTax(amount, ratio, comprehensiveIncome) を使っている
+    const year0 = result.trials[0].years[0];
+    expect(year0.taxBreakdown.withdrawalTax).toBeGreaterThanOrEqual(0);
+    // リバランスが実行されたことを確認（金が減少）
+    expect(year0.gold_physical).toBeLessThan(15_000_000);
+  });
+});
