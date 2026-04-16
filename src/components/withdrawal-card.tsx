@@ -54,17 +54,15 @@ function StrategyChart({ best, worst, currentResult }: {
 }) {
   const data = useMemo(() => {
     if (!best.yearlyAssets || !best.ages) return null;
+    const showCurrent = !!(currentResult?.yearlyAssets &&
+      JSON.stringify(currentResult.order) !== JSON.stringify(best.order));
+    const showWorst = !!(worst.yearlyAssets &&
+      JSON.stringify(worst.order) !== JSON.stringify(best.order));
     return best.ages.map((age, i) => ({
       age,
       best: best.yearlyAssets![i],
-      ...(currentResult?.yearlyAssets &&
-        JSON.stringify(currentResult.order) !== JSON.stringify(best.order) && {
-          current: currentResult.yearlyAssets[i],
-        }),
-      ...(worst.yearlyAssets &&
-        JSON.stringify(worst.order) !== JSON.stringify(best.order) && {
-          worst: worst.yearlyAssets[i],
-        }),
+      ...(showCurrent && { current: currentResult!.yearlyAssets![i] }),
+      ...(showWorst && { worst: worst.yearlyAssets![i] }),
     }));
   }, [best, worst, currentResult]);
 

@@ -520,6 +520,36 @@ describe("iDeCo年齢制約", () => {
     expect(at60.age).toBe(60);
     expect(at60.withdrawal).toBeGreaterThan(0);
   });
+
+  it("退職前の赤字フェーズでiDeCoのみ保有なら取り崩しゼロ", () => {
+    // 退職前に巨額ライフイベントで赤字 → iDeCoのみなので取り崩し不可
+    const input: SimulationInput = {
+      currentAge: 30,
+      retirementAge: 50,
+      endAge: 70,
+      annualSalary: 3_000_000,
+      annualExpense: 2_000_000,
+      accounts: { nisa: 0, tokutei: 0, ideco: 10_000_000, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.03, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["ideco", "nisa", "tokutei", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      lifeEvents: [{ label: "住宅購入", age: 31, amount: 20_000_000 }],
+    };
+    const result = runSimulation(input);
+    // 31歳: ライフイベント20Mで大赤字 → iDeCoのみ保有かつ age<60 → 取り崩し不可
+    const at31 = result.trials[0].years[1];
+    expect(at31.age).toBe(31);
+    // iDeCo残高が変わっていない（リターン分の増減のみ）ことで取り崩し不可を確認
+    // iDeCo 初期 10M × 1.03^2 ≈ 10.609M（30歳+31歳の2年分リターン）
+    expect(at31.ideco).toBeGreaterThanOrEqual(10_000_000);
+    // 赤字でもiDeCoから引き出せないため、他口座がなく deficit は回収不能
+    // → iDeCoは温存される
+  });
 });
 
 describe("口座別リターン（Stage 1）", () => {
@@ -640,6 +670,102 @@ describe("退職後リバランス（Stage 3）", () => {
       const nisaRatio = last.nisa / total;
       // 完全な50/50にはならないが、60/40より均等に近い
       expect(nisaRatio).toBeLessThan(0.65);
+    }
+  });
+
+  it("リバランス後の総資産はリバランス前以下（money-creation防止）", () => {
+    // 全資産がNISAに集中、目標は50/50 → NISAから売却して tokutei に移す
+    const input: SimulationInput = {
+      currentAge: 60,
+      retirementAge: 60,
+      endAge: 65,
+      annualSalary: 0,
+      annualExpense: 0, // 支出ゼロでリバランスの影響のみを観察
+      accounts: { nisa: 20_000_000, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 }, // リターンゼロ
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    for (const year of result.trials[0].years) {
+      // リターン0・支出0なので、資産の増加は起こり得ない（リバランス課税による減少のみ許容）
+      expect(year.totalAssets).toBeLessThanOrEqual(20_000_000);
+    }
+  });
+
+  it("特定口座の売却でtaxBreakdown.withdrawalTaxに20.315%課税が反映される", () => {
+    // tokutei が過大 → 売却 → 課税
+    const input: SimulationInput = {
+      currentAge: 60,
+      retirementAge: 60,
+      endAge: 62,
+      annualSalary: 0,
+      annualExpense: 0,
+      accounts: { nisa: 5_000_000, tokutei: 15_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5, // 含み益率50%
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    const year0 = result.trials[0].years[0];
+    // tokutei 15M → target 10M の場合、5M売却 × 50%含み益 × 20.315% ≈ 508K の税
+    // 社会保険料もあるので完全一致は求めないが、withdrawalTaxが発生していること
+    expect(year0.taxBreakdown.withdrawalTax).toBeGreaterThan(0);
+    // 税額の妥当性: tokutei売却益5M × 0.5 × 0.20315 = 507,875 ≈ 508K
+    // 実際の売却額はtarget計算の正規化で変動するため、桁が合っていればOK
+    expect(year0.taxBreakdown.withdrawalTax).toBeGreaterThan(100_000);
+    expect(year0.taxBreakdown.withdrawalTax).toBeLessThan(2_000_000);
+  });
+
+  it("55歳FIREでiDeCoはリバランスから除外される（60歳未満ロック）", () => {
+    const input: SimulationInput = {
+      currentAge: 55,
+      retirementAge: 55,
+      endAge: 65,
+      annualSalary: 0,
+      annualExpense: 500_000,
+      accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 10_000_000, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.25, tokutei: 0.25, ideco: 0.25, gold_physical: 0, cash: 0.25 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    // 55-59歳: iDeCoの残高はリバランスで変動しない（ロック）
+    for (let i = 0; i < 5; i++) {
+      const year = result.trials[0].years[i];
+      expect(year.age).toBeLessThan(60);
+      // iDeCoはリターン0なので初期値のまま（取り崩しもリバランスも不可）
+      expect(year.ideco).toBe(10_000_000);
     }
   });
 });

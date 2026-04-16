@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { optimizePortfolio, selectRecommended } from "@/lib/portfolio/optimizer";
 import { ASSET_CLASS_IDS, getAssetClassData } from "@/lib/portfolio";
-import type { AssetClassId, PortfolioEntry, TaxCategory } from "@/lib/portfolio";
+import type { AssetClassId, PortfolioEntry, TaxCategory, TargetAllocation } from "@/lib/portfolio";
 import type { EfficientFrontierPoint } from "@/lib/portfolio/optimizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ const INVESTABLE = ASSET_CLASS_IDS.filter((id) => id !== "cash");
 interface PortfolioOptimizerProps {
   currentPortfolio: PortfolioEntry[];
   onApply: (newPortfolio: PortfolioEntry[]) => void;
+  /** 目標アロケーションとして適用 */
+  onApplyTarget?: (target: TargetAllocation[]) => void;
 }
 
 function WeightBar({ label, weight, className }: { label: string; weight: number; className?: string }) {
@@ -79,7 +81,7 @@ function FrontierChart({ frontier, recommended }: { frontier: EfficientFrontierP
   );
 }
 
-export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptimizerProps) {
+export function PortfolioOptimizer({ currentPortfolio, onApply, onApplyTarget }: PortfolioOptimizerProps) {
   const [open, setOpen] = useState(false);
   const [riskTolerance, setRiskTolerance] = useState(0.5);
   const [selectedAssets, setSelectedAssets] = useState<Set<AssetClassId>>(
@@ -143,6 +145,20 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
       setOpen(false);
     }
   }, [recommended, currentPortfolio, onApply]);
+
+  const handleApplyAsTarget = useCallback(() => {
+    const rec = recommended;
+    const targetEntries: TargetAllocation[] = [];
+    for (const id of INVESTABLE) {
+      const w = rec.weights[id];
+      if (w < 0.01) continue;
+      targetEntries.push({ assetClass: id, weight: w });
+    }
+    if (targetEntries.length > 0 && onApplyTarget) {
+      onApplyTarget(targetEntries);
+      setOpen(false);
+    }
+  }, [recommended, onApplyTarget]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -246,9 +262,16 @@ export function PortfolioOptimizer({ currentPortfolio, onApply }: PortfolioOptim
         {/* 適用ボタン */}
         <div className="flex gap-2 pt-2">
           <Button onClick={handleApply} className="flex-1">
-            この配分を適用
+            保有に適用
           </Button>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          {onApplyTarget && (
+            <Button variant="secondary" onClick={handleApplyAsTarget} className="flex-1">
+              目標に設定
+            </Button>
+          )}
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
             閉じる
           </Button>
         </div>

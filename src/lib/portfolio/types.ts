@@ -51,3 +51,10 @@ export interface PortfolioResult {
   weights: Record<AssetClassId, number>;
   totalAmount: number;
 }
+
+/** 目標アセットアロケーション（資産クラスレベル） */
+export interface TargetAllocation {
+  assetClass: AssetClassId;
+  /** 目標ウェイト (0-1, 全体合計 = 1.0) */
+  weight: number;
+}

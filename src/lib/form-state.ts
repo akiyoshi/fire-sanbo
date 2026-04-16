@@ -1,8 +1,8 @@
 import type { SimulationInput } from "@/lib/simulation";
-import type { PortfolioEntry, TaxCategory } from "@/lib/portfolio";
+import type { PortfolioEntry, TaxCategory, TargetAllocation, AssetClassId } from "@/lib/portfolio";
 import type { AssetAllocation } from "@/lib/simulation";
 import type { PensionInput, RetirementBonusInput, SideIncomeInput, LifeEvent, NisaConfig, SpouseInput } from "@/lib/simulation";
-import { calcPortfolio } from "@/lib/portfolio";
+import { calcPortfolio, calcFromWeights } from "@/lib/portfolio";
 
 export interface SpouseFormState {
   currentAge: number;
@@ -45,6 +45,12 @@ export interface FormState {
 
   /* v4.0 拡張: 取り崩し順序 */
   withdrawalOrder?: TaxCategory[];
+
+  /* v4.3 拡張: 目標アセットアロケーション + リバランス */
+  /** 目標配分（資産クラスレベル） */
+  targetAllocation?: TargetAllocation[];
+  /** リバランス有効化フラグ */
+  rebalanceEnabled?: boolean;
 }
 
 /* ---------- シナリオ管理 ---------- */
@@ -130,11 +136,23 @@ export function importFormFromJSON(json: string): FormState | null {
     if (form.spouse && typeof form.spouse === "object") {
       if (form.spouse.portfolio && (!Array.isArray(form.spouse.portfolio) || form.spouse.portfolio.length > 20)) return null;
     }
+    // v4.3: targetAllocation バリデーション
+    if (form.targetAllocation) {
+      if (!Array.isArray(form.targetAllocation) || form.targetAllocation.length > 20) return null;
+      for (const t of form.targetAllocation) {
+        if (typeof t.assetClass !== "string" || typeof t.weight !== "number") return null;
+        // 不正なウェイト値をクランプ
+        t.weight = Math.max(0, Math.min(1, t.weight));
+      }
+    }
     if (data.version === 2) {
       return migrateV3toV4(migrateV2toV3(form as Record<string, unknown>) as unknown as Record<string, unknown>);
     }
     if (data.version === 3) {
       return migrateV3toV4(form as Record<string, unknown>);
+    }
+    if (data.version === 4) {
+      return migrateV4toV5(form as Record<string, unknown>);
     }
     if (data.version !== FORM_SCHEMA_VERSION) return null;
     return form as FormState;
@@ -167,7 +185,7 @@ export const DEFAULT_FORM: FormState = {
 /* ---------- localStorage 永続化 ---------- */
 
 const STORAGE_KEY = "fire-sanbo-form";
-const FORM_SCHEMA_VERSION = 4;
+const FORM_SCHEMA_VERSION = 5;
 
 interface StoredForm {
   version: number;
@@ -176,9 +194,14 @@ interface StoredForm {
 
 const VALID_TAX_CATEGORIES: TaxCategory[] = ["cash", "nisa", "tokutei", "ideco", "gold_physical"];
 
+/** v4 → v5 マイグレーション: targetAllocation, rebalanceEnabled 追加 */
+function migrateV4toV5(form: Record<string, unknown>): FormState {
+  return { ...DEFAULT_FORM, ...(form as Partial<FormState>) };
+}
+
 /** v3 → v4 マイグレーション: withdrawalOrder 追加 */
 function migrateV3toV4(form: Record<string, unknown>): FormState {
-  return { ...DEFAULT_FORM, ...(form as Partial<FormState>) };
+  return migrateV4toV5(form);
 }
 
 /** v2 → v3 マイグレーション: 新フィールドにデフォルト値を注入 */
@@ -208,6 +231,7 @@ export function loadForm(): FormState | null {
     if (!raw) return null;
     const data: StoredForm = JSON.parse(raw);
     if (data.version === FORM_SCHEMA_VERSION) return data.form;
+    if (data.version === 4) return migrateV4toV5(data.form as unknown as Record<string, unknown>);
     if (data.version === 3) return migrateV3toV4(data.form as unknown as Record<string, unknown>);
     if (data.version === 2) return migrateV3toV4(migrateV2toV3(data.form as unknown as Record<string, unknown>) as unknown as Record<string, unknown>);
     return null;
@@ -243,7 +267,7 @@ export function deriveBalancesByTaxCategory(portfolio: PortfolioEntry[]): Record
 }
 
 /** 口座別のアロケーション（リターン・リスク）を導出 */
-function deriveAccountAllocations(
+export function deriveAccountAllocations(
   portfolio: PortfolioEntry[]
 ): Partial<Record<TaxCategory, AssetAllocation>> | undefined {
   const categories: TaxCategory[] = ["nisa", "tokutei", "ideco", "gold_physical", "cash"];
@@ -271,8 +295,9 @@ function deriveAccountAllocations(
 }
 
 /** 初期残高比率からリバランス設定を導出 */
-function deriveRebalanceConfig(
-  balances: Record<TaxCategory, number>
+export function deriveRebalanceConfig(
+  balances: Record<TaxCategory, number>,
+  rebalanceEnabled?: boolean,
 ): { enabled: boolean; targetWeights: Record<TaxCategory, number>; threshold: number } {
   const total = Object.values(balances).reduce((s, v) => s + v, 0);
   if (total <= 0) {
@@ -283,7 +308,7 @@ function deriveRebalanceConfig(
     };
   }
   return {
-    enabled: true,
+    enabled: rebalanceEnabled === true,
     targetWeights: {
       nisa: balances.nisa / total,
       tokutei: balances.tokutei / total,
@@ -295,18 +320,200 @@ function deriveRebalanceConfig(
   };
 }
 
-export function formToSimulationInput(form: FormState): SimulationInput {
-  // ポートフォリオから合成リターン・リスクを自動計算
-  const portfolioResult = calcPortfolio(form.portfolio);
-  const expectedReturn = portfolioResult.totalAmount > 0
-    ? portfolioResult.expectedReturn
-    : 0.05;
-  const standardDeviation = portfolioResult.totalAmount > 0
-    ? Math.max(0.001, portfolioResult.risk)
-    : 0.15;
+/**
+ * 目標アセットアロケーション → 口座レベルウェイトに変換
+ *
+ * 各資産クラスの口座内訳（現在のportfolioの保有比率）を使い、
+ * 目標ウェイトを口座レベルに分配する。
+ */
+export function deriveTargetAccountWeights(
+  targetAllocation: TargetAllocation[],
+  portfolio: PortfolioEntry[],
+): Record<TaxCategory, number> {
+  const result: Record<TaxCategory, number> = { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 };
 
+  // 資産クラスごとの口座内訳比率を集計
+  for (const target of targetAllocation) {
+    if (target.weight <= 0) continue;
+    const ac = target.assetClass;
+
+    // この資産クラスの保有を口座別に集計
+    const byAccount: Record<TaxCategory, number> = { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 };
+    for (const entry of portfolio) {
+      if (entry.assetClass === ac && entry.amount > 0) {
+        byAccount[entry.taxCategory] += entry.amount;
+      }
+    }
+    const acTotal = Object.values(byAccount).reduce((s, v) => s + v, 0);
+
+    if (acTotal > 0) {
+      // 保有比率ベースで口座に分配
+      for (const cat of Object.keys(byAccount) as TaxCategory[]) {
+        result[cat] += target.weight * (byAccount[cat] / acTotal);
+      }
+    } else {
+      // 保有なし → デフォルト口座マッピング
+      if (ac === "gold") {
+        result.gold_physical += target.weight;
+      } else if (ac === "cash") {
+        result.cash += target.weight;
+      } else {
+        // 保有最大口座 or nisa にフォールバック
+        const balances = Object.entries(result)
+          .filter(([k]) => k !== "gold_physical" && k !== "cash")
+          .sort((a, b) => b[1] - a[1]);
+        const fallback = (balances[0]?.[1] ?? 0) > 0
+          ? balances[0][0] as TaxCategory
+          : "nisa";
+        result[fallback] += target.weight;
+      }
+    }
+  }
+
+  // 正規化（合計=1.0を保証）
+  const sum = Object.values(result).reduce((s, v) => s + v, 0);
+  if (sum > 0 && Math.abs(sum - 1.0) > 0.001) {
+    for (const k of Object.keys(result) as TaxCategory[]) {
+      result[k] /= sum;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 目標アセットアロケーションから合成リターン・リスクを計算
+ */
+function calcTargetAllocation(
+  targetAllocation: TargetAllocation[],
+): { expectedReturn: number; standardDeviation: number } {
+  const assets: AssetClassId[] = [];
+  const weights: number[] = [];
+  for (const t of targetAllocation) {
+    if (t.weight > 0 && t.assetClass !== "cash") {
+      assets.push(t.assetClass);
+      weights.push(t.weight);
+    }
+  }
+  if (assets.length === 0) return { expectedReturn: 0.05, standardDeviation: 0.15 };
+  // ウェイトを正規化（cash除外分やtotal≠1.0に対応）
+  const wSum = weights.reduce((s, v) => s + v, 0);
+  const normWeights = wSum > 0 && Math.abs(wSum - 1.0) > 0.001
+    ? weights.map((w) => w / wSum)
+    : weights;
+  const { expectedReturn, risk } = calcFromWeights(assets, normWeights);
+  return { expectedReturn, standardDeviation: Math.max(0.001, risk) };
+}
+
+/**
+ * 目標アロケーション + 現在保有から口座別のリターン・リスクを導出
+ */
+function deriveTargetAccountAllocations(
+  targetAllocation: TargetAllocation[],
+  portfolio: PortfolioEntry[],
+  accountWeights: Record<TaxCategory, number>,
+): Partial<Record<TaxCategory, AssetAllocation>> | undefined {
+  const categories: TaxCategory[] = ["nisa", "tokutei", "ideco", "gold_physical", "cash"];
+  const result: Partial<Record<TaxCategory, AssetAllocation>> = {};
+  let hasAny = false;
+
+  for (const cat of categories) {
+    if (cat === "cash") {
+      result.cash = { expectedReturn: 0, standardDeviation: 0 };
+      continue;
+    }
+    if ((accountWeights[cat] ?? 0) <= 0) continue;
+
+    // この口座に割り当てられる資産クラスとウェイトを計算
+    const acAssets: AssetClassId[] = [];
+    const acWeights: number[] = [];
+    for (const target of targetAllocation) {
+      if (target.weight <= 0 || target.assetClass === "cash") continue;
+      // この資産クラスが当該口座に配分される比率
+      const byAccount: Record<TaxCategory, number> = { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 };
+      for (const entry of portfolio) {
+        if (entry.assetClass === target.assetClass && entry.amount > 0) {
+          byAccount[entry.taxCategory] += entry.amount;
+        }
+      }
+      const acTotal = Object.values(byAccount).reduce((s, v) => s + v, 0);
+      let ratio = 0;
+      if (acTotal > 0) {
+        ratio = byAccount[cat] / acTotal;
+      } else {
+        // 保有なし → deriveTargetAccountWeightsと同じデフォルト口座マッピング
+        if (target.assetClass === "gold" && cat === "gold_physical") {
+          ratio = 1;
+        } else if (target.assetClass !== "gold") {
+          // 保有最大口座を accountWeights から判定
+          const investableWeights = Object.entries(accountWeights)
+            .filter(([k]) => k !== "gold_physical" && k !== "cash");
+          const maxCat = investableWeights.length > 0
+            ? investableWeights.sort((a, b) => b[1] - a[1])[0][0]
+            : "nisa";
+          if (cat === maxCat) ratio = 1;
+        }
+      }
+      if (ratio > 0) {
+        acAssets.push(target.assetClass);
+        acWeights.push(target.weight * ratio);
+      }
+    }
+
+    if (acAssets.length > 0) {
+      // ウェイトを正規化（口座内の相対配分）
+      const wSum = acWeights.reduce((s, v) => s + v, 0);
+      const normWeights = acWeights.map((w) => w / wSum);
+      const { expectedReturn, risk } = calcFromWeights(acAssets, normWeights);
+      result[cat] = {
+        expectedReturn,
+        standardDeviation: Math.max(0.001, risk),
+      };
+      hasAny = true;
+    }
+  }
+
+  return hasAny ? result : undefined;
+}
+
+export function formToSimulationInput(form: FormState): SimulationInput {
   // 残高を課税種別から自動集計
   const balances = deriveBalancesByTaxCategory(form.portfolio);
+
+  // 目標アロケーションが有効かどうか判定
+  const hasTarget = form.rebalanceEnabled === true
+    && form.targetAllocation
+    && form.targetAllocation.length > 0
+    && form.targetAllocation.some((t) => t.weight > 0);
+
+  let expectedReturn: number;
+  let standardDeviation: number;
+  let accountAllocations: Partial<Record<TaxCategory, AssetAllocation>> | undefined;
+  let rebalance: { enabled: boolean; targetWeights: Record<TaxCategory, number>; threshold: number };
+
+  if (hasTarget) {
+    // 目標アロケーションベース
+    const target = form.targetAllocation!;
+    const alloc = calcTargetAllocation(target);
+    expectedReturn = alloc.expectedReturn;
+    standardDeviation = alloc.standardDeviation;
+
+    const accountWeights = deriveTargetAccountWeights(target, form.portfolio);
+    accountAllocations = deriveTargetAccountAllocations(target, form.portfolio, accountWeights);
+    rebalance = { enabled: true, targetWeights: accountWeights, threshold: 0.05 };
+  } else {
+    // 従来: portfolio起点
+    const portfolioResult = calcPortfolio(form.portfolio);
+    expectedReturn = portfolioResult.totalAmount > 0
+      ? portfolioResult.expectedReturn
+      : 0.05;
+    standardDeviation = portfolioResult.totalAmount > 0
+      ? Math.max(0.001, portfolioResult.risk)
+      : 0.15;
+
+    accountAllocations = deriveAccountAllocations(form.portfolio);
+    rebalance = deriveRebalanceConfig(balances, form.rebalanceEnabled);
+  }
 
   const currentAge = safeNum(form.currentAge, 35, 18);
   const retirementAge = Math.min(Math.max(safeNum(form.retirementAge, 50, 19), currentAge + 1), 120);
@@ -340,10 +547,9 @@ export function formToSimulationInput(form: FormState): SimulationInput {
     numTrials: Math.min(safeNum(form.numTrials, 1000, 10), 10_000),
     seed: Math.floor(Math.random() * 2 ** 32),
 
-    // v4.2: 口座別アロケーション（口座内の資産クラス構成からリターン・リスクを導出）
-    accountAllocations: deriveAccountAllocations(form.portfolio),
-    // v4.2: リバランス設定（目標ウェイト = 初期配分比率）
-    rebalance: deriveRebalanceConfig(balances),
+    // v4.2/v4.3: 口座別アロケーション + リバランス設定
+    accountAllocations,
+    rebalance,
 
     // v0.9 拡張 (safeNum で負値・NaN 防御)
     pension: form.pension ? {

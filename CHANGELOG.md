@@ -1,5 +1,27 @@
 # Changelog
 
+## [4.3.0] - 2026-04-16
+
+目標アセットアロケーション + リバランスUI + エンジン修正。
+
+### 追加
+- **目標アセットアロケーション**: 資産クラスレベルの目標配分を入力、リバランストグルで有効化
+- **TargetAllocation型**: `{ assetClass, weight }` 配列で目標配分を表現
+- **目標→口座ウェイト変換**: `deriveTargetAccountWeights()` 現在保有の口座内訳比率ベースで分配
+- **口座別リターン導出**: 目標配分から口座ごとの期待リターン・リスクを自動計算
+- **ポートフォリオ最適化「目標に設定」ボタン**: フロンティア推薦配分をtargetAllocationに直接適用
+- **計算根拠書リバランスセクション**: 3セクション追加（口座別リターン・積立リバランス・退職後リバランス）
+- **FormState v5**: `targetAllocation`, `rebalanceEnabled` フィールド追加 + v4→v5マイグレーション
+- **テスト+23**: 目標アロケーション変換・リバランス税務・後方互換・iDeCoロック等
+
+### 修正
+- **Stage 3リバランス全面書き直し**: トランザクション方式（売却→課税→proceedsプール→不足口座充填→cash残余吸収）に変更
+- **cashリバランス対応**: cash過剰時の売却→投資口座への振り分けを追加
+- **portfolioReturn加重平均化**: 口座残高ベースの加重平均に変更（診断精度向上）
+- **deterministic最適化**: accountAllocationsのstdDevも中央値リターン+σ=0に補正
+- **importFormFromJSON**: targetAllocationバリデーション追加（配列長上限20、weight 0-1クランプ）
+- **フォールバック口座統一**: deriveTargetAccountAllocationsの未保有資産クラスマッピングをaccountWeightsベースに統一
+
 ## [4.0.2] - 2026-04-15
 
 口座別リターン + リバランスシミュレーション。

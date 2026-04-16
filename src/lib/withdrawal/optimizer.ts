@@ -104,6 +104,18 @@ export function optimizeWithdrawalOrder(
             ),
             standardDeviation: 0,
           },
+          // 口座別アロケーションのstdDevも0 + 中央値リターンにする
+          ...(baseInput.accountAllocations && {
+            accountAllocations: Object.fromEntries(
+              Object.entries(baseInput.accountAllocations).map(([k, v]) => [
+                k,
+                v ? {
+                  expectedReturn: medianReturn(v.expectedReturn, v.standardDeviation),
+                  standardDeviation: 0,
+                } : v,
+              ])
+            ),
+          }),
           // 配偶者のstdDevも0 + 中央値リターンにする
           ...(baseInput.spouse && {
             spouse: {

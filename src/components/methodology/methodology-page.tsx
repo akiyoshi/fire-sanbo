@@ -15,6 +15,9 @@ import { PortfolioReturnSection } from "./sections/portfolio-return";
 import { AssetClassesSection } from "./sections/asset-classes";
 import { MonteCarloSection } from "./sections/monte-carlo";
 import { SimulationFlowSection } from "./sections/simulation-flow";
+import { AccountReturnSection } from "./sections/account-return";
+import { AccumulationRebalanceSection } from "./sections/accumulation-rebalance";
+import { PostRetirementRebalanceSection } from "./sections/post-retirement-rebalance";
 import taxConfig from "@/config/tax-config-2026.json";
 
 const TOC_GROUPS: TocGroup[] = [
@@ -46,6 +49,15 @@ const TOC_GROUPS: TocGroup[] = [
       { id: "sec-10", label: "10. 資産クラスのパラメータ" },
       { id: "sec-11", label: "11. モンテカルロ法" },
       { id: "sec-12", label: "12. 年次シミュレーションの流れ" },
+    ],
+  },
+  {
+    label: "リバランスの仕組み",
+    anchorId: "grp-rebalance",
+    sections: [
+      { id: "sec-13", label: "13. 口座別リターンの導出" },
+      { id: "sec-14", label: "14. 積立リバランス" },
+      { id: "sec-15", label: "15. 退職後リバランス" },
     ],
   },
 ];
@@ -125,6 +137,16 @@ export function MethodologyPage({ onBack }: MethodologyPageProps) {
                 <AssetClassesSection />
                 <MonteCarloSection />
                 <SimulationFlowSection />
+              </div>
+            </div>
+
+            {/* グループ4: リバランスの仕組み */}
+            <div id="grp-rebalance" className="scroll-mt-20">
+              <h2 className="text-xl font-bold mb-6 pb-2 border-b">リバランスの仕組み</h2>
+              <div className="space-y-10">
+                <AccountReturnSection />
+                <AccumulationRebalanceSection />
+                <PostRetirementRebalanceSection />
               </div>
             </div>
           </div>
