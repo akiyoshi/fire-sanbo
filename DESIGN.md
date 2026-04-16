@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v4.3.0
+> **バージョン**: v4.3.2
 > **更新日**: 2026-04-16
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -17,18 +17,18 @@
 
 | 機能 | 実装 | テスト |
 |------|------|--------|
-| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 39テスト |
+| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 42テスト |
 | 最悪ケース診断 | `simulation/diagnosis.ts` | 7テスト |
-| 日本税制エンジン (2026年度) | `tax/engine.ts` | 39テスト |
+| 日本税制エンジン (2026年度) | `tax/engine.ts` | 44テスト |
 | 処方箋 (3軸二分探索) | `prescription/engine.ts` runTrialLite | 10テスト |
 | 取り崩し最適化 | `withdrawal/optimizer.ts` | 15テスト |
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
 | ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
-| FormState永続化 + バリデーション | `form-state.ts` | 54テスト |
-| 共有URL圧縮 | `url-share.ts` | 16テスト |
+| FormState永続化 + バリデーション | `form-state.ts` | 55テスト |
+| 共有URL圧縮 | `url-share.ts` | 17テスト |
 | シナリオテンプレート | `scenario-templates.ts` | 10テスト |
 | 税制年度切替 | `tax-config-index.ts` | 4テスト |
-| **合計** | | **217テスト** |
+| **合計** | | **226テスト** |
 
 ### 収入モデル
 
@@ -36,7 +36,8 @@
 - **公的年金**: 厚生年金 + 国民年金、繰上げ(0.4%/月減額)・繰下げ(0.7%/月増額)
   - 公的年金等控除(65歳未満/65歳以上)適用
 - **退職金**: 退職所得控除(勤続年数ベース) + 分離課税
-- **副収入**: 退職後のフリーランス/不労所得(基礎控除のみ)
+- **副収入**: 退職後のフリーランス/不労所得
+- **総合課税統合**: 年金雑所得+副収入+金譲渡所得を合算、基礎控除年1回のみ適用
 
 ### 支出モデル
 
@@ -180,7 +181,7 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 217テスト, ~2秒
+- **Vitest**: 226テスト, ~2秒
 - **Playwright**: E2E 4テスト (Chromium)
 - **TypeScript 5 strict**: 全ファイル
 - **ESLint 9** + typescript-eslint + eslint-plugin-react-hooks
