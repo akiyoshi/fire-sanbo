@@ -45,7 +45,7 @@ export function PostRetirementRebalanceSection() {
                   </tr>
                   <tr className="border-b border-border/50">
                     <td className="py-1 pr-4 font-medium">金現物</td>
-                    <td className="py-1">max(0, 売却益 × 含み益率 − 50万) ÷ 2 × {fmtPct(0.20315)}</td>
+                    <td className="py-1">max(0, 売却益 × 含み益率 − 50万) ÷ 2 → 絟進課税（他の総合課税所得と合算）</td>
                   </tr>
                   <tr className="border-b border-border/50">
                     <td className="py-1 pr-4 font-medium">NISA</td>

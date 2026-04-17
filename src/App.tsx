@@ -11,6 +11,7 @@ import { Flame } from "lucide-react";
 const Results = lazy(() => import("@/components/results").then(m => ({ default: m.Results })));
 const ScenarioCompare = lazy(() => import("@/components/scenario-compare").then(m => ({ default: m.ScenarioCompare })));
 const MethodologyPage = lazy(() => import("@/components/methodology/methodology-page").then(m => ({ default: m.MethodologyPage })));
+const GuidePage = lazy(() => import("@/components/guide-page").then(m => ({ default: m.GuidePage })));
 
 class ChunkErrorBoundary extends Component<
   { children: React.ReactNode; onReset: () => void },
@@ -41,7 +42,8 @@ type AppState =
   | { phase: "calculating"; form: FormState }
   | { phase: "result"; form: FormState; result: SimulationResult }
   | { phase: "compare" }
-  | { phase: "methodology" };
+  | { phase: "methodology" }
+  | { phase: "guide" };
 
 export default function App() {
   const [state, setState] = useState<AppState>({ phase: "input" });
@@ -124,6 +126,12 @@ export default function App() {
               </button>
             )}
             <button
+              onClick={() => setState({ phase: "guide" })}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              はじめに
+            </button>
+            <button
               onClick={() => setState({ phase: "methodology" })}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -172,6 +180,9 @@ export default function App() {
         )}
         {state.phase === "methodology" && (
           <MethodologyPage onBack={() => setState({ phase: "input" })} />
+        )}
+        {state.phase === "guide" && (
+          <GuidePage onBack={() => setState({ phase: "input" })} />
         )}
         </Suspense>
         </ChunkErrorBoundary>

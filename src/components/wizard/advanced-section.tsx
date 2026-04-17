@@ -1,5 +1,4 @@
 import type { FormState } from "@/lib/form-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SliderInput } from "./shared";
 
 interface AdvancedSectionProps {
@@ -10,11 +9,7 @@ interface AdvancedSectionProps {
 
 export function AdvancedSection({ form, update, hasGold }: AdvancedSectionProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>詳細設定</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
         <SliderInput
           label="想定インフレ率"
           value={form.inflationRate}
@@ -61,7 +56,6 @@ export function AdvancedSection({ form, update, hasGold }: AdvancedSectionProps)
           max={10000}
           step={100}
         />
-      </CardContent>
-    </Card>
+      </div>
   );
 }

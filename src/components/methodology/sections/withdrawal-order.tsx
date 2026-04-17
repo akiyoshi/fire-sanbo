@@ -7,6 +7,7 @@ export function WithdrawalOrderSection() {
       <p className="text-sm text-muted-foreground">
         デフォルトの取り崩し順序は「現金 → NISA → 特定 → 金 → iDeCo」。
         税効率と資産成長のバランスに基づいています。
+        取り崩し最適化機能では、現金を末尾に固定した上で他の口座の全順列（最大4! = 24通り）を評価し、最適順序を提案します。
       </p>
 
       <TwoColumn

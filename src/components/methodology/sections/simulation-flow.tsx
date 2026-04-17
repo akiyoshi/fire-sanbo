@@ -29,7 +29,8 @@ export function SimulationFlowSection() {
 │  └─ calcComprehensiveTax() で合算、基礎控除1回       │
 │              ↓                                      │
 │  Phase 4: 支出・取り崩しフェーズ                       │
-│  ├─ 年間生活費(×インフレ) + ライフイベント             │
+│  ├─ 年間生活費 + ライフイベント                     │
+│  ├─ ‹実質リターン方式: Phase 6でインフレ控除済み›   │
 │  ├─ 不足額 = 必要額 − 収入                           │
 │  └─ withdrawalOrderに従い口座から取り崩し              │
 │     → calcWithdrawalTax() で税額計算                  │
@@ -63,7 +64,8 @@ export function SimulationFlowSection() {
             <h4 className="text-sm font-medium">配偶者がいる場合</h4>
             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
               <li>Phase 1-3: 2人分の収入を並行計算</li>
-              <li>Phase 4: 生活費は在職者数で均等分担</li>
+              <li>Phase 4: 世帯全体の不足額から取り崩し（在職者収入控除後）</li>
+              <li>Phase 5: 在職者は費用負担を在職者数で均等分担</li>
               <li>Phase 4-5: Primary口座 → Spouse口座の順で取り崩し/積立</li>
             </ul>
           </div>

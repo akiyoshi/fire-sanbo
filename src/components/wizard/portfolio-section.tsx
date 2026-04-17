@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { ASSET_CLASS_IDS, getAssetClassData, calcPortfolio } from "@/lib/portfolio";
+import { ASSET_CLASS_IDS, getAssetClassData, calcPortfolio, calcFromWeights } from "@/lib/portfolio";
 import { TAX_CATEGORIES, TAX_CATEGORY_LABELS } from "@/lib/portfolio";
 import type { AssetClassId, PortfolioEntry, TaxCategory, TargetAllocation } from "@/lib/portfolio";
 import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
@@ -14,8 +14,22 @@ import { formatManYen } from "./shared";
 import { X } from "lucide-react";
 
 const SELECTABLE_CLASSES = ASSET_CLASS_IDS.filter((id) => id !== "cash");
-const TARGET_CLASSES = ASSET_CLASS_IDS.filter((id) => id !== "cash");
+const TARGET_CLASSES = ASSET_CLASS_IDS;
 const assetClassData = getAssetClassData();
+
+/** 資産クラスごとの配色（oklch / ライト・ダーク両対応） */
+const ASSET_CLASS_COLORS: Record<AssetClassId, string> = {
+  domestic_stock:  "oklch(0.55 0.15 250)",   // 青
+  developed_stock: "oklch(0.55 0.18 145)",   // 緑
+  emerging_stock:  "oklch(0.60 0.16 30)",    // オレンジ
+  domestic_bond:   "oklch(0.60 0.10 250)",   // 淡青
+  developed_bond:  "oklch(0.60 0.08 200)",   // シアン
+  emerging_bond:   "oklch(0.55 0.10 80)",    // 黄土
+  domestic_reit:   "oklch(0.55 0.14 310)",   // 紫
+  developed_reit:  "oklch(0.60 0.12 340)",   // ピンク
+  gold:            "oklch(0.65 0.14 80)",    // 金
+  cash:            "oklch(0.70 0.02 250)",   // グレー
+};
 
 interface PortfolioSectionProps {
   form: FormState;
@@ -182,6 +196,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
             </div>
             {portfolioResult.totalAmount > 0 && (
               <>
+                <AllocationBar weights={portfolioResult.weights} />
                 <div className="flex justify-between text-sm">
                   <span className="font-medium">合成リターン</span>
                   <span className="font-bold tabular-nums">
@@ -283,6 +298,21 @@ function TargetAllocationSection({ form, setForm }: PortfolioSectionProps) {
   const usedClasses = new Set(target.map((t) => t.assetClass));
   const availableClasses = TARGET_CLASSES.filter((id) => !usedClasses.has(id));
 
+  const targetStats = useMemo(() => {
+    const nonZero = target.filter((t) => t.weight > 0);
+    if (nonZero.length === 0 || totalWeight === 0) return null;
+    const assets = nonZero.map((t) => t.assetClass);
+    const weights = nonZero.map((t) => t.weight / totalWeight);
+    const result = calcFromWeights(assets, weights);
+    const simpleAvgRisk = nonZero.reduce(
+      (s, t) => s + (t.weight / totalWeight) * (assetClassData[t.assetClass]?.risk ?? 0), 0,
+    );
+    const diversification = simpleAvgRisk > 0
+      ? ((result.risk - simpleAvgRisk) * 100).toFixed(1)
+      : null;
+    return { ...result, diversification };
+  }, [form.targetAllocation, totalWeight]);
+
   return (
     <Card>
       <CardHeader>
@@ -351,8 +381,74 @@ function TargetAllocationSection({ form, setForm }: PortfolioSectionProps) {
             合計: {Math.round(totalWeight * 100)}%
             {!isValid && " （100%にしてください）"}
           </div>
+
+          {targetStats && isValid && (
+            <div className="rounded-lg bg-muted p-3 space-y-2">
+              <AllocationBar weights={Object.fromEntries([
+                ...ASSET_CLASS_IDS.map((id) => [id, 0]),
+                ...target.map((t) => [t.assetClass, t.weight]),
+              ]) as Record<AssetClassId, number>} />
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">合成リターン</span>
+                <span className="font-bold tabular-nums">
+                  {(targetStats.expectedReturn * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">合成リスク</span>
+                <span className="font-bold tabular-nums">
+                  {(targetStats.risk * 100).toFixed(1)}%
+                </span>
+              </div>
+              {targetStats.diversification && (
+                <p className="text-xs text-muted-foreground">
+                  分散効果: {targetStats.diversification}%（単純加重比）
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
+  );
+}
+
+/** 資産クラス別ウェイトの横棒グラフ */
+function AllocationBar({ weights }: { weights: Record<AssetClassId, number> }) {
+  const segments = ASSET_CLASS_IDS
+    .filter((id) => weights[id] > 0.005)
+    .map((id) => ({ id, weight: weights[id] }));
+
+  if (segments.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground">アセットアロケーション</p>
+      <div
+        className="flex h-3 w-full rounded-full overflow-hidden"
+        role="img"
+        aria-label={`アセットアロケーション: ${segments.map((s) => `${assetClassData[s.id].label} ${Math.round(s.weight * 100)}%`).join("、")}`}
+      >
+        {segments.map((s) => (
+          <div
+            key={s.id}
+            style={{ width: `${s.weight * 100}%`, backgroundColor: ASSET_CLASS_COLORS[s.id] }}
+            title={`${assetClassData[s.id].label} ${Math.round(s.weight * 100)}%`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {segments.map((s) => (
+          <span key={s.id} className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span
+              className="inline-block h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: ASSET_CLASS_COLORS[s.id] }}
+              aria-hidden="true"
+            />
+            {assetClassData[s.id].label} {Math.round(s.weight * 100)}%
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

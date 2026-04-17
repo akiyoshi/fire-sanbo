@@ -1,5 +1,4 @@
 import type { FormState } from "@/lib/form-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
@@ -11,24 +10,20 @@ interface EventsSectionProps {
 
 export function EventsSection({ form, update }: EventsSectionProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>ライフイベント（一時支出）</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const events = [...(form.lifeEvents ?? [])];
-              events.push({ id: crypto.randomUUID(), label: "", age: form.currentAge + 5, amount: 0 });
-              update("lifeEvents", events);
-            }}
-          >
-            + 追加
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const events = [...(form.lifeEvents ?? [])];
+            events.push({ id: crypto.randomUUID(), label: "", age: form.currentAge + 5, amount: 0 });
+            update("lifeEvents", events);
+          }}
+        >
+          + 追加
+        </Button>
+      </div>
         {(!form.lifeEvents || form.lifeEvents.length === 0) ? (
           <p className="text-xs text-muted-foreground">
             住宅購入・教育費・結婚・車など、特定の年齢で発生する大きな支出を追加できます。
@@ -97,7 +92,6 @@ export function EventsSection({ form, update }: EventsSectionProps) {
             </div>
           ))
         )}
-      </CardContent>
-    </Card>
+      </div>
   );
 }
