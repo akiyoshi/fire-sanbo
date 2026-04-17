@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { X } from "lucide-react";
 
 const assetClassData = getAssetClassData();
-const INVESTABLE = ASSET_CLASS_IDS.filter((id) => id !== "cash");
+const INVESTABLE = ASSET_CLASS_IDS;
 
 interface PortfolioOptimizerProps {
   currentPortfolio: PortfolioEntry[];
@@ -136,7 +136,7 @@ export function PortfolioOptimizer({ currentPortfolio, onApply, onApplyTarget }:
       if (w < 0.01) continue; // 1%未満は除外
       const amount = Math.round(totalAmount * w);
       // 金は金現物、それ以外は最大の課税種別
-      const taxCat: TaxCategory = id === "gold" ? "gold_physical" : defaultTaxCategory;
+      const taxCat: TaxCategory = id === "gold" ? "gold_physical" : id === "cash" ? "cash" : defaultTaxCategory;
       newEntries.push({ assetClass: id, taxCategory: taxCat, amount });
     }
 
@@ -260,18 +260,18 @@ export function PortfolioOptimizer({ currentPortfolio, onApply, onApplyTarget }:
         </div>
 
         {/* 適用ボタン */}
-        <div className="flex gap-2 pt-2">
-          <Button onClick={handleApply} className="flex-1">
-            保有に適用
-          </Button>
-          {onApplyTarget && (
-            <Button variant="secondary" onClick={handleApplyAsTarget} className="flex-1">
-              目標に設定
+        <div className="flex flex-col gap-2 pt-2">
+          <div className="flex gap-2">
+            <Button onClick={handleApply} className="flex-1">
+              保有に適用
             </Button>
-          )}
-        </div>
-        <div className="flex gap-2 pt-1">
-          <Button variant="outline" onClick={() => setOpen(false)} className="flex-1">
+            {onApplyTarget && (
+              <Button variant="secondary" onClick={handleApplyAsTarget} className="flex-1">
+                目標に設定
+              </Button>
+            )}
+          </div>
+          <Button variant="outline" onClick={() => setOpen(false)} className="w-full">
             閉じる
           </Button>
         </div>

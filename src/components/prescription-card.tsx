@@ -82,13 +82,24 @@ interface PrescriptionCardProps {
 }
 
 export function PrescriptionCard({ worker, input, currentRate, frontier, onResult, onApplyAllocation }: PrescriptionCardProps) {
-  const [targetRate, setTargetRate] = useState(90);
+  const currentPct = Math.round(currentRate * 100);
+  const initialTarget = currentPct >= 90 ? Math.min(currentPct + 1, 99) : 90;
+  const [targetRate, setTargetRate] = useState(initialTarget);
   const [result, setResult] = useState<PrescriptionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const targetRateRef = useRef(90);
+  const targetRateRef = useRef(initialTarget);
   const generationRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seedRef = useRef(Math.floor(Math.random() * 2 ** 32));
+
+  // currentRateが変わって目標を既に達成している場合、目標を自動引き上げ
+  useEffect(() => {
+    if (currentPct >= targetRateRef.current) {
+      const newTarget = Math.min(currentPct + 1, 99);
+      targetRateRef.current = newTarget;
+      setTargetRate(newTarget);
+    }
+  }, [currentPct]);
 
   // input/targetRateが変わったら再計算
   const recalculate = useCallback(
@@ -138,7 +149,6 @@ export function PrescriptionCard({ worker, input, currentRate, frontier, onResul
     [recalculate],
   );
 
-  const currentPct = Math.round(currentRate * 100);
   const alreadyAchieved = currentPct >= targetRate;
 
   return (

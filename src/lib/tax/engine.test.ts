@@ -8,6 +8,7 @@ import {
   calcRetirementTaxableIncome,
   calcTokuteiTax,
   calcNisaTax,
+  calcIncomeTax,
   calcGoldWithdrawalTax,
   calcPublicPensionDeduction,
   calcRetirementBonusNet,
@@ -123,6 +124,13 @@ describe("税制エンジン P0テスト", () => {
       // (1200万 - 800万) * 0.5 = 200万
       const taxable = calcRetirementTaxableIncome(12_000_000, 20);
       expect(taxable).toBe(2_000_000);
+
+      // 所得税 + 住民税10%（分離課税）
+      const result = calcWithdrawalTax("ideco", 12_000_000, { yearsOfService: 20 });
+      const incomeTax = calcIncomeTax(2_000_000);
+      const residentTax = Math.floor(2_000_000 * 0.10);
+      expect(result.tax).toBe(incomeTax + residentTax);
+      expect(result.net).toBe(12_000_000 - result.tax);
     });
   });
 

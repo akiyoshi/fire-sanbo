@@ -1,13 +1,20 @@
 import type { FormState } from "@/lib/form-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { SliderInput, NumberInput } from "./shared";
+import { Zap } from "lucide-react";
 
 interface BasicSectionProps {
   form: FormState;
   update: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  onQuickRun?: (form: FormState) => void;
+  validationError?: string | null;
 }
 
-export function BasicSection({ form, update }: BasicSectionProps) {
+export function BasicSection({ form, update, onQuickRun, validationError }: BasicSectionProps) {
+  const totalAssets = form.portfolio.reduce((s, e) => s + e.amount, 0);
+  const isValid = form.currentAge > 0 && (totalAssets > 0 || form.annualSalary > 0) && !validationError;
+
   return (
     <Card>
       <CardHeader>
@@ -57,6 +64,22 @@ export function BasicSection({ form, update }: BasicSectionProps) {
             suffix="円/月"
           />
         </div>
+        {onQuickRun && (
+          <div className="pt-2">
+            <Button
+              size="lg"
+              onClick={() => onQuickRun(form)}
+              disabled={!isValid}
+              className="gap-1.5 w-full sm:w-auto"
+            >
+              <Zap className="h-4 w-4" aria-hidden="true" />
+              すぐにシミュレーション
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              資産は下の「資産」セクションで設定します。年金・退職金・ライフイベント等は折りたたみから追加できます。
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

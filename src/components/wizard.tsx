@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { FormState } from "@/lib/form-state";
 import {
   DEFAULT_FORM,
@@ -8,15 +8,13 @@ import {
   clearForm,
 } from "@/lib/form-state";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScenarioSection } from "./wizard/scenario-section";
 import { BasicSection } from "./wizard/basic-section";
 import { PortfolioSection } from "./wizard/portfolio-section";
-import { QuickStart } from "./wizard/quick-start";
 import { IncomeSection } from "./wizard/income-section";
 import { EventsSection } from "./wizard/events-section";
-// TODO: SpouseSection 将来復活予定 (wizard/spouse-section)
 import { AdvancedSection } from "./wizard/advanced-section";
-import { TemplateSelector } from "./wizard/template-selector";
 
 interface WizardProps {
   onComplete: (form: FormState) => void;
@@ -25,13 +23,6 @@ interface WizardProps {
 export function Wizard({ onComplete }: WizardProps) {
   const [form, setForm] = useState<FormState>(() => loadForm() ?? DEFAULT_FORM);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
-  const incomeRef = useRef<HTMLDetailsElement>(null);
-  const eventsRef = useRef<HTMLDetailsElement>(null);
-
-  const handleOpenSections = (sections: string[]) => {
-    if (sections.includes("income") && incomeRef.current) incomeRef.current.open = true;
-    if (sections.includes("events") && eventsRef.current) eventsRef.current.open = true;
-  };
 
   // FormState変更時にlocalStorageへ自動保存（500msデバウンス）
   useEffect(() => {
@@ -48,7 +39,6 @@ export function Wizard({ onComplete }: WizardProps) {
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
-      // 年齢スライダーのカスケード: 上流を動かしたら下流もクランプ
       if (key === "currentAge") {
         const age = value as number;
         if (next.retirementAge <= age) next.retirementAge = age + 1;
@@ -86,85 +76,49 @@ export function Wizard({ onComplete }: WizardProps) {
 
   return (
     <div className="w-full max-w-4xl lg:max-w-6xl mx-auto space-y-6">
-      <QuickStart form={form} update={update} onQuickRun={onComplete} validationError={validationError} />
-      <BasicSection form={form} update={update} />
+      <BasicSection form={form} update={update} onQuickRun={onComplete} validationError={validationError} />
       <PortfolioSection form={form} setForm={setForm} />
 
       {/* 任意セクション: 折りたたみ（デフォルト閉） */}
-      <details ref={incomeRef} className="group">
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
-            年金・退職金・副収入
-            {(form.pension?.kosei || form.pension?.kokumin || form.retirementBonus?.amount) && (
-              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">設定済み</span>
-            )}
-          </div>
-        </summary>
+      <CollapsibleCard
+        title="年金・退職金・副収入"
+        badge={(form.pension?.kosei || form.pension?.kokumin || form.retirementBonus?.amount) ? "設定済み" : undefined}
+      >
         <IncomeSection form={form} update={update} />
-      </details>
+      </CollapsibleCard>
 
-      <details ref={eventsRef} className="group">
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
-            ライフイベント
-            {(form.lifeEvents?.length ?? 0) > 0 && (
-              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{form.lifeEvents!.length}件</span>
-            )}
-          </div>
-        </summary>
+      <CollapsibleCard
+        title="ライフイベント"
+        badge={(form.lifeEvents?.length ?? 0) > 0 ? `${form.lifeEvents!.length}件` : undefined}
+      >
         <EventsSection form={form} update={update} />
-      </details>
+      </CollapsibleCard>
 
-      <details className="group">
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
-            詳細設定
-          </div>
-        </summary>
+      <CollapsibleCard title="詳細設定">
         <AdvancedSection form={form} update={update} hasGold={hasGold} />
-      </details>
+      </CollapsibleCard>
 
-      <details className="group">
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
-            テンプレート
-          </div>
-        </summary>
-        <div className="pt-2">
-          <TemplateSelector form={form} setForm={setForm} onOpenSections={handleOpenSections} />
-        </div>
-      </details>
-
-      <details className="group">
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center gap-2 px-1 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
-            シナリオ管理
-          </div>
-        </summary>
-        <div className="pt-2">
-          <ScenarioSection
-            form={form}
-            setForm={setForm}
-            activeScenarioId={activeScenarioId}
-            setActiveScenarioId={setActiveScenarioId}
-          />
-        </div>
-      </details>
+      <CollapsibleCard title="シナリオ管理">
+        <ScenarioSection
+          form={form}
+          setForm={setForm}
+          activeScenarioId={activeScenarioId}
+          setActiveScenarioId={setActiveScenarioId}
+        />
+      </CollapsibleCard>
 
       {/* バリデーション + 実行ボタン (スティッキー) */}
       <div className="sticky bottom-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur-sm border-t">
         {validationError && (
           <p role="alert" aria-live="polite" className="text-sm text-destructive text-center mb-2">{validationError}</p>
         )}
-        <div className="flex justify-center gap-4">
-          <Button variant="outline" onClick={handleReset}>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={handleReset}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+          >
             入力をリセット
-          </Button>
+          </button>
           <Button
             size="lg"
             onClick={() => onComplete(form)}
@@ -175,5 +129,32 @@ export function Wizard({ onComplete }: WizardProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+function CollapsibleCard({ title, badge, children }: {
+  title: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <details className="group">
+        <summary className="cursor-pointer list-none">
+          <CardHeader className="py-3">
+            <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+              <span className="transition-transform group-open:rotate-90" aria-hidden="true">▶</span>
+              {title}
+              {badge && (
+                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{badge}</span>
+              )}
+            </CardTitle>
+          </CardHeader>
+        </summary>
+        <CardContent className="pt-0">
+          {children}
+        </CardContent>
+      </details>
+    </Card>
   );
 }

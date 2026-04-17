@@ -1,5 +1,4 @@
 import type { FormState } from "@/lib/form-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NumberInput, SliderInput } from "./shared";
 
 interface IncomeSectionProps {
@@ -11,11 +10,7 @@ const DEFAULT_PENSION = { kosei: 0, kokumin: 65_000, startAge: 65 };
 
 export function IncomeSection({ form, update }: IncomeSectionProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>年金・退職金・副収入</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
         {/* 年金 */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">公的年金</h3>
@@ -115,7 +110,6 @@ export function IncomeSection({ form, update }: IncomeSectionProps) {
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
   );
 }

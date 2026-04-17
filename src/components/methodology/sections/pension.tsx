@@ -92,6 +92,36 @@ export function PensionSection() {
                 </tbody>
               </table>
             </div>
+
+            <div>
+              <h4 className="text-sm font-medium mb-2">公的年金等控除（65歳未満）</h4>
+              <table className="w-full text-sm">
+                <caption className="sr-only">公的年金等控除テーブル（65歳未満）</caption>
+                <thead>
+                  <tr className="border-b">
+                    <th scope="col" className="text-left py-1 pr-4">年金収入</th>
+                    <th scope="col" className="text-right py-1">控除額</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cfg.publicPensionDeduction.under65.map((b, i) => (
+                    <tr key={i} className="border-b border-border/50">
+                      <td className="py-1 pr-4">
+                        {b.maxIncome ? `〜${fmtYen(b.maxIncome)}` : `${fmtYen(cfg.publicPensionDeduction.under65[i - 1]?.maxIncome ?? 0)}超`}
+                      </td>
+                      <td className="text-right py-1 tabular-nums">
+                        {b.deduction !== undefined
+                          ? fmtExact(b.deduction)
+                          : `${fmtPct(b.rate!)} × 収入 + ${fmtExact(b.base!)}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-muted-foreground mt-1">
+                ※ 60歳繰上げ受給の場合はこちらのテーブルが適用されます
+              </p>
+            </div>
           </div>
         }
         example={

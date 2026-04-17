@@ -2,19 +2,18 @@ import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import type { SimulationResult } from "@/lib/simulation";
 import type { SimulationWorker } from "@/lib/simulation";
 import type { FormState } from "@/lib/form-state";
-import { formToSimulationInput } from "@/lib/form-state";
+import { formToSimulationInput, saveScenario } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
 import { optimizeWithdrawalOrder } from "@/lib/withdrawal";
 import { PrescriptionCard } from "@/components/prescription-card";
 import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
 import { WorstCaseCard } from "@/components/worst-case-card";
 import { WithdrawalCard } from "@/components/withdrawal-card";
-import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Link2, Check, ChevronRight, Lightbulb } from "lucide-react";
+import { Link2, Check, ChevronRight, Lightbulb, Save } from "lucide-react";
 import { buildShareUrl } from "@/lib/url-share";
 import type { PrescriptionResult } from "@/lib/prescription";
 import { optimizePortfolio } from "@/lib/portfolio/optimizer";
@@ -222,26 +221,75 @@ function ShareButton({ form }: { form: FormState }) {
   }, [form]);
 
   return (
-    <div className="flex justify-center mt-4">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleShare}
-        className="gap-1.5"
-      >
-        {copied ? (
-          <>
-            <Check className="h-4 w-4" aria-hidden="true" />
-            コピーしました
-          </>
-        ) : (
-          <>
-            <Link2 className="h-4 w-4" aria-hidden="true" />
-            このプランを共有
-          </>
-        )}
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleShare}
+      className="gap-1.5"
+    >
+      {copied ? (
+        <>
+          <Check className="h-4 w-4" aria-hidden="true" />
+          コピーしました
+        </>
+      ) : (
+        <>
+          <Link2 className="h-4 w-4" aria-hidden="true" />
+          このプランを共有
+        </>
+      )}
+    </Button>
+  );
+}
+
+function SaveScenarioButton({ form }: { form: FormState }) {
+  const [state, setState] = useState<"idle" | "editing" | "saved">("idle");
+  const [name, setName] = useState("");
+
+  const handleSave = useCallback(() => {
+    if (!name.trim()) return;
+    saveScenario(name.trim(), form);
+    setState("saved");
+    setTimeout(() => setState("idle"), 2000);
+    setName("");
+  }, [name, form]);
+
+  if (state === "saved") {
+    return (
+      <Button variant="outline" size="sm" className="gap-1.5" disabled>
+        <Check className="h-4 w-4" aria-hidden="true" />
+        保存しました
       </Button>
-    </div>
+    );
+  }
+
+  if (state === "editing") {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+          placeholder="シナリオ名"
+          className="h-8 px-2 text-sm border rounded-md bg-background w-36"
+          autoFocus
+        />
+        <Button size="sm" onClick={handleSave} disabled={!name.trim()} className="h-8">
+          保存
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setState("idle")} className="h-8 px-2">
+          ✕
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={() => setState("editing")} className="gap-1.5">
+      <Save className="h-4 w-4" aria-hidden="true" />
+      シナリオ保存
+    </Button>
   );
 }
 
@@ -412,7 +460,10 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
           <p className="text-xs text-center text-muted-foreground mt-3">
             🏛️ 2026年度 税制・社会保険料 反映済み ・ インフレ率 {form.inflationRate}% 考慮済み
           </p>
-          <ShareButton form={form} />
+          <div className="flex justify-center gap-2 mt-4">
+            <ShareButton form={form} />
+            <SaveScenarioButton form={form} />
+          </div>
         </CardContent>
       </Card>
 
@@ -560,7 +611,8 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </div>
           </details>
 
-          {/* 取り崩し最適化 */}
+          {/* 取り崩し最適化（リバランス有効時は非表示: リバランスが口座配分を管理するため順序の影響が小さい） */}
+          {!form.rebalanceEnabled && (
           <details className="group">
             <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
               <ChevronRight
@@ -590,30 +642,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
               />
             </div>
           </details>
-
-          {/* 税負担の内訳 */}
-          <details className="group">
-            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-              <ChevronRight
-                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
-                aria-hidden="true"
-              />
-              <span className="font-medium text-sm">アセットアロケーション最適化</span>
-            </summary>
-            <div className="pl-6 pb-4">
-              <PortfolioOptimizer
-                currentPortfolio={form.portfolio}
-                onApply={(newPortfolio) => {
-                  setForm(prev => {
-                    const newForm = { ...prev, portfolio: newPortfolio };
-                    formRef.current = newForm;
-                    return newForm;
-                  });
-                  triggerRecalc(true);
-                }}
-              />
-            </div>
-          </details>
+          )}
 
           {/* 税負担の内訳 */}
           <details className="group">

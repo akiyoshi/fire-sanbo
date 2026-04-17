@@ -49,7 +49,10 @@ export function calcWithdrawalTax(
     case "ideco": {
       const years = options?.yearsOfService ?? 20;
       const taxableIncome = calcRetirementTaxableIncome(amount, years, cfg);
-      const tax = calcIncomeTax(taxableIncome, cfg);
+      const incomeTax = calcIncomeTax(taxableIncome, cfg);
+      // 退職所得は分離課税: 住民税10%（calcRetirementBonusNetと同じロジック）
+      const residentTax = Math.floor(taxableIncome * cfg.residentTax.incomeRate);
+      const tax = incomeTax + residentTax;
       return { gross: amount, tax, net: amount - tax, taxCategory };
     }
     case "gold_physical": {
