@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runSimulationLite, generatePrescriptions } from "./engine";
+import type { FrontierPoint } from "./engine";
 import type { SimulationInput } from "@/lib/simulation";
 
 /** テスト用の基準入力 */
@@ -68,7 +69,7 @@ describe("generatePrescriptions", () => {
       for (const rx of result.prescriptions) {
         expect(rx.resultRate).toBeGreaterThanOrEqual(0.85); // 概ね目標付近
         expect(["easy", "moderate", "hard"]).toContain(rx.difficulty);
-        expect(["expense", "retirement", "investment"]).toContain(rx.axis);
+        expect(["expense", "retirement", "income", "allocation"]).toContain(rx.axis);
       }
     }
   });
@@ -117,5 +118,99 @@ describe("generatePrescriptions", () => {
         order[result.prescriptions[i - 1].difficulty],
       );
     }
+  });
+});
+
+describe("income軸", () => {
+  it("年収増加で成功率が改善する", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.9, 100);
+    const incomeRx = result.prescriptions.find((rx) => rx.axis === "income");
+    if (incomeRx) {
+      expect(incomeRx.targetValue).toBeGreaterThan(incomeRx.currentValue);
+      expect(incomeRx.resultRate).toBeGreaterThanOrEqual(0.85);
+    }
+  });
+
+  it("既に退職済みならincome軸をスキップする", () => {
+    const input = baseInput({
+      currentAge: 60,
+      retirementAge: 55,
+      endAge: 95,
+      annualExpense: 4_000_000,
+    });
+    const result = generatePrescriptions(input, 0.9, 100);
+    const incomeRx = result.prescriptions.find((rx) => rx.axis === "income");
+    expect(incomeRx).toBeUndefined();
+  });
+
+  it("annualSalary=0でも上限がゼロにならない", () => {
+    const input = baseInput({ annualSalary: 0, annualExpense: 2_000_000 });
+    const result = generatePrescriptions(input, 0.9, 100);
+    const incomeRx = result.prescriptions.find((rx) => rx.axis === "income");
+    // 年収0でも探索できる（上限は10_000_000）
+    if (incomeRx) {
+      expect(incomeRx.targetValue).toBeGreaterThan(0);
+    }
+  });
+
+  it("income軸の難易度が正しく設定される", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.9, 100);
+    const incomeRx = result.prescriptions.find((rx) => rx.axis === "income");
+    if (incomeRx) {
+      expect(["easy", "moderate", "hard"]).toContain(incomeRx.difficulty);
+    }
+  });
+});
+
+describe("allocation軸", () => {
+  const sampleFrontier: FrontierPoint[] = [
+    { weights: { domestic_stock: 0, developed_stock: 0.2, domestic_bond: 0.8 }, expectedReturn: 0.03, risk: 0.05 },
+    { weights: { domestic_stock: 0.1, developed_stock: 0.3, domestic_bond: 0.6 }, expectedReturn: 0.04, risk: 0.08 },
+    { weights: { domestic_stock: 0.2, developed_stock: 0.5, domestic_bond: 0.3 }, expectedReturn: 0.06, risk: 0.12 },
+    { weights: { domestic_stock: 0.3, developed_stock: 0.7, domestic_bond: 0 }, expectedReturn: 0.08, risk: 0.18 },
+  ];
+
+  it("フロンティアから目標達成の最小リスク点を見つける", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.85, 100, sampleFrontier);
+    const allocRx = result.prescriptions.find((rx) => rx.axis === "allocation");
+    if (allocRx) {
+      expect(allocRx.recommendedAllocation).toBeDefined();
+      expect(allocRx.resultRate).toBeGreaterThanOrEqual(0.8);
+    }
+  });
+
+  it("フロンティアが空なら処方箋を返さない", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.9, 100, []);
+    const allocRx = result.prescriptions.find((rx) => rx.axis === "allocation");
+    expect(allocRx).toBeUndefined();
+  });
+
+  it("フロンティア未指定ならallocation軸をスキップ", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.9, 100);
+    const allocRx = result.prescriptions.find((rx) => rx.axis === "allocation");
+    expect(allocRx).toBeUndefined();
+  });
+
+  it("allocation軸の難易度がリスク変化に基づく", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.85, 100, sampleFrontier);
+    const allocRx = result.prescriptions.find((rx) => rx.axis === "allocation");
+    if (allocRx) {
+      expect(["easy", "moderate", "hard"]).toContain(allocRx.difficulty);
+    }
+  });
+});
+
+describe("investment軸の削除確認", () => {
+  it("investment軸が存在しない", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0.9, 100);
+    const investmentRx = result.prescriptions.find((rx) => rx.axis === "investment" as string);
+    expect(investmentRx).toBeUndefined();
   });
 });

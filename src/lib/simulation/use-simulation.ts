@@ -1,5 +1,5 @@
 import type { SimulationInput, SimulationResult } from "./types";
-import type { PrescriptionResult } from "@/lib/prescription";
+import type { PrescriptionResult, FrontierPoint } from "@/lib/prescription";
 import type { WorkerMessage, WorkerResponse } from "./worker";
 
 /**
@@ -89,10 +89,11 @@ export class SimulationWorker {
     input: SimulationInput,
     targetRate: number,
     seed: number,
+    frontier?: FrontierPoint[],
   ): Promise<PrescriptionResult> {
     if (!this.worker) {
       const { generatePrescriptions } = await import("@/lib/prescription");
-      return generatePrescriptions(input, targetRate, seed);
+      return generatePrescriptions(input, targetRate, seed, frontier);
     }
 
     if (this.pendingPrescription) {
@@ -107,6 +108,7 @@ export class SimulationWorker {
         input,
         targetRate,
         seed,
+        frontier,
       } satisfies WorkerMessage);
     });
   }
