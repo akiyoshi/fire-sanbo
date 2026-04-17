@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v4.4.0
+> **バージョン**: v4.5.0
 > **更新日**: 2026-04-17
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -19,7 +19,7 @@
 |------|------|--------|
 | モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 42テスト |
 | 最悪ケース診断 | `simulation/diagnosis.ts` | 7テスト |
-| 日本税制エンジン (2026年度) | `tax/engine.ts` | 44テスト |
+| 日本税制エンジン (2026年度) | `tax/engine.ts` | 43テスト |
 | 処方箋 (4軸二分探索+フロンティア走査) | `prescription/engine.ts` runTrialLite | 19テスト |
 | 取り崩し最適化 | `withdrawal/optimizer.ts` | 15テスト |
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
@@ -28,6 +28,7 @@
 | 共有URL圧縮 | `url-share.ts` | 17テスト |
 | シナリオテンプレート | `scenario-templates.ts` | 10テスト |
 | 税制年度切替 | `tax-config-index.ts` | 4テスト |
+| UIコンポーネント | `wizard.test` + `prescription-card.test` | 5テスト |
 | **合計** | | **240テスト** |
 
 ### 収入モデル
@@ -132,29 +133,33 @@
 - **Web Share API / クリップボードフォールバック**: 「コピーしました」フィードバック
 - **セキュリティ**: portfolio上隘8件、label上限50文字、numTrials固定1000、importFormFromJSONでバリデーション
 
-### クイックスタート (v1.8.0)
+### クイックスタート (v1.8.0 → v4.5.0で基本情報に統合)
 
-- **3項目即座シミュレーション**: 年齢・年収・資産総額だけで即開始
-- **デフォルト補完**: 省略フィールドはDEFAULT_FORMの合理的デフォルトで補完
-- **詳しく設定する**: リンクでフルフォームに展開、入力値は自動反映
+- **基本情報カードに「すぐにシミュレーション」ボタン**: QSカードを廃止し、基本情報カードに統合
+- **テンプレートセレクター**: v4.5.0で削除
+
+### はじめにガイド (v4.5.0)
+
+- **チュートリアル形式**: 5ステップの操作フロー + 各ステップにtip
+- **3セクション構成**: 導入 + 基本の流れ + 知っておくべきこと
 
 ## アーキテクチャ
 
 ```
 src/
-├── App.tsx                    # 5フェーズステートマシン + 共有URL復元 + React.lazy
+├── App.tsx                    # 6フェーズステートマシン + 共有URL復元 + React.lazy
 ├── components/
-│   ├── wizard.tsx             # オーケストレーター + 全セクション折りたたみ
+│   ├── wizard.tsx             # オーケストレーター + CollapsibleCardセクション
 │   ├── wizard/                # セクション別サブコンポーネント
     │   ├── shared.tsx         # NumberInput, SliderInput
 │   │   ├── scenario-section   # シナリオ管理 + エクスポート/インポート
-│   │   ├── basic-section      # 年齢・年収・生活費
-│   │   ├── portfolio-section  # 資産入力 + 合成計算 + 最適化
+│   │   ├── basic-section      # 年齢・年収・生活費 + 「すぐにシミュレーション」ボタン
+│   │   ├── portfolio-section  # 資産入力 + 合成計算 + 最適化 + アロケーションバー
 │   │   ├── income-section     # 年金・退職金・副収入
 │   │   ├── events-section     # ライフイベント
-│   │   ├── template-selector  # テンプレート選択（折りたたみ）
 │   │   └── advanced-section   # インフレ率・含み益率・シミュレーション回数
-│   ├── results.tsx            # 1軍(成功率+チャート+最悪ケース) + 2軍(アクション折りたたみ) + What-if
+│   ├── results.tsx            # 1軍(成功率+チャート+最悪ケース) + 2軍(アクション折りたたみ) + What-if + シナリオ保存
+│   ├── guide-page.tsx         # はじめにガイド（チュートリアル）
 │   ├── prescription-card.tsx  # 処方箋UI (lucide-react SVG)
 │   ├── worst-case-card.tsx    # 最悪ケース診断書
 │   ├── withdrawal-card.tsx    # 取り崩し最適化UI (v4.0)
@@ -185,7 +190,7 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 226テスト, ~2秒
+- **Vitest**: 240テスト, ~2秒
 - **Playwright**: E2E 4テスト (Chromium)
 - **TypeScript 5 strict**: 全ファイル
 - **ESLint 9** + typescript-eslint + eslint-plugin-react-hooks
