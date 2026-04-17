@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Link2, Check, ChevronRight, Lightbulb } from "lucide-react";
 import { buildShareUrl } from "@/lib/url-share";
 import type { PrescriptionResult } from "@/lib/prescription";
+import { optimizePortfolio } from "@/lib/portfolio/optimizer";
+import { ASSET_CLASS_IDS } from "@/lib/portfolio";
 import {
   AreaChart,
   Area,
@@ -253,6 +255,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
   formRef.current = form;
 
   const prescriptionRef = useRef<HTMLDetailsElement>(null);
+  const simulationInput = useMemo(() => formToSimulationInput(form), [form]);
 
   // 処方箋のtop1（最優先アクション表示用）
   const [topPrescription, setTopPrescription] = useState<PrescriptionResult | null>(null);
@@ -291,6 +294,21 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
       if (woDebounceRef.current) clearTimeout(woDebounceRef.current);
     };
   }, [form]);
+
+  // 効率的フロンティアの事前計算（処方箋のallocation軸用）
+  // 依存は資産クラス構成のみ（金額変更ではフロンティア形状は不変）
+  const portfolioAssetKey = useMemo(
+    () => [...new Set(form.portfolio.map(e => e.assetClass))].sort().join(","),
+    [form.portfolio],
+  );
+  const frontier = useMemo(() => {
+    const assets = ASSET_CLASS_IDS.filter(
+      (id) => id !== "cash" && portfolioAssetKey.includes(id),
+    );
+    if (assets.length === 0) return undefined;
+    const result = optimizePortfolio(assets, 0.5, 10000);
+    return result.frontier;
+  }, [portfolioAssetKey]);
 
   // クリーンアップ
   useEffect(() => {
@@ -499,21 +517,45 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
 
         <div className="space-y-2">
           {/* 処方箋 */}
-          <details className="group" ref={prescriptionRef}>
+          <details className="group" ref={prescriptionRef} open={result.successRate < 0.9}>
             <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
               <ChevronRight
                 className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
                 aria-hidden="true"
               />
               <span className="font-medium text-sm">処方箋</span>
-              <span className="text-xs text-muted-foreground">— 支出削減・退職延期・追加積立の3軸提案</span>
+              <span className="text-xs text-muted-foreground">— 支出削減・退職延期・収入増加・資産配分の4軸提案</span>
             </summary>
             <div className="pl-6 pb-4">
               <PrescriptionCard
                 worker={worker}
-                input={formToSimulationInput(form)}
+                input={simulationInput}
                 currentRate={result.successRate}
+                frontier={frontier}
                 onResult={setTopPrescription}
+                onApplyAllocation={(weights) => {
+                  // フロンティアのウェイトをポートフォリオエントリに変換
+                  const totalAmount = form.portfolio.reduce((s, e) => s + e.amount, 0);
+                  if (totalAmount === 0) return;
+                  const defaultTaxCategory = form.portfolio.length > 0
+                    ? [...form.portfolio].sort((a, b) => b.amount - a.amount)[0].taxCategory
+                    : "nisa" as const;
+                  const newPortfolio = Object.entries(weights)
+                    .filter(([, w]) => w >= 0.01)
+                    .map(([assetClass, w]) => ({
+                      assetClass: assetClass as typeof form.portfolio[0]["assetClass"],
+                      taxCategory: assetClass === "gold" ? "gold_physical" as const : defaultTaxCategory,
+                      amount: Math.round(totalAmount * w),
+                    }));
+                  if (newPortfolio.length > 0) {
+                    setForm(prev => {
+                      const newForm = { ...prev, portfolio: newPortfolio };
+                      formRef.current = newForm;
+                      return newForm;
+                    });
+                    triggerRecalc(true);
+                  }
+                }}
               />
             </div>
           </details>
@@ -535,7 +577,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             <div className="pl-6 pb-4">
               <WithdrawalCard
                 result={withdrawalResult}
-                currentOrder={formToSimulationInput(form).withdrawalOrder}
+                currentOrder={simulationInput.withdrawalOrder}
                 onApply={(order) => {
                   setForm(prev => {
                     const newForm = { ...prev, withdrawalOrder: order };

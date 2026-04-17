@@ -1,5 +1,27 @@
 # Changelog
 
+## [4.4.0] - 2026-04-17
+
+処方箋エンジンv5: 壊れたinvestment軸を廃止し、income軸（年収増加）とallocation軸（アセットアロケーション最適化）に差し替え。
+
+### 追加
+- **income軸**: `annualSalary`の二分探索で「年収を+X万円にする」処方箋を生成
+- **allocation軸**: 効率的フロンティアを走査し「リスクをX%→Y%に調整」処方箋を生成、「この配分を適用」ボタン付き
+- **フロンティア事前計算**: Results画面で`optimizePortfolio`結果をキャッシュし処方箋に流す
+- **自動展開**: 成功率90%未満時に処方箋セクションを自動で開く
+- **アクセントボーダー**: 最高インパクトの処方箋に`border-primary`を適用
+- **テスト+14**: income軸4テスト + allocation軸4テスト + investment削除確認 + その他5テスト
+
+### 削除
+- **investment軸**: NISA残高を仮想的に嵩上げする壊れた軸を完全削除
+
+### 変更
+- **PrescriptionAxis型**: `"investment"` → `"income" | "allocation"`
+- **generatePrescriptions**: 第4引数に`frontier?: FrontierPoint[]`追加
+- **Worker/SimulationWorker**: `prescribe()`に`frontier`引数追加
+- **アイコン**: income=Banknote, allocation=PieChart (lucide-react)
+- **セクション説明**: 「3軸提案」→「4軸提案」
+
 ## [4.3.2] - 2026-04-16
 
 API面積縮小: 旧API一掃 + FormState v5一本化 + QA品質改善。

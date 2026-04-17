@@ -7,6 +7,13 @@ import type {
   Difficulty,
 } from "./types";
 
+/** 効率的フロンティア上の点（portfolio/optimizer.ts からの型再定義、Worker内でのインポート回避） */
+export interface FrontierPoint {
+  weights: Record<string, number>;
+  expectedReturn: number;
+  risk: number;
+}
+
 // --- runSimulationLite: successRateのみ返す軽量版 ---
 
 import { PRNG, generateLogNormalReturn } from "@/lib/simulation";
@@ -236,7 +243,7 @@ interface AxisConfig {
   difficulty: (current: number, target: number) => Difficulty;
 }
 
-const AXIS_CONFIGS: Record<PrescriptionAxis, AxisConfig> = {
+const AXIS_CONFIGS: Record<"expense" | "retirement" | "income", AxisConfig> = {
   expense: {
     lo: () => 50_000 * 12, // 月5万円（年60万円）
     hi: (input) => input.annualExpense,
@@ -278,36 +285,32 @@ const AXIS_CONFIGS: Record<PrescriptionAxis, AxisConfig> = {
       return "hard";
     },
   },
-  investment: {
-    lo: (input) => input.accounts.nisa,
-    hi: (input) => input.accounts.nisa + 1_200_000 * 10, // 月10万×10年分のNISA追加
-    precision: 100_000,
-    apply: (input, value) => ({
-      ...input,
-      accounts: { ...input.accounts, nisa: value },
-    }),
+  income: {
+    lo: (input) => input.annualSalary,
+    hi: (input) => Math.max(input.annualSalary * 2, 10_000_000),
+    precision: 100_000, // 10万円単位
+    apply: (input, value) => ({ ...input, annualSalary: value }),
     lowerIsBetter: false,
-    current: (input) => input.accounts.nisa,
+    current: (input) => input.annualSalary,
     label: (cur, tgt) => {
-      const diff = tgt - cur;
-      const monthly = Math.round(diff / 12 / 10); // 10年分割で月額概算
-      return `月${monthly.toLocaleString()}円の追加積立（NISA）`;
+      const diff = Math.round((tgt - cur) / 10_000);
+      return `年収を+${diff.toLocaleString()}万円にする`;
     },
     delta: (cur, tgt) => {
-      const monthly = Math.round((tgt - cur) / 12 / 10);
-      return `+${monthly.toLocaleString()}円/月`;
+      const diff = Math.round((tgt - cur) / 10_000);
+      return `+${diff.toLocaleString()}万円/年`;
     },
     difficulty: (cur, tgt) => {
-      const monthly = (tgt - cur) / 12 / 10;
-      if (monthly <= 20_000) return "easy";
-      if (monthly <= 50_000) return "moderate";
+      const diff = tgt - cur;
+      if (diff <= 500_000) return "easy";
+      if (diff <= 1_500_000) return "moderate";
       return "hard";
     },
   },
 };
 
 function binarySearchAxis(
-  axis: PrescriptionAxis,
+  axis: "expense" | "retirement" | "income",
   input: SimulationInput,
   targetRate: number,
 ): Prescription | null {
@@ -373,11 +376,70 @@ function binarySearchAxis(
   };
 }
 
-/** 3軸の処方箋を生成 */
+/** フロンティア走査: 目標成功率を満たす最小リスクのフロンティア点を見つける */
+function searchFrontierAxis(
+  input: SimulationInput,
+  targetRate: number,
+  frontier: FrontierPoint[],
+): Prescription | null {
+  if (frontier.length === 0) return null;
+
+  const currentReturn = input.allocation.expectedReturn;
+  const currentRisk = input.allocation.standardDeviation;
+
+  // フロンティアはリスク昇順。各点でシミュレーションして目標を満たす最小リスク点を探す
+  let bestPoint: FrontierPoint | null = null;
+  let bestRate = 0;
+
+  for (const point of frontier) {
+    // 現在の配分と同じなら飛ばす
+    if (
+      Math.abs(point.expectedReturn - currentReturn) < 0.001 &&
+      Math.abs(point.risk - currentRisk) < 0.001
+    ) {
+      continue;
+    }
+
+    const testInput: SimulationInput = {
+      ...input,
+      allocation: {
+        expectedReturn: point.expectedReturn,
+        standardDeviation: point.risk,
+      },
+    };
+    const rate = runSimulationLite(testInput);
+
+    if (rate >= targetRate) {
+      bestPoint = point;
+      bestRate = rate;
+      break; // リスク昇順なので最初に見つかったものが最小リスク
+    }
+  }
+
+  if (!bestPoint) return null;
+
+  const riskDiffAbs = Math.abs(bestPoint.risk - currentRisk);
+  const difficulty: Difficulty =
+    riskDiffAbs <= 0.02 ? "easy" : riskDiffAbs <= 0.05 ? "moderate" : "hard";
+
+  return {
+    axis: "allocation",
+    label: `リスクを${(currentRisk * 100).toFixed(1)}%→${(bestPoint.risk * 100).toFixed(1)}%に調整`,
+    currentValue: currentRisk,
+    targetValue: bestPoint.risk,
+    delta: `リスク ${(currentRisk * 100).toFixed(1)}% → ${(bestPoint.risk * 100).toFixed(1)}%`,
+    resultRate: bestRate,
+    difficulty,
+    recommendedAllocation: bestPoint.weights,
+  };
+}
+
+/** 4軸の処方箋を生成 */
 export function generatePrescriptions(
   input: SimulationInput,
   targetRate: number,
   seed?: number,
+  frontier?: FrontierPoint[],
 ): PrescriptionResult {
   // seed固定で全軸同一のランダム系列を使う
   const fixedSeed = seed ?? Math.floor(Math.random() * 2 ** 32);
@@ -398,12 +460,26 @@ export function generatePrescriptions(
     };
   }
 
-  const axes: PrescriptionAxis[] = ["expense", "retirement", "investment"];
   const prescriptions: Prescription[] = [];
 
-  for (const axis of axes) {
-    const rx = binarySearchAxis(axis, seededInput, targetRate);
-    if (rx) prescriptions.push(rx);
+  // expense軸
+  const expenseRx = binarySearchAxis("expense", seededInput, targetRate);
+  if (expenseRx) prescriptions.push(expenseRx);
+
+  // retirement軸
+  const retirementRx = binarySearchAxis("retirement", seededInput, targetRate);
+  if (retirementRx) prescriptions.push(retirementRx);
+
+  // income軸: 既に退職済みならスキップ
+  if (input.retirementAge > input.currentAge) {
+    const incomeRx = binarySearchAxis("income", seededInput, targetRate);
+    if (incomeRx) prescriptions.push(incomeRx);
+  }
+
+  // allocation軸: フロンティアが渡された場合のみ
+  if (frontier && frontier.length > 0) {
+    const allocationRx = searchFrontierAxis(seededInput, targetRate, frontier);
+    if (allocationRx) prescriptions.push(allocationRx);
   }
 
   // difficulty順にソート: easy → moderate → hard

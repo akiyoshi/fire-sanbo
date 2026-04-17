@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ScenarioSection } from "./wizard/scenario-section";
 import { BasicSection } from "./wizard/basic-section";
 import { PortfolioSection } from "./wizard/portfolio-section";
+import { QuickStart } from "./wizard/quick-start";
 import { IncomeSection } from "./wizard/income-section";
 import { EventsSection } from "./wizard/events-section";
 // TODO: SpouseSection 将来復活予定 (wizard/spouse-section)
@@ -85,6 +86,7 @@ export function Wizard({ onComplete }: WizardProps) {
 
   return (
     <div className="w-full max-w-4xl lg:max-w-6xl mx-auto space-y-6">
+      <QuickStart form={form} update={update} onQuickRun={onComplete} validationError={validationError} />
       <BasicSection form={form} update={update} />
       <PortfolioSection form={form} setForm={setForm} />
 

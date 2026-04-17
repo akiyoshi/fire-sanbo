@@ -1,11 +1,12 @@
 import { runSimulation } from "./engine";
 import { generatePrescriptions } from "@/lib/prescription";
+import type { FrontierPoint } from "@/lib/prescription";
 import type { SimulationInput, SimulationResult } from "./types";
 import type { PrescriptionResult } from "@/lib/prescription";
 
 export type WorkerMessage =
   | { type: "run"; input: SimulationInput }
-  | { type: "prescribe"; input: SimulationInput; targetRate: number; seed: number };
+  | { type: "prescribe"; input: SimulationInput; targetRate: number; seed: number; frontier?: FrontierPoint[] };
 
 export type WorkerResponse =
   | { type: "result"; data: SimulationResult }
@@ -31,7 +32,7 @@ ctx.onmessage = (e: MessageEvent<WorkerMessage>) => {
     }
   } else if (msg.type === "prescribe") {
     try {
-      const result = generatePrescriptions(msg.input, msg.targetRate, msg.seed);
+      const result = generatePrescriptions(msg.input, msg.targetRate, msg.seed, msg.frontier);
       ctx.postMessage({ type: "prescriptions", data: result } satisfies WorkerResponse);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

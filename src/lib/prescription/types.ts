@@ -1,5 +1,5 @@
 /** 処方箋の軸 */
-export type PrescriptionAxis = "expense" | "retirement" | "investment";
+export type PrescriptionAxis = "expense" | "retirement" | "income" | "allocation";
 
 /** 難易度 */
 export type Difficulty = "easy" | "moderate" | "hard";
@@ -13,6 +13,8 @@ export interface Prescription {
   delta: string;
   resultRate: number;
   difficulty: Difficulty;
+  /** allocation軸のみ: 推奨アセットアロケーション */
+  recommendedAllocation?: Record<string, number>;
 }
 
 /** 処方箋エンジンの出力 */

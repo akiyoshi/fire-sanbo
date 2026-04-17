@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { SimulationWorker } from "@/lib/simulation";
 import type { SimulationInput } from "@/lib/simulation";
-import type { PrescriptionResult, Prescription, Difficulty } from "@/lib/prescription";
+import type { PrescriptionResult, Prescription, Difficulty, FrontierPoint } from "@/lib/prescription";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Wallet, CalendarClock, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Wallet, CalendarClock, Banknote, PieChart } from "lucide-react";
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easy: "やさしい",
@@ -22,12 +23,21 @@ const DIFFICULTY_COLOR: Record<Difficulty, string> = {
 const AXIS_ICON: Record<string, React.ReactNode> = {
   expense: <Wallet className="h-5 w-5 text-muted-foreground" />,
   retirement: <CalendarClock className="h-5 w-5 text-muted-foreground" />,
-  investment: <TrendingUp className="h-5 w-5 text-muted-foreground" />,
+  income: <Banknote className="h-5 w-5 text-muted-foreground" />,
+  allocation: <PieChart className="h-5 w-5 text-muted-foreground" />,
 };
 
-function PrescriptionItem({ rx }: { rx: Prescription }) {
+function PrescriptionItem({
+  rx,
+  isTopImpact,
+  onApplyAllocation,
+}: {
+  rx: Prescription;
+  isTopImpact: boolean;
+  onApplyAllocation?: (weights: Record<string, number>) => void;
+}) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+    <div className={`flex items-start gap-3 p-3 rounded-lg border bg-card ${isTopImpact ? "border-primary border-2" : ""}`}>
       <span className="shrink-0 mt-0.5" aria-hidden="true">
         {AXIS_ICON[rx.axis]}
       </span>
@@ -43,6 +53,16 @@ function PrescriptionItem({ rx }: { rx: Prescription }) {
             {rx.delta}
           </span>
         </div>
+        {rx.axis === "allocation" && rx.recommendedAllocation && onApplyAllocation && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => onApplyAllocation(rx.recommendedAllocation!)}
+          >
+            この配分を適用
+          </Button>
+        )}
       </div>
       <div className="text-right shrink-0">
         <p className="text-lg font-bold">{Math.round(rx.resultRate * 100)}%</p>
@@ -56,13 +76,16 @@ interface PrescriptionCardProps {
   worker: SimulationWorker | null;
   input: SimulationInput;
   currentRate: number;
+  frontier?: FrontierPoint[];
   onResult?: (result: PrescriptionResult | null) => void;
+  onApplyAllocation?: (weights: Record<string, number>) => void;
 }
 
-export function PrescriptionCard({ worker, input, currentRate, onResult }: PrescriptionCardProps) {
+export function PrescriptionCard({ worker, input, currentRate, frontier, onResult, onApplyAllocation }: PrescriptionCardProps) {
   const [targetRate, setTargetRate] = useState(90);
   const [result, setResult] = useState<PrescriptionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const targetRateRef = useRef(90);
   const generationRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seedRef = useRef(Math.floor(Math.random() * 2 ** 32));
@@ -77,9 +100,9 @@ export function PrescriptionCard({ worker, input, currentRate, onResult }: Presc
       debounceRef.current = setTimeout(async () => {
         try {
           const prescResult = worker
-            ? await worker.prescribe(input, newTargetRate / 100, seedRef.current)
+            ? await worker.prescribe(input, newTargetRate / 100, seedRef.current, frontier)
             : await import("@/lib/prescription").then((m) =>
-                m.generatePrescriptions(input, newTargetRate / 100, seedRef.current),
+                m.generatePrescriptions(input, newTargetRate / 100, seedRef.current, frontier),
               );
           if (gen !== generationRef.current) return;
           setResult(prescResult);
@@ -90,13 +113,13 @@ export function PrescriptionCard({ worker, input, currentRate, onResult }: Presc
         setIsLoading(false);
       }, 500);
     },
-    [worker, input],
+    [worker, input, frontier, onResult],
   );
 
-  // input変更時に再計算
+  // input や callback が変わったときだけ、現在の目標成功率で再計算する
   useEffect(() => {
-    recalculate(targetRate);
-  }, [input]);
+    recalculate(targetRateRef.current);
+  }, [recalculate]);
 
   // cleanup
   useEffect(() => {
@@ -108,6 +131,7 @@ export function PrescriptionCard({ worker, input, currentRate, onResult }: Presc
   const handleTargetChange = useCallback(
     (v: number | readonly number[]) => {
       const newRate = Array.isArray(v) ? v[0] : v;
+      targetRateRef.current = newRate;
       setTargetRate(newRate);
       recalculate(newRate);
     },
@@ -143,7 +167,7 @@ export function PrescriptionCard({ worker, input, currentRate, onResult }: Presc
         {/* ローディング: スケルトンUI */}
         {isLoading && (
           <div className="space-y-3" aria-label="処方箋を計算中">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card animate-pulse">
                 <div className="shrink-0 mt-0.5 h-5 w-5 rounded bg-muted" />
                 <div className="flex-1 space-y-2">
@@ -175,9 +199,17 @@ export function PrescriptionCard({ worker, input, currentRate, onResult }: Presc
                 <p className="text-sm text-muted-foreground">
                   目標 {targetRate}% を達成するための改善案:
                 </p>
-                {result.prescriptions.map((rx) => (
-                  <PrescriptionItem key={rx.axis} rx={rx} />
-                ))}
+                {(() => {
+                  const maxRate = Math.max(...result.prescriptions.map((p) => p.resultRate));
+                  return result.prescriptions.map((rx) => (
+                    <PrescriptionItem
+                      key={rx.axis}
+                      rx={rx}
+                      isTopImpact={rx.resultRate === maxRate}
+                      onApplyAllocation={onApplyAllocation}
+                    />
+                  ));
+                })()}
               </>
             ) : (
               <div className="text-center py-4">
