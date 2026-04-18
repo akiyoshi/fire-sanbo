@@ -1,5 +1,6 @@
 import type { PensionInput, SimulationInput } from "./types";
 import type { TaxCategory } from "@/lib/tax";
+import type { CostBasis } from "./cost-basis";
 
 export function assertNever(x: never): never {
   throw new Error(`Unexpected tax category: ${x}`);
@@ -58,5 +59,88 @@ export function getAccountBalance(
       return cash;
     default:
       return assertNever(type);
+  }
+}
+
+/* ---------- 口座操作ヘルパー ---------- */
+
+/** 口座群の可変状態 */
+export interface MemberAccounts {
+  nisa: number;
+  tokutei: number;
+  ideco: number;
+  gold: number;
+  cash: number;
+  nisaCumulative: number;
+  tokuteiCB: CostBasis;
+  goldCB: CostBasis;
+}
+
+/**
+ * 口座から赤字分を取り崩す（withdrawalOrder順、iDeCo年齢制約付き）
+ * @returns 取り崩し合計額
+ */
+export function drawFromAccounts(
+  accts: MemberAccounts,
+  deficit: number,
+  withdrawalOrder: TaxCategory[],
+  age: number,
+): number {
+  let drawn = 0;
+  let remaining = deficit;
+  for (const cat of withdrawalOrder) {
+    if (remaining <= 0) break;
+    if (cat === "ideco" && age < 60) continue;
+    const bal = getMemberBalance(accts, cat);
+    if (bal <= 0) continue;
+    const draw = Math.min(remaining, bal);
+    // costBasis按分減少
+    if (cat === "tokutei" && accts.tokutei > 0) accts.tokuteiCB.withdraw(draw, accts.tokutei);
+    if (cat === "gold_physical" && accts.gold > 0) accts.goldCB.withdraw(draw, accts.gold);
+    // 残高減算
+    switch (cat) {
+      case "nisa": accts.nisa -= draw; break;
+      case "tokutei": accts.tokutei -= draw; break;
+      case "ideco": accts.ideco -= draw; break;
+      case "gold_physical": accts.gold -= draw; break;
+      case "cash": accts.cash -= draw; break;
+      default: assertNever(cat);
+    }
+    drawn += draw;
+    remaining -= draw;
+  }
+  return drawn;
+}
+
+/**
+ * 余剰を NISA → tokutei の順で積み立てる（簡易版: Spouse用）
+ */
+export function contributeSurplus(
+  accts: MemberAccounts,
+  surplus: number,
+  nisaConfig?: { annualLimit: number; lifetimeLimit: number },
+): void {
+  if (nisaConfig) {
+    const lifetimeRemaining = nisaConfig.lifetimeLimit - accts.nisaCumulative;
+    const annualAllowance = Math.min(nisaConfig.annualLimit, Math.max(0, lifetimeRemaining));
+    const toNisa = Math.min(surplus, annualAllowance);
+    if (toNisa > 0) { accts.nisa += toNisa; accts.nisaCumulative += toNisa; }
+    const toTokutei = surplus - toNisa;
+    if (toTokutei > 0) { accts.tokutei += toTokutei; accts.tokuteiCB.contribute(toTokutei); }
+  } else {
+    accts.tokutei += surplus;
+    accts.tokuteiCB.contribute(surplus);
+  }
+}
+
+/** MemberAccounts からの残高取得 */
+function getMemberBalance(accts: MemberAccounts, cat: TaxCategory): number {
+  switch (cat) {
+    case "nisa": return accts.nisa;
+    case "tokutei": return accts.tokutei;
+    case "ideco": return accts.ideco;
+    case "gold_physical": return accts.gold;
+    case "cash": return accts.cash;
+    default: return assertNever(cat);
   }
 }

@@ -6,7 +6,8 @@ import type {
   TaxBreakdown,
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
-import { calcAnnualPension, calcLifeEventExpense, getAccountBalance, assertNever } from "./helpers";
+import { calcAnnualPension, calcLifeEventExpense, getAccountBalance, assertNever, drawFromAccounts, contributeSurplus } from "./helpers";
+import type { MemberAccounts } from "./helpers";
 import { CostBasis } from "./cost-basis";
 import {
   calcAnnualTax,
@@ -38,16 +39,16 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
   // --- Spouse 口座 ---
   const sp = input.spouse;
-  let sNisa = sp?.accounts.nisa ?? 0;
-  let sTokutei = sp?.accounts.tokutei ?? 0;
-  let sIdeco = sp?.accounts.ideco ?? 0;
-  let sGold = sp?.accounts.gold_physical ?? 0;
-  let sCash = sp?.accounts.cash ?? 0;
-  let sNisaCumulative = sNisa;
-
-  // --- Spouse 取得費 ---
-  const sTokuteiCB = new CostBasis(sTokutei, sp?.tokuteiGainRatio ?? 0.5);
-  const sGoldCB = new CostBasis(sGold, sp?.goldGainRatio ?? 0.3);
+  const sAccts: MemberAccounts = {
+    nisa: sp?.accounts.nisa ?? 0,
+    tokutei: sp?.accounts.tokutei ?? 0,
+    ideco: sp?.accounts.ideco ?? 0,
+    gold: sp?.accounts.gold_physical ?? 0,
+    cash: sp?.accounts.cash ?? 0,
+    nisaCumulative: sp?.accounts.nisa ?? 0,
+    tokuteiCB: new CostBasis(sp?.accounts.tokutei ?? 0, sp?.tokuteiGainRatio ?? 0.5),
+    goldCB: new CostBasis(sp?.accounts.gold_physical ?? 0, sp?.goldGainRatio ?? 0.3),
+  };
 
   const years: YearResult[] = [];
   let depletionAge: number | null = null;
@@ -91,8 +92,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     // Spouse 退職金
     if (sp?.retirementBonus && spouseAge === sp.retirementAge && sp.retirementBonus.amount > 0) {
       const bonus = calcRetirementBonusNet(sp.retirementBonus.amount, sp.retirementBonus.yearsOfService);
-      sTokutei += bonus.net;
-      sTokuteiCB.contribute(bonus.net); // 退職金は全額が取得費
+      sAccts.tokutei += bonus.net;
+      sAccts.tokuteiCB.contribute(bonus.net); // 退職金は全額が取得費
       taxBd.withdrawalTax += bonus.tax;
     }
 
@@ -190,17 +191,18 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
         const txOpts = isPrimary
           ? { yearsOfService: input.idecoYearsOfService, gainRatio: pTokuteiCB.gainRatio(pTokutei), goldGainRatio: pGoldCB.gainRatio(pGold), otherComprehensiveIncome: pComprehensiveIncome }
-          : { yearsOfService: sp!.idecoYearsOfService, gainRatio: sTokuteiCB.gainRatio(sTokutei), goldGainRatio: sGoldCB.gainRatio(sGold), otherComprehensiveIncome: sComprehensiveIncome };
+          : { yearsOfService: sp!.idecoYearsOfService, gainRatio: sAccts.tokuteiCB.gainRatio(sAccts.tokutei), goldGainRatio: sAccts.goldCB.gainRatio(sAccts.gold), otherComprehensiveIncome: sComprehensiveIncome };
 
         for (const taxCategory of input.withdrawalOrder) {
           if (remaining <= 0) break;
 
           // iDeCoは60歳未満では取り崩し不可（確定拠出年金法）
-          if (taxCategory === "ideco" && age < 60) continue;
+          const memberAge = isPrimary ? age : spouseAge;
+          if (taxCategory === "ideco" && memberAge < 60) continue;
 
           const balance = isPrimary
             ? getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold, pCash)
-            : getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold, sCash);
+            : getAccountBalance(taxCategory, sAccts.nisa, sAccts.tokutei, sAccts.ideco, sAccts.gold, sAccts.cash);
           if (balance <= 0) continue;
 
           const withdrawAmount = Math.min(remaining, balance);
@@ -208,16 +210,16 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
           // 取り崩し時: 取得費を按分で減少
           if (taxCategory === "tokutei") {
-            const bal = isPrimary ? pTokutei : sTokutei;
+            const bal = isPrimary ? pTokutei : sAccts.tokutei;
             if (isPrimary) pTokuteiCB.withdraw(withdrawAmount, bal);
-            else sTokuteiCB.withdraw(withdrawAmount, bal);
+            else sAccts.tokuteiCB.withdraw(withdrawAmount, bal);
           }
 
           // 金取り崩し時: 取得費を按分で減少 + 課税所得をcomprehensiveIncomeに累積
           if (taxCategory === "gold_physical") {
-            const bal = isPrimary ? pGold : sGold;
+            const bal = isPrimary ? pGold : sAccts.gold;
             if (isPrimary) pGoldCB.withdraw(withdrawAmount, bal);
-            else sGoldCB.withdraw(withdrawAmount, bal);
+            else sAccts.goldCB.withdraw(withdrawAmount, bal);
             const goldGainRatio = txOpts.goldGainRatio ?? 0;
             const goldGain = withdrawAmount * goldGainRatio;
             const goldTaxable = calcGoldTaxableIncome(goldGain);
@@ -241,11 +243,11 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
             }
           } else {
             switch (taxCategory) {
-              case "nisa": sNisa -= withdrawAmount; break;
-              case "tokutei": sTokutei -= withdrawAmount; break;
-              case "ideco": sIdeco -= withdrawAmount; break;
-              case "gold_physical": sGold -= withdrawAmount; break;
-              case "cash": sCash -= withdrawAmount; break;
+              case "nisa": sAccts.nisa -= withdrawAmount; break;
+              case "tokutei": sAccts.tokutei -= withdrawAmount; break;
+              case "ideco": sAccts.ideco -= withdrawAmount; break;
+              case "gold_physical": sAccts.gold -= withdrawAmount; break;
+              case "cash": sAccts.cash -= withdrawAmount; break;
               default: assertNever(taxCategory);
             }
           }
@@ -322,32 +324,13 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         }
       } else if (surplus < 0) {
         // 赤字: ライフイベント等で支出が手取りを超える場合
-        let deficit = -surplus;
-        for (const taxCategory of input.withdrawalOrder) {
-          if (deficit <= 0) break;
-          // iDeCoは60歳未満では取り崩し不可
-          if (taxCategory === "ideco" && age < 60) continue;
-          const balance = getAccountBalance(taxCategory, pNisa, pTokutei, pIdeco, pGold, pCash);
-          if (balance <= 0) continue;
-          const draw = Math.min(deficit, balance);
-          // 赤字取り崩し: 取得費を按分で減少
-          if (taxCategory === "tokutei" && pTokutei > 0) {
-            pTokuteiCB.withdraw(draw, pTokutei);
-          }
-          if (taxCategory === "gold_physical" && pGold > 0) {
-            pGoldCB.withdraw(draw, pGold);
-          }
-          switch (taxCategory) {
-            case "nisa": pNisa -= draw; break;
-            case "tokutei": pTokutei -= draw; break;
-            case "ideco": pIdeco -= draw; break;
-            case "gold_physical": pGold -= draw; break;
-            case "cash": pCash -= draw; break;
-            default: assertNever(taxCategory);
-          }
-          withdrawal += draw;
-          deficit -= draw;
-        }
+        const pAccts: MemberAccounts = {
+          nisa: pNisa, tokutei: pTokutei, ideco: pIdeco, gold: pGold, cash: pCash,
+          nisaCumulative: pNisaCumulative, tokuteiCB: pTokuteiCB, goldCB: pGoldCB,
+        };
+        withdrawal += drawFromAccounts(pAccts, -surplus, input.withdrawalOrder, age);
+        pNisa = pAccts.nisa; pTokutei = pAccts.tokutei; pIdeco = pAccts.ideco;
+        pGold = pAccts.gold; pCash = pAccts.cash;
       }
     }
 
@@ -355,43 +338,9 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     if (sp && spouseAge >= 18 && !spouseRetired) {
       const surplus = sIncome - sExpenseShare;
       if (surplus > 0) {
-        const nc = sp.nisaConfig;
-        if (nc) {
-          const lifetimeRemaining = nc.lifetimeLimit - sNisaCumulative;
-          const annualAllowance = Math.min(nc.annualLimit, Math.max(0, lifetimeRemaining));
-          const toNisa = Math.min(surplus, annualAllowance);
-          if (toNisa > 0) { sNisa += toNisa; sNisaCumulative += toNisa; }
-          const toTokutei = surplus - toNisa;
-          if (toTokutei > 0) { sTokutei += toTokutei; sTokuteiCB.contribute(toTokutei); }
-        } else {
-          sTokutei += surplus;
-          sTokuteiCB.contribute(surplus);
-        }
+        contributeSurplus(sAccts, surplus, sp.nisaConfig);
       } else if (surplus < 0) {
-        let deficit = -surplus;
-        for (const taxCategory of input.withdrawalOrder) {
-          if (deficit <= 0) break;
-          const balance = getAccountBalance(taxCategory, sNisa, sTokutei, sIdeco, sGold, sCash);
-          if (balance <= 0) continue;
-          const draw = Math.min(deficit, balance);
-          // 赤字取り崩し: 取得費を按分で減少
-          if (taxCategory === "tokutei" && sTokutei > 0) {
-            sTokuteiCB.withdraw(draw, sTokutei);
-          }
-          if (taxCategory === "gold_physical" && sGold > 0) {
-            sGoldCB.withdraw(draw, sGold);
-          }
-          switch (taxCategory) {
-            case "nisa": sNisa -= draw; break;
-            case "tokutei": sTokutei -= draw; break;
-            case "ideco": sIdeco -= draw; break;
-            case "gold_physical": sGold -= draw; break;
-            case "cash": sCash -= draw; break;
-            default: assertNever(taxCategory);
-          }
-          withdrawal += draw;
-          deficit -= draw;
-        }
+        withdrawal += drawFromAccounts(sAccts, -surplus, input.withdrawalOrder, spouseAge);
       }
     }
 
@@ -437,11 +386,11 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     if (sp) {
       const sRealReturn = sp.allocation.expectedReturn - input.inflationRate;
       sReturn = generateLogNormalReturn(sRealReturn, sp.allocation.standardDeviation, rng);
-      sNisa = Math.max(0, sNisa * (1 + sReturn));
-      sTokutei = Math.max(0, sTokutei * (1 + sReturn));
-      sIdeco = Math.max(0, sIdeco * (1 + sReturn));
-      sGold = Math.max(0, sGold * (1 + sReturn));
-      // sCash: 現金はリターンなし（元本維持）
+      sAccts.nisa = Math.max(0, sAccts.nisa * (1 + sReturn));
+      sAccts.tokutei = Math.max(0, sAccts.tokutei * (1 + sReturn));
+      sAccts.ideco = Math.max(0, sAccts.ideco * (1 + sReturn));
+      sAccts.gold = Math.max(0, sAccts.gold * (1 + sReturn));
+      // sAccts.cash: 現金はリターンなし（元本維持）
     }
 
     // ====== 退職後リバランス（Stage 3） ======
@@ -572,7 +521,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     }
 
     // ====== 集計 ======
-    const totalAssets = pNisa + pTokutei + pIdeco + pGold + pCash + sNisa + sTokutei + sIdeco + sGold + sCash;
+    const totalAssets = pNisa + pTokutei + pIdeco + pGold + pCash + sAccts.nisa + sAccts.tokutei + sAccts.ideco + sAccts.gold + sAccts.cash;
 
     taxBd.total = Math.round(taxBd.incomeTax + taxBd.residentTax + taxBd.socialInsurance + taxBd.withdrawalTax);
     taxBd.incomeTax = Math.round(taxBd.incomeTax);
@@ -585,11 +534,11 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     years.push({
       age,
       totalAssets: Math.round(totalAssets),
-      nisa: Math.round(pNisa + sNisa),
-      tokutei: Math.round(pTokutei + sTokutei),
-      ideco: Math.round(pIdeco + sIdeco),
-      gold_physical: Math.round(pGold + sGold),
-      cash: Math.round(pCash + sCash),
+      nisa: Math.round(pNisa + sAccts.nisa),
+      tokutei: Math.round(pTokutei + sAccts.tokutei),
+      ideco: Math.round(pIdeco + sAccts.ideco),
+      gold_physical: Math.round(pGold + sAccts.gold),
+      cash: Math.round(pCash + sAccts.cash),
       income: Math.round(totalIncome),
       expense: input.annualExpense + lifeEventExpense,
       taxBreakdown: taxBd,
@@ -607,7 +556,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     }
   }
 
-  const finalAssets = pNisa + pTokutei + pIdeco + pGold + pCash + sNisa + sTokutei + sIdeco + sGold + sCash;
+  const finalAssets = pNisa + pTokutei + pIdeco + pGold + pCash + sAccts.nisa + sAccts.tokutei + sAccts.ideco + sAccts.gold + sAccts.cash;
   return {
     years,
     success: depletionAge === null,
