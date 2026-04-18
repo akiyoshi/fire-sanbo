@@ -98,6 +98,18 @@
 - **退職後リバランス**: 乖離閾値(デフォルト5%)超過時に売買を実行、特定口座の売却益課税(20.315%)を反映
 - **後方互換**: accountAllocations/rebalance未設定時は全口座同一リターン（v4.0と同じ動作）
 
+### 含み益（取得費）動的追跡 (v4.5.1)
+
+- **CostBasisクラス**: 特定口座・金現物の取得費を年次で追跡（`simulation/cost-basis.ts`）
+- **動的gainRatio**: `1 - costBasis / balance` で含み益率を毎年再計算（初期値固定の静的計算を廃止）
+- **積立**: 新規資金は含み益0%（全額がcostBasis）
+- **リターン**: costBasis不変 → 含み益率が自然に上昇
+- **取り崩し・売却**: costBasisを按分で減少
+- **リバランス**: 売却は按分減少、購入は全額costBasis加算
+- **退職金**: 税引後手取りを全額costBasisに加算
+- **MemberAccounts**: 口座状態（残高+CostBasis+NISA累計）を統一インターフェースで管理（`simulation/helpers.ts`）
+- **共通関数**: `drawFromAccounts()` / `contributeSurplus()` でPrimary/Spouseの重複ロジックを集約
+
 ### 目標アセットアロケーション (v4.3)
 
 - **目標配分入力**: 資産クラスレベル（先進国株60%・債券30%・金10%等）でウェイトスライダー設定
@@ -177,7 +189,7 @@ src/
 │   └── ui/                    # shadcn/ui コンポーネント
 ├── lib/    ├── utils.ts               # cn(), formatManYen()│   ├── form-state.ts          # FormState永続化(v5スキーマ)
 │   ├── url-share.ts           # 共有URL圧縮/展開 (DeflateRaw+Base64url)
-│   ├── simulation/            # モンテカルロエンジン + Worker + diagnosis.ts
+│   ├── simulation/            # モンテカルロエンジン + Worker + diagnosis + costBasis + ヘルパー
 │   ├── tax/                   # 2026年度税制エンジン
 │   ├── portfolio/             # 合成計算 + 最適化
 │   ├── prescription/          # 処方箋(二分探索)
