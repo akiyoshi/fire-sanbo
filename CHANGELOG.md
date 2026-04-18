@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.5.4] - 2026-04-18
+
+Phase 3 リファクタリング: 口座操作の共通関数抽出 + Spouse変数統合。
+
+### 変更
+- `MemberAccounts` インターフェース新規導入: 口座状態を単一オブジェクトで管理
+- `drawFromAccounts()` 新規: 赤字取り崩しロジックを共通関数化（Primary/Spouse重複解消）
+- `contributeSurplus()` 新規: NISA→特定口座の余剰積立を共通化
+- Spouse口座変数統合: `sNisa`, `sTokutei` 等 → `sAccts.nisa`, `sAccts.tokutei` に統一
+
+### 修正
+- **Spouse iDeCo年齢制約バグ**: 取り崩し時のiDeCo 60歳制約がPrimary年齢で判定されていた問題を修正 — Spouse年齢で正しく判定
+
+### テスト
+- 口座操作ヘルパーテスト10件追加（drawFromAccounts 6件 + contributeSurplus 4件）
+- テスト総数: 259 → 269
+
 ## [4.5.3] - 2026-04-18
 
 Phase 2 リファクタリング: CostBasisクラス抽出。
