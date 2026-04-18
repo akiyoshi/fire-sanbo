@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.5.6] - 2026-04-18
+
+テストカバレッジ拡充 + ESLint warning修正。269 → 279ユニットテスト、4 → 6 E2Eテスト。
+
+### 修正
+- `portfolio-section.tsx`: useMemoで`target`の参照安定化（react-hooks/exhaustive-deps warning解消）
+
+### テスト追加
+- 配偶者副収入テスト3件: 退職後反映・untilAge停止・退職前無効
+- リバランスエッジケーステスト: iDeCo以外weight全ゼロでNaN防止
+- CostBasis精度テスト3件: 極小残高・gainRatio不変量・含み損回復
+- 処方箋境界値テスト3件: targetRate=1.0/0・退職延期75歳上限
+- E2E共有URL復元テスト: `#s=`付きURLで結果画面自動表示
+- E2E What-ifスライダーテスト: 操作後に成功率が変化することを検証
+
 ## [4.5.5] - 2026-04-18
 
 Phase 4 リファクタリング: runTrialLiteをMemberAccounts/共通関数で統合。

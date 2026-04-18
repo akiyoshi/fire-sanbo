@@ -242,7 +242,7 @@ export function PortfolioSection({ form, setForm }: PortfolioSectionProps) {
 
 function TargetAllocationSection({ form, setForm }: PortfolioSectionProps) {
   const rebalanceEnabled = form.rebalanceEnabled === true;
-  const target = form.targetAllocation ?? [];
+  const target = useMemo(() => form.targetAllocation ?? [], [form.targetAllocation]);
 
   const toggleRebalance = (checked: boolean) => {
     setForm((prev) => {
@@ -311,7 +311,7 @@ function TargetAllocationSection({ form, setForm }: PortfolioSectionProps) {
       ? ((result.risk - simpleAvgRisk) * 100).toFixed(1)
       : null;
     return { ...result, diversification };
-  }, [form.targetAllocation, totalWeight]);
+  }, [target, totalWeight]);
 
   return (
     <Card>

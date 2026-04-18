@@ -1,6 +1,6 @@
 # FIRE参謀 — 人生の資産設計エンジン（日本版）
 
-> **バージョン**: v4.5.5
+> **バージョン**: v4.5.6
 > **更新日**: 2026-04-18
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
@@ -17,12 +17,12 @@
 
 | 機能 | 実装 | テスト |
 |------|------|--------|
-| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 50テスト |
-| CostBasis取得費追跡 | `simulation/cost-basis.ts` | 11テスト |
+| モンテカルロシミュレーション | `simulation/engine.ts` runTrial | 54テスト |
+| CostBasis取得費追跡 | `simulation/cost-basis.ts` | 14テスト |
 | 口座操作ヘルパー | `simulation/helpers.ts` | 10テスト |
 | 最悪ケース診断 | `simulation/diagnosis.ts` | 7テスト |
 | 日本税制エンジン (2026年度) | `tax/engine.ts` | 43テスト |
-| 処方箋 (4軸二分探索+フロンティア走査) | `prescription/engine.ts` runTrialLite | 19テスト |
+| 処方箋 (4軸二分探索+フロンティア走査) | `prescription/engine.ts` runTrialLite | 22テスト |
 | 取り崩し最適化 | `withdrawal/optimizer.ts` | 15テスト |
 | ポートフォリオ合成 | `portfolio/engine.ts` | 10テスト |
 | ポートフォリオ最適化 | `portfolio/optimizer.ts` | 13テスト |
@@ -31,7 +31,7 @@
 | シナリオテンプレート | `scenario-templates.ts` | 10テスト |
 | 税制年度切替 | `tax-config-index.ts` | 4テスト |
 | UIコンポーネント | `wizard.test` + `prescription-card.test` | 5テスト |
-| **合計** | | **269テスト** |
+| **合計** | | **279テスト** |
 
 ### 収入モデル
 
@@ -204,7 +204,7 @@ src/
 - **Vite 6** + React 19 (SPA, SSRなし)
 - **Tailwind CSS v4** + shadcn/ui (base-nova)
 - **Web Worker**: モンテカルロをオフスレッド実行
-- **Vitest**: 269テスト, ~2秒
+- **Vitest**: 279テスト, ~2秒
 - **Playwright**: E2E 4テスト (Chromium)
 - **TypeScript 5 strict**: 全ファイル
 - **ESLint 9** + typescript-eslint + eslint-plugin-react-hooks

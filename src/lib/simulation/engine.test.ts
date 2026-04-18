@@ -1101,3 +1101,151 @@ describe("取得費（costBasis）追跡", () => {
     expect(year1.taxBreakdown.withdrawalTax).toBe(0);
   });
 });
+
+describe("配偶者副収入（サイドFIRE）", () => {
+  it("配偶者の副収入が退職後に反映され取り崩しが減少する", () => {
+    const base: SimulationInput = {
+      currentAge: 50,
+      retirementAge: 50,
+      endAge: 70,
+      annualSalary: 0,
+      annualExpense: 4_000_000,
+      accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.04, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const spouseNoSide: SpouseInput = {
+      currentAge: 48,
+      retirementAge: 48,
+      annualSalary: 0,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.04, standardDeviation: 0 },
+      idecoYearsOfService: 0,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+    };
+    const spouseWithSide: SpouseInput = {
+      ...spouseNoSide,
+      sideIncome: { annualAmount: 1_200_000, untilAge: 65 },
+    };
+    const withSide = runSimulation({ ...base, spouse: spouseWithSide });
+    const withoutSide = runSimulation({ ...base, spouse: spouseNoSide });
+    // 副収入ありで取り崩しが少ない
+    expect(withSide.trials[0].years[0].withdrawal)
+      .toBeLessThan(withoutSide.trials[0].years[0].withdrawal);
+  });
+
+  it("配偶者の副収入はuntilAge以降ゼロになる", () => {
+    const base: SimulationInput = {
+      currentAge: 60,
+      retirementAge: 60,
+      endAge: 75,
+      annualSalary: 0,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 20_000_000, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.04, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const spouse: SpouseInput = {
+      currentAge: 58,
+      retirementAge: 58,
+      annualSalary: 0,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.04, standardDeviation: 0 },
+      idecoYearsOfService: 0,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      sideIncome: { annualAmount: 1_500_000, untilAge: 63 },
+    };
+    const result = runSimulation({ ...base, spouse });
+    // spouseAge=63 (primary age=65) まで副収入あり
+    const at65 = result.trials[0].years[5]; // primary age=65, spouseAge=63
+    const at66 = result.trials[0].years[6]; // primary age=66, spouseAge=64（副収入なし）
+    // 副収入終了後は取り崩しが増加する
+    expect(at66.withdrawal).toBeGreaterThan(at65.withdrawal);
+  });
+
+  it("配偶者の副収入は退職前には発生しない", () => {
+    const base: SimulationInput = {
+      currentAge: 40,
+      retirementAge: 60,
+      endAge: 70,
+      annualSalary: 6_000_000,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.05, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const spouse: SpouseInput = {
+      currentAge: 38,
+      retirementAge: 55,
+      annualSalary: 4_000_000,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.05, standardDeviation: 0 },
+      idecoYearsOfService: 0,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      sideIncome: { annualAmount: 1_000_000, untilAge: 65 },
+    };
+    // Primary 50歳 = spouse 48歳（退職前）→ 副収入なし
+    // Primary 57歳 = spouse 55歳（退職直後）→ 副収入あり
+    const withSide = runSimulation({ ...base, spouse });
+    const withoutSide = runSimulation({ ...base, spouse: { ...spouse, sideIncome: undefined } });
+    // 退職前（index 10 = age 50, spouseAge 48）: 副収入の有無で差はないはず
+    // stdDev=0の決定論的シミュレーションなので完全一致
+    const beforeIdx = 10;
+    expect(withSide.trials[0].years[beforeIdx].totalAssets)
+      .toBe(withoutSide.trials[0].years[beforeIdx].totalAssets);
+  });
+});
+
+describe("リバランスのエッジケース", () => {
+  it("iDeCo以外のtargetWeightが全て0でもクラッシュしない", () => {
+    const input: SimulationInput = {
+      currentAge: 55,
+      retirementAge: 55,
+      endAge: 65,
+      annualSalary: 0,
+      annualExpense: 1_000_000,
+      accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 10_000_000, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.03, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0, tokutei: 0, ideco: 1, gold_physical: 0, cash: 0 },
+        threshold: 0.05,
+      },
+    };
+    // iDeCo=60歳未満ロック + 他口座weight=0 → twSumExIdeco=0 → scale=0
+    // NaN伝播せずに正常完了することを確認
+    const result = runSimulation(input);
+    expect(result.trials[0].years.length).toBe(11); // 55-65歳
+    for (const year of result.trials[0].years) {
+      expect(Number.isFinite(year.totalAssets)).toBe(true);
+    }
+  });
+});

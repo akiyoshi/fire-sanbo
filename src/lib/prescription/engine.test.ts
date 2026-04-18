@@ -214,3 +214,41 @@ describe("investment軸の削除確認", () => {
     expect(investmentRx).toBeUndefined();
   });
 });
+
+describe("処方箋の境界値", () => {
+  it("targetRate=1.0（100%目標）でもクラッシュしない", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    // 例外を投げずに正常完了すること
+    expect(() => generatePrescriptions(input, 1.0, 100)).not.toThrow();
+    const result = generatePrescriptions(input, 1.0, 100);
+    expect(result.alreadyAchieved).toBe(false);
+    // 返された処方箋はすべて正の成功率を持つ
+    for (const rx of result.prescriptions) {
+      expect(rx.resultRate).toBeGreaterThan(0);
+    }
+  });
+
+  it("targetRate=0（0%目標）は常にalreadyAchieved", () => {
+    const input = baseInput({ annualExpense: 4_000_000 });
+    const result = generatePrescriptions(input, 0, 100);
+    expect(result.alreadyAchieved).toBe(true);
+    expect(result.prescriptions).toHaveLength(0);
+  });
+
+  it("退職延期軸は75歳を超えない", () => {
+    // 退職延期で改善しやすい条件: 資産多め・支出中程度・退職が早い
+    const input = baseInput({
+      currentAge: 35,
+      retirementAge: 40,
+      endAge: 85,
+      annualSalary: 8_000_000,
+      annualExpense: 3_500_000,
+      accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0, cash: 0 },
+    });
+    const result = generatePrescriptions(input, 0.85, 200);
+    const retireRx = result.prescriptions.find((rx) => rx.axis === "retirement");
+    // retirement処方箋が生成され、75歳以下であること
+    expect(retireRx).toBeDefined();
+    expect(retireRx!.targetValue).toBeLessThanOrEqual(75);
+  });
+});
