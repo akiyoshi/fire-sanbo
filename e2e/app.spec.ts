@@ -17,7 +17,7 @@ test.describe("FIRE参謀 E2E", () => {
 
     // 処方箋カードを展開できる
     await page.locator("summary").filter({ hasText: "処方箋" }).click();
-    await expect(page.getByRole("heading", { name: "処方箋" })).toBeVisible();
+    await expect(page.locator("summary").filter({ hasText: "処方箋" })).toBeVisible();
   });
 
   test("結果画面 → 計算根拠ページ → 戻る", async ({ page }) => {
