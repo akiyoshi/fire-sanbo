@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.5.2] - 2026-04-18
+
+Phase 1 リファクタリング: 重複コードの共有ヘルパー抽出。
+
+### 変更
+- `simulation/helpers.ts` 新規作成: `calcAnnualPension`, `calcLifeEventExpense`, `getAccountBalance`, `assertNever` を共有ユーティリティに抽出
+- `tax/engine.ts`: `calcGoldTaxableIncome()` を新規export—金の課税所得計算(50万控除+1/2課税)をDRY化
+- `simulation/engine.ts`: ローカル関数を共有ヘルパーに置換、金のinline計算を`calcGoldTaxableIncome`に統一
+- `prescription/engine.ts`: 同様に共有ヘルパーに置換、`getBalance`→`getAccountBalance`に統一
+- 純削減: 89行
+
 ## [4.5.1] - 2026-04-18
 
 含み益（取得費）の動的追跡を実装。特定口座・金現物の課税精度を向上。

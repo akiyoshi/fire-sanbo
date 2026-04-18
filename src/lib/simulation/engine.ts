@@ -4,9 +4,9 @@ import type {
   TrialResult,
   YearResult,
   TaxBreakdown,
-  PensionInput,
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
+import { calcAnnualPension, calcLifeEventExpense, getAccountBalance, assertNever } from "./helpers";
 import {
   calcAnnualTax,
   calcWithdrawalTax,
@@ -15,41 +15,8 @@ import {
   calcComprehensiveTax,
   calcRetirementBonusNet,
   calcGoldWithdrawalTax,
+  calcGoldTaxableIncome,
 } from "@/lib/tax";
-import type { TaxCategory } from "@/lib/tax";
-
-function assertNever(x: never): never {
-  throw new Error(`Unexpected tax category: ${x}`);
-}
-
-/**
- * 年金の年間受給額を計算（繰上げ/繰下げ調整込み）
- */
-function calcAnnualPension(pension: PensionInput | undefined, age: number): number {
-  if (!pension) return 0;
-  if (age < pension.startAge) return 0;
-
-  const monthlyBase = pension.kosei + pension.kokumin;
-  let adjustmentRate = 1.0;
-
-  if (pension.startAge < 65) {
-    adjustmentRate = 1 - (65 - pension.startAge) * 12 * 0.004;
-  } else if (pension.startAge > 65) {
-    adjustmentRate = 1 + (pension.startAge - 65) * 12 * 0.007;
-  }
-
-  return Math.round(monthlyBase * 12 * adjustmentRate);
-}
-
-/**
- * ライフイベントの一時支出を計算
- */
-function calcLifeEventExpense(lifeEvents: SimulationInput["lifeEvents"], age: number): number {
-  if (!lifeEvents) return 0;
-  return lifeEvents
-    .filter((e) => e.age === age)
-    .reduce((sum, e) => sum + e.amount, 0);
-}
 
 /**
  * 1回の試行（currentAge → endAge までの年次シミュレーション）
@@ -254,7 +221,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
             else sGoldCost = Math.max(0, sGoldCost - costShare);
             const goldGainRatio = txOpts.goldGainRatio ?? 0;
             const goldGain = withdrawAmount * goldGainRatio;
-            const goldTaxable = Math.max(0, goldGain - 500_000) * 0.5;
+            const goldTaxable = calcGoldTaxableIncome(goldGain);
             if (isPrimary) {
               pComprehensiveIncome += goldTaxable;
               txOpts.otherComprehensiveIncome = pComprehensiveIncome;
@@ -650,30 +617,6 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     depletionAge,
     finalAssets: Math.round(finalAssets),
   };
-}
-
-function getAccountBalance(
-  type: TaxCategory,
-  nisa: number,
-  tokutei: number,
-  ideco: number,
-  gold_physical: number,
-  cash: number,
-): number {
-  switch (type) {
-    case "nisa":
-      return nisa;
-    case "tokutei":
-      return tokutei;
-    case "ideco":
-      return ideco;
-    case "gold_physical":
-      return gold_physical;
-    case "cash":
-      return cash;
-    default:
-      return assertNever(type);
-  }
 }
 
 /**
