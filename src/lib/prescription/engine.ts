@@ -17,7 +17,8 @@ export interface FrontierPoint {
 // --- runSimulationLite: successRateのみ返す軽量版 ---
 
 import { PRNG, generateLogNormalReturn } from "@/lib/simulation";
-import { calcAnnualPension, calcLifeEventExpense, getAccountBalance } from "@/lib/simulation/helpers";
+import { calcAnnualPension, calcLifeEventExpense, getAccountBalance, assertNever } from "@/lib/simulation/helpers";
+import { CostBasis } from "@/lib/simulation/cost-basis";
 import {
   calcAnnualTax,
   calcWithdrawalTax,
@@ -35,8 +36,8 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let cash = input.accounts.cash;
 
   // 取得費追跡（課税対象口座のみ）
-  let tokuteiCost = tokutei * (1 - input.tokuteiGainRatio);
-  let goldCost = gold_physical * (1 - input.goldGainRatio);
+  const tokuteiCB = new CostBasis(tokutei, input.tokuteiGainRatio);
+  const goldCB = new CostBasis(gold_physical, input.goldGainRatio);
 
   for (let age = input.currentAge; age <= input.endAge; age++) {
     // 給与所得
@@ -50,7 +51,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     if (input.retirementBonus && age === input.retirementAge && input.retirementBonus.amount > 0) {
       const bonus = calcRetirementBonusNet(input.retirementBonus.amount, input.retirementBonus.yearsOfService);
       tokutei += bonus.net;
-      tokuteiCost += bonus.net;
+      tokuteiCB.contribute(bonus.net);
     }
 
     // 退職後の収入源（総合課税統合）
@@ -94,16 +95,16 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
         const withdrawAmount = Math.min(remaining, balance);
         const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
           yearsOfService: input.idecoYearsOfService,
-          gainRatio: tokutei > 0 ? Math.max(0, 1 - tokuteiCost / tokutei) : 0,
-          goldGainRatio: gold_physical > 0 ? Math.max(0, 1 - goldCost / gold_physical) : 0,
+          gainRatio: tokuteiCB.gainRatio(tokutei),
+          goldGainRatio: goldCB.gainRatio(gold_physical),
           otherComprehensiveIncome: comprehensiveIncome,
         });
         // 取り崩し時: 取得費を按分で減少
         if (taxCategory === "tokutei" && tokutei > 0) {
-          tokuteiCost = Math.max(0, tokuteiCost - withdrawAmount * (tokuteiCost / tokutei));
+          tokuteiCB.withdraw(withdrawAmount, tokutei);
         }
         if (taxCategory === "gold_physical" && gold_physical > 0) {
-          goldCost = Math.max(0, goldCost - withdrawAmount * (goldCost / gold_physical));
+          goldCB.withdraw(withdrawAmount, gold_physical);
         }
         switch (taxCategory) {
           case "nisa":
@@ -133,7 +134,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
       const surplus = income - input.annualExpense - lifeEventExpense;
       if (surplus > 0) {
         tokutei += surplus;
-        tokuteiCost += surplus;
+        tokuteiCB.contribute(surplus);
       } else if (surplus < 0) {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
@@ -143,10 +144,10 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
           const draw = Math.min(deficit, balance);
           // 赤字取り崩し: 取得費を按分で減少
           if (taxCategory === "tokutei" && tokutei > 0) {
-            tokuteiCost = Math.max(0, tokuteiCost - draw * (tokuteiCost / tokutei));
+            tokuteiCB.withdraw(draw, tokutei);
           }
           if (taxCategory === "gold_physical" && gold_physical > 0) {
-            goldCost = Math.max(0, goldCost - draw * (goldCost / gold_physical));
+            goldCB.withdraw(draw, gold_physical);
           }
           switch (taxCategory) {
             case "nisa": nisa -= draw; break;

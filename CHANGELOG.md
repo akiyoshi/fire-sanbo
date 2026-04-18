@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.5.3] - 2026-04-18
+
+Phase 2 リファクタリング: CostBasisクラス抽出。
+
+### 変更
+- `simulation/cost-basis.ts` 新規作成: 取得費追跡をCostBasisクラスに集約
+  - `gainRatio(balance)`: 含み益率の動的算出
+  - `contribute(amount)`: 積立・退職金投入
+  - `withdraw(amount, balance)`: 取り崩し時の按分減少
+- `simulation/engine.ts`: inlineの pTokuteiCost/pGoldCost/sTokuteiCost/sGoldCost → CostBasisインスタンスに置換
+- `prescription/engine.ts`: 同様に tokuteiCost/goldCost → CostBasisに置換
+
+### テスト
+- CostBasisユニットテスト11件追加（初期化・含み益率・積立・取り崩し・含み損・サイクル）
+- テスト総数: 248 → 259
+
 ## [4.5.2] - 2026-04-18
 
 Phase 1 リファクタリング: 重複コードの共有ヘルパー抽出。
