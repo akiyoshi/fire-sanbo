@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { PRNG, generateLogNormalReturn } from "./random";
 import { calcAnnualPension, calcLifeEventExpense, getAccountBalance, assertNever } from "./helpers";
+import { CostBasis } from "./cost-basis";
 import {
   calcAnnualTax,
   calcWithdrawalTax,
@@ -32,8 +33,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
   let pNisaCumulative = pNisa;
 
   // --- Primary 取得費（課税対象口座のみ） ---
-  let pTokuteiCost = pTokutei * (1 - input.tokuteiGainRatio);
-  let pGoldCost = pGold * (1 - input.goldGainRatio);
+  const pTokuteiCB = new CostBasis(pTokutei, input.tokuteiGainRatio);
+  const pGoldCB = new CostBasis(pGold, input.goldGainRatio);
 
   // --- Spouse 口座 ---
   const sp = input.spouse;
@@ -45,8 +46,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
   let sNisaCumulative = sNisa;
 
   // --- Spouse 取得費 ---
-  let sTokuteiCost = sTokutei * (1 - (sp?.tokuteiGainRatio ?? 0.5));
-  let sGoldCost = sGold * (1 - (sp?.goldGainRatio ?? 0.3));
+  const sTokuteiCB = new CostBasis(sTokutei, sp?.tokuteiGainRatio ?? 0.5);
+  const sGoldCB = new CostBasis(sGold, sp?.goldGainRatio ?? 0.3);
 
   const years: YearResult[] = [];
   let depletionAge: number | null = null;
@@ -83,7 +84,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     if (input.retirementBonus && age === input.retirementAge && input.retirementBonus.amount > 0) {
       const bonus = calcRetirementBonusNet(input.retirementBonus.amount, input.retirementBonus.yearsOfService);
       pTokutei += bonus.net;
-      pTokuteiCost += bonus.net; // 退職金は全額が取得費（税引後の手取りを投入）
+      pTokuteiCB.contribute(bonus.net); // 退職金は全額が取得費（税引後の手取りを投入）
       taxBd.withdrawalTax += bonus.tax;
     }
 
@@ -91,7 +92,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
     if (sp?.retirementBonus && spouseAge === sp.retirementAge && sp.retirementBonus.amount > 0) {
       const bonus = calcRetirementBonusNet(sp.retirementBonus.amount, sp.retirementBonus.yearsOfService);
       sTokutei += bonus.net;
-      sTokuteiCost += bonus.net; // 退職金は全額が取得費
+      sTokuteiCB.contribute(bonus.net); // 退職金は全額が取得費
       taxBd.withdrawalTax += bonus.tax;
     }
 
@@ -188,8 +189,8 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
         if (pass === 1 && !sp) break;
 
         const txOpts = isPrimary
-          ? { yearsOfService: input.idecoYearsOfService, gainRatio: pTokutei > 0 ? Math.max(0, 1 - pTokuteiCost / pTokutei) : 0, goldGainRatio: pGold > 0 ? Math.max(0, 1 - pGoldCost / pGold) : 0, otherComprehensiveIncome: pComprehensiveIncome }
-          : { yearsOfService: sp!.idecoYearsOfService, gainRatio: sTokutei > 0 ? Math.max(0, 1 - sTokuteiCost / sTokutei) : 0, goldGainRatio: sGold > 0 ? Math.max(0, 1 - sGoldCost / sGold) : 0, otherComprehensiveIncome: sComprehensiveIncome };
+          ? { yearsOfService: input.idecoYearsOfService, gainRatio: pTokuteiCB.gainRatio(pTokutei), goldGainRatio: pGoldCB.gainRatio(pGold), otherComprehensiveIncome: pComprehensiveIncome }
+          : { yearsOfService: sp!.idecoYearsOfService, gainRatio: sTokuteiCB.gainRatio(sTokutei), goldGainRatio: sGoldCB.gainRatio(sGold), otherComprehensiveIncome: sComprehensiveIncome };
 
         for (const taxCategory of input.withdrawalOrder) {
           if (remaining <= 0) break;
@@ -208,17 +209,15 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           // 取り崩し時: 取得費を按分で減少
           if (taxCategory === "tokutei") {
             const bal = isPrimary ? pTokutei : sTokutei;
-            const costShare = bal > 0 ? withdrawAmount * (isPrimary ? pTokuteiCost : sTokuteiCost) / bal : 0;
-            if (isPrimary) pTokuteiCost = Math.max(0, pTokuteiCost - costShare);
-            else sTokuteiCost = Math.max(0, sTokuteiCost - costShare);
+            if (isPrimary) pTokuteiCB.withdraw(withdrawAmount, bal);
+            else sTokuteiCB.withdraw(withdrawAmount, bal);
           }
 
           // 金取り崩し時: 取得費を按分で減少 + 課税所得をcomprehensiveIncomeに累積
           if (taxCategory === "gold_physical") {
             const bal = isPrimary ? pGold : sGold;
-            const costShare = bal > 0 ? withdrawAmount * (isPrimary ? pGoldCost : sGoldCost) / bal : 0;
-            if (isPrimary) pGoldCost = Math.max(0, pGoldCost - costShare);
-            else sGoldCost = Math.max(0, sGoldCost - costShare);
+            if (isPrimary) pGoldCB.withdraw(withdrawAmount, bal);
+            else sGoldCB.withdraw(withdrawAmount, bal);
             const goldGainRatio = txOpts.goldGainRatio ?? 0;
             const goldGain = withdrawAmount * goldGainRatio;
             const goldTaxable = calcGoldTaxableIncome(goldGain);
@@ -303,23 +302,23 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
               const toNisa = Math.min(amount, annualAllowance);
               if (toNisa > 0) { pNisa += toNisa; pNisaCumulative += toNisa; remaining -= toNisa; }
             } else if (cat === "tokutei") {
-              pTokutei += amount; pTokuteiCost += amount; remaining -= amount;
+              pTokutei += amount; pTokuteiCB.contribute(amount); remaining -= amount;
             } else if (cat === "cash") {
               pCash += amount; remaining -= amount;
             }
           }
           // NISA枠超過分は特定口座へ
-          if (remaining > 0) { pTokuteiCost += remaining; pTokutei += remaining; }
+          if (remaining > 0) { pTokuteiCB.contribute(remaining); pTokutei += remaining; }
         } else if (nc) {
           const lifetimeRemaining = nc.lifetimeLimit - pNisaCumulative;
           const annualAllowance = Math.min(nc.annualLimit, Math.max(0, lifetimeRemaining));
           const toNisa = Math.min(surplus, annualAllowance);
           if (toNisa > 0) { pNisa += toNisa; pNisaCumulative += toNisa; }
           const toTokutei = surplus - toNisa;
-          if (toTokutei > 0) { pTokutei += toTokutei; pTokuteiCost += toTokutei; }
+          if (toTokutei > 0) { pTokutei += toTokutei; pTokuteiCB.contribute(toTokutei); }
         } else {
           pTokutei += surplus;
-          pTokuteiCost += surplus;
+          pTokuteiCB.contribute(surplus);
         }
       } else if (surplus < 0) {
         // 赤字: ライフイベント等で支出が手取りを超える場合
@@ -333,10 +332,10 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           const draw = Math.min(deficit, balance);
           // 赤字取り崩し: 取得費を按分で減少
           if (taxCategory === "tokutei" && pTokutei > 0) {
-            pTokuteiCost = Math.max(0, pTokuteiCost - draw * (pTokuteiCost / pTokutei));
+            pTokuteiCB.withdraw(draw, pTokutei);
           }
           if (taxCategory === "gold_physical" && pGold > 0) {
-            pGoldCost = Math.max(0, pGoldCost - draw * (pGoldCost / pGold));
+            pGoldCB.withdraw(draw, pGold);
           }
           switch (taxCategory) {
             case "nisa": pNisa -= draw; break;
@@ -363,10 +362,10 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           const toNisa = Math.min(surplus, annualAllowance);
           if (toNisa > 0) { sNisa += toNisa; sNisaCumulative += toNisa; }
           const toTokutei = surplus - toNisa;
-          if (toTokutei > 0) { sTokutei += toTokutei; sTokuteiCost += toTokutei; }
+          if (toTokutei > 0) { sTokutei += toTokutei; sTokuteiCB.contribute(toTokutei); }
         } else {
           sTokutei += surplus;
-          sTokuteiCost += surplus;
+          sTokuteiCB.contribute(surplus);
         }
       } else if (surplus < 0) {
         let deficit = -surplus;
@@ -377,10 +376,10 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           const draw = Math.min(deficit, balance);
           // 赤字取り崩し: 取得費を按分で減少
           if (taxCategory === "tokutei" && sTokutei > 0) {
-            sTokuteiCost = Math.max(0, sTokuteiCost - draw * (sTokuteiCost / sTokutei));
+            sTokuteiCB.withdraw(draw, sTokutei);
           }
           if (taxCategory === "gold_physical" && sGold > 0) {
-            sGoldCost = Math.max(0, sGoldCost - draw * (sGoldCost / sGold));
+            sGoldCB.withdraw(draw, sGold);
           }
           switch (taxCategory) {
             case "nisa": sNisa -= draw; break;
@@ -496,14 +495,13 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           let tokuteiSellProceeds = 0;
           if (pTokutei > targetTokutei) {
             const sellAmount = pTokutei - targetTokutei;
-            const dynGainRatio = pTokutei > 0 ? Math.max(0, 1 - pTokuteiCost / pTokutei) : 0;
+            const dynGainRatio = pTokuteiCB.gainRatio(pTokutei);
             const taxableGain = sellAmount * dynGainRatio;
             const tax = Math.round(taxableGain * 0.20315);
             rebalanceTax += tax;
             taxBd.withdrawalTax += tax;
             tokuteiSellProceeds = sellAmount - tax;
-            // 取得費を按分で減少
-            pTokuteiCost = Math.max(0, pTokuteiCost - sellAmount * (pTokuteiCost / pTokutei));
+            pTokuteiCB.withdraw(sellAmount, pTokutei);
             pTokutei = targetTokutei;
           }
 
@@ -511,14 +509,13 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
           let goldSellProceeds = 0;
           if (pGold > targetGold) {
             const sellAmount = pGold - targetGold;
-            const dynGoldGainRatio = pGold > 0 ? Math.max(0, 1 - pGoldCost / pGold) : 0;
+            const dynGoldGainRatio = pGoldCB.gainRatio(pGold);
             const goldTaxResult = calcGoldWithdrawalTax(sellAmount, dynGoldGainRatio, pComprehensiveIncome);
             const tax = goldTaxResult.tax;
             rebalanceTax += tax;
             taxBd.withdrawalTax += tax;
             goldSellProceeds = sellAmount - tax;
-            // 取得費を按分で減少
-            pGoldCost = Math.max(0, pGoldCost - sellAmount * (pGoldCost / pGold));
+            pGoldCB.withdraw(sellAmount, pGold);
             pGold = targetGold;
           }
 
@@ -558,9 +555,9 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
             if (remaining <= 0) break;
             const fill = Math.min(remaining, deficit);
             if (cat === "nisa") pNisa += fill;
-            else if (cat === "tokutei") { pTokutei += fill; pTokuteiCost += fill; }
+            else if (cat === "tokutei") { pTokutei += fill; pTokuteiCB.contribute(fill); }
             else if (cat === "ideco") pIdeco += fill;
-            else if (cat === "gold") { pGold += fill; pGoldCost += fill; }
+            else if (cat === "gold") { pGold += fill; pGoldCB.contribute(fill); }
             else if (cat === "cash") pCash += fill;
             remaining -= fill;
           }
