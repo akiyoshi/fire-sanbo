@@ -1,11 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-// QuickStartカード内の入力を操作するヘルパー（重複ラベル対策で.first()）
+// 基本情報カード内の入力を操作するヘルパー
 async function quickRun(page: import("@playwright/test").Page) {
-  const quickStart = page.getByRole("region", { name: "クイックスタート" });
-  await quickStart.getByLabel("年収（税引き前）").fill("6000000");
-  await quickStart.getByLabel("現在の資産総額").fill("10000000");
-  await quickStart.getByRole("button", { name: "すぐにシミュレーション" }).click();
+  await page.getByLabel("年収（税引き前）").fill("6000000");
+  await page.getByRole("button", { name: "すぐにシミュレーション" }).click();
   await expect(page.getByText("成功確率")).toBeVisible({ timeout: 15000 });
 }
 
@@ -32,7 +30,7 @@ test.describe("FIRE参謀 E2E", () => {
 
     // 入力画面に戻る
     await page.getByRole("button", { name: /戻る/ }).click();
-    await expect(page.getByText("まずは3項目で試してみる")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("基本情報")).toBeVisible({ timeout: 10000 });
   });
 
   test("共有URLボタンが存在する", async ({ page }) => {
