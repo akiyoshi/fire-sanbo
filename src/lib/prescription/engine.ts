@@ -80,6 +80,10 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let gold_physical = input.accounts.gold_physical;
   let cash = input.accounts.cash;
 
+  // 取得費追跡（課税対象口座のみ）
+  let tokuteiCost = tokutei * (1 - input.tokuteiGainRatio);
+  let goldCost = gold_physical * (1 - input.goldGainRatio);
+
   for (let age = input.currentAge; age <= input.endAge; age++) {
     // 給与所得
     let income = 0;
@@ -92,6 +96,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     if (input.retirementBonus && age === input.retirementAge && input.retirementBonus.amount > 0) {
       const bonus = calcRetirementBonusNet(input.retirementBonus.amount, input.retirementBonus.yearsOfService);
       tokutei += bonus.net;
+      tokuteiCost += bonus.net;
     }
 
     // 退職後の収入源（総合課税統合）
@@ -135,10 +140,17 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
         const withdrawAmount = Math.min(remaining, balance);
         const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
           yearsOfService: input.idecoYearsOfService,
-          gainRatio: input.tokuteiGainRatio,
-          goldGainRatio: input.goldGainRatio,
+          gainRatio: tokutei > 0 ? Math.max(0, 1 - tokuteiCost / tokutei) : 0,
+          goldGainRatio: gold_physical > 0 ? Math.max(0, 1 - goldCost / gold_physical) : 0,
           otherComprehensiveIncome: comprehensiveIncome,
         });
+        // 取り崩し時: 取得費を按分で減少
+        if (taxCategory === "tokutei" && tokutei > 0) {
+          tokuteiCost = Math.max(0, tokuteiCost - withdrawAmount * (tokuteiCost / tokutei));
+        }
+        if (taxCategory === "gold_physical" && gold_physical > 0) {
+          goldCost = Math.max(0, goldCost - withdrawAmount * (goldCost / gold_physical));
+        }
         switch (taxCategory) {
           case "nisa":
             nisa -= withdrawAmount;
@@ -167,6 +179,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
       const surplus = income - input.annualExpense - lifeEventExpense;
       if (surplus > 0) {
         tokutei += surplus;
+        tokuteiCost += surplus;
       } else if (surplus < 0) {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
@@ -174,6 +187,13 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
           const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
           if (balance <= 0) continue;
           const draw = Math.min(deficit, balance);
+          // 赤字取り崩し: 取得費を按分で減少
+          if (taxCategory === "tokutei" && tokutei > 0) {
+            tokuteiCost = Math.max(0, tokuteiCost - draw * (tokuteiCost / tokutei));
+          }
+          if (taxCategory === "gold_physical" && gold_physical > 0) {
+            goldCost = Math.max(0, goldCost - draw * (goldCost / gold_physical));
+          }
           switch (taxCategory) {
             case "nisa": nisa -= draw; break;
             case "tokutei": tokutei -= draw; break;

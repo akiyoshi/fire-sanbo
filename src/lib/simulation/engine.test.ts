@@ -864,3 +864,240 @@ describe("金の総合課税統合", () => {
     expect(year0.gold_physical).toBeLessThan(15_000_000);
   });
 });
+
+describe("取得費（costBasis）追跡", () => {
+  it("リターンで残高が増えると含み益率が上昇し税額が増加する", () => {
+    // 5%リターンで10年後に取り崩し → 含み益率が50%より上がっている
+    const longTermInput: SimulationInput = {
+      currentAge: 40,
+      retirementAge: 50,
+      endAge: 55,
+      annualSalary: 5_000_000,
+      annualExpense: 5_000_000, // 余剰ゼロ(積立なし)
+      accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0.05, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    // gainRatio=0 (含み益ゼロ) の場合と比較
+    const zeroGainInput: SimulationInput = { ...longTermInput, tokuteiGainRatio: 0 };
+
+    const resultHalf = runSimulation(longTermInput);
+    const resultZero = runSimulation(zeroGainInput);
+
+    // 退職後(50歳)の withdrawalTax を比較
+    // gainRatio=0.5 → costBasis=5M, 10年5%リターン後 balance≈16.3M, 実際のgainRatio≈69%
+    // gainRatio=0   → costBasis=10M, 10年5%リターン後 balance≈16.3M, 実際のgainRatio≈39%
+    // → gainRatio=0.5 の方が税額が大きい
+    const taxHalf = resultHalf.trials[0].years.slice(10).reduce((s, y) => s + y.taxBreakdown.withdrawalTax, 0);
+    const taxZero = resultZero.trials[0].years.slice(10).reduce((s, y) => s + y.taxBreakdown.withdrawalTax, 0);
+    expect(taxHalf).toBeGreaterThan(taxZero);
+  });
+
+  it("積立するとcostBasisが増えて含み益率が低下し税率が下がる", () => {
+    // 同額の取り崩しに対して、積立がある方がgainRatio低→税率低
+    // 余剰を tokutei に積立 → costBasis増加 → gainRatio低下
+    const withSurplus: SimulationInput = {
+      currentAge: 40,
+      retirementAge: 50,
+      endAge: 52,
+      annualSalary: 8_000_000,
+      annualExpense: 3_000_000, // 余剰→tokuteiに積立
+      accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 }, // リターン0
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    // 積立なし（余剰ゼロ）
+    const noSurplus: SimulationInput = {
+      ...withSurplus,
+      annualSalary: 3_000_000,
+      annualExpense: 3_000_000,
+    };
+
+    const resultWith = runSimulation(withSurplus);
+    const resultNo = runSimulation(noSurplus);
+
+    // 退職後1年目の取り崩し額と税額から実効税率を比較
+    const yearWith = resultWith.trials[0].years[10]; // age=50
+    const yearNo = resultNo.trials[0].years[10];
+    const rateWith = yearWith.withdrawal > 0 ? yearWith.taxBreakdown.withdrawalTax / yearWith.withdrawal : 0;
+    const rateNo = yearNo.withdrawal > 0 ? yearNo.taxBreakdown.withdrawalTax / yearNo.withdrawal : 0;
+    // 積立ありの方がcostBasisが大きいため、gainRatioが低く、税率も低い
+    expect(rateWith).toBeLessThan(rateNo);
+  });
+
+  it("初期残高0+積立のみなら含み益はリターン分だけ（リターン0なら税ゼロ）", () => {
+    const input: SimulationInput = {
+      currentAge: 40,
+      retirementAge: 50,
+      endAge: 55,
+      annualSalary: 6_000_000,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5, // 初期残高0なので実質無関係
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const result = runSimulation(input);
+    // リターン0%なので、積立分は全額取得費。取り崩し時の含み益=0 → 税=0
+    const retirementYears = result.trials[0].years.slice(10);
+    for (const year of retirementYears) {
+      expect(year.taxBreakdown.withdrawalTax).toBe(0);
+    }
+  });
+
+  it("金口座でも動的gainRatioが反映される", () => {
+    // 金口座に大額の取り崩しをすると、gainRatioの差が税額に反映される
+    const input: SimulationInput = {
+      currentAge: 60,
+      retirementAge: 60,
+      endAge: 62,
+      annualSalary: 0,
+      annualExpense: 5_000_000, // 高額取り崩しで50万控除を超える
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 30_000_000, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.5, // costBasis = 15M, 含み益50%
+      withdrawalOrder: ["gold_physical", "nisa", "tokutei", "ideco", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    // gainRatio=0の場合 (含み益なし)
+    const zeroInput: SimulationInput = { ...input, goldGainRatio: 0 };
+
+    const result50 = runSimulation(input);
+    const resultZero = runSimulation(zeroInput);
+
+    const tax50 = result50.trials[0].years.reduce((s, y) => s + y.taxBreakdown.withdrawalTax, 0);
+    const taxZero = resultZero.trials[0].years.reduce((s, y) => s + y.taxBreakdown.withdrawalTax, 0);
+    // gainRatio=0.5 → 含み益あり → 税額 > 0
+    // gainRatio=0   → 含み益なし → 税額 = 0
+    expect(tax50).toBeGreaterThan(taxZero);
+  });
+
+  it("リバランスで動的gainRatioが使われる", () => {
+    // リターンで含み益率が変化した後のリバランス
+    const input: SimulationInput = {
+      currentAge: 60,
+      retirementAge: 60,
+      endAge: 63,
+      annualSalary: 0,
+      annualExpense: 0,
+      accounts: { nisa: 5_000_000, tokutei: 15_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0, // 含み益ゼロ → costBasis = 15M
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      rebalance: {
+        enabled: true,
+        targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
+        threshold: 0.05,
+      },
+    };
+    const result = runSimulation(input);
+    // gainRatio=0 → 含み益なし → リバランス売却しても税=0
+    const year0 = result.trials[0].years[0];
+    expect(year0.taxBreakdown.withdrawalTax).toBe(0);
+  });
+
+  it("退職金がtokuteiのcostBasisに加算されgainRatioが低下する", () => {
+    const base: SimulationInput = {
+      currentAge: 48,
+      retirementAge: 50,
+      endAge: 53,
+      annualSalary: 5_000_000,
+      annualExpense: 5_000_000,
+      accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5, // costBasis=5M
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const withBonus = runSimulation({
+      ...base,
+      retirementBonus: { amount: 20_000_000, yearsOfService: 25 },
+    });
+    const withoutBonus = runSimulation(base);
+
+    // age=51（退職翌年）で比較。退職年はbonus.taxが混入するため避ける
+    const yearWith = withBonus.trials[0].years[3]; // age=51
+    const yearNo = withoutBonus.trials[0].years[3];
+    const rateWith = yearWith.withdrawal > 0 ? yearWith.taxBreakdown.withdrawalTax / yearWith.withdrawal : 0;
+    const rateNo = yearNo.withdrawal > 0 ? yearNo.taxBreakdown.withdrawalTax / yearNo.withdrawal : 0;
+    // 退職金の手取りがcostBasisに加算 → gainRatioが低下 → 実効税率が低い
+    expect(rateWith).toBeLessThan(rateNo);
+  });
+
+  it("赤字取り崩しでcostBasisが按分減少する", () => {
+    const input: SimulationInput = {
+      currentAge: 35,
+      retirementAge: 50,
+      endAge: 53,
+      annualSalary: 4_000_000,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      lifeEvents: [{ label: "住宅購入", age: 36, amount: 10_000_000 }],
+    };
+    const result = runSimulation(input);
+    // 36歳で赤字取り崩し後も、退職後のgainRatioが維持され税が発生する
+    const retirementTax = result.trials[0].years.slice(15).reduce((s, y) => s + y.taxBreakdown.withdrawalTax, 0);
+    expect(retirementTax).toBeGreaterThan(0);
+  });
+
+  it("含み損状態（balance < costBasis）でgainRatio=0となり税ゼロ", () => {
+    const input: SimulationInput = {
+      currentAge: 50,
+      retirementAge: 50,
+      endAge: 53,
+      annualSalary: 0,
+      annualExpense: 2_000_000,
+      accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: -0.30, standardDeviation: 0 }, // -30%で含み損
+      idecoYearsOfService: 20,
+      tokuteiGainRatio: 0.2, // costBasis=8M
+      goldGainRatio: 0.3,
+      withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+    };
+    const result = runSimulation(input);
+    // year0: 取り崩し→リターン(-30%)の順。year1以降でbalance < costBasis → gainRatio=0 → 税=0
+    const year1 = result.trials[0].years[1];
+    expect(year1.taxBreakdown.withdrawalTax).toBe(0);
+  });
+});
