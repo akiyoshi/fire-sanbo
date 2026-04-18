@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.5.5] - 2026-04-18
+
+Phase 4 リファクタリング: runTrialLiteをMemberAccounts/共通関数で統合。
+
+### 変更
+- `prescription/engine.ts`: runTrialLiteをMemberAccounts + drawFromAccounts/contributeSurplusで書き直し
+- スタンドアロン変数(nisa, tokutei等) → acctsオブジェクトに統合
+- 純削減: 44行
+
+### 修正
+- **runTrialLite iDeCo 60歳制約欠落**: 退職後取り崩しループにiDeCo年齢チェックがなかった既存バグを修正
+
 ## [4.5.4] - 2026-04-18
 
 Phase 3 リファクタリング: 口座操作の共通関数抽出 + Spouse変数統合。
