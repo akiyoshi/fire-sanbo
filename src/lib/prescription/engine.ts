@@ -1,4 +1,4 @@
-import type { SimulationInput, PensionInput } from "@/lib/simulation";
+import type { SimulationInput } from "@/lib/simulation";
 import type { PRNG as PRNGType } from "@/lib/simulation";
 import type {
   Prescription,
@@ -17,6 +17,7 @@ export interface FrontierPoint {
 // --- runSimulationLite: successRateのみ返す軽量版 ---
 
 import { PRNG, generateLogNormalReturn } from "@/lib/simulation";
+import { calcAnnualPension, calcLifeEventExpense, getAccountBalance } from "@/lib/simulation/helpers";
 import {
   calcAnnualTax,
   calcWithdrawalTax,
@@ -25,53 +26,6 @@ import {
   calcComprehensiveTax,
   calcRetirementBonusNet,
 } from "@/lib/tax";
-import type { TaxCategory } from "@/lib/tax";
-
-function assertNever(x: never): never {
-  throw new Error(`Unexpected tax category: ${x}`);
-}
-
-function getBalance(
-  type: TaxCategory,
-  nisa: number,
-  tokutei: number,
-  ideco: number,
-  gold_physical: number,
-  cash: number,
-): number {
-  switch (type) {
-    case "nisa":
-      return nisa;
-    case "tokutei":
-      return tokutei;
-    case "ideco":
-      return ideco;
-    case "gold_physical":
-      return gold_physical;
-    case "cash":
-      return cash;
-    default:
-      return assertNever(type);
-  }
-}
-
-function calcAnnualPension(pension: PensionInput | undefined, age: number): number {
-  if (!pension) return 0;
-  if (age < pension.startAge) return 0;
-  const monthlyBase = pension.kosei + pension.kokumin;
-  let adjustmentRate = 1.0;
-  if (pension.startAge < 65) {
-    adjustmentRate = 1 - (65 - pension.startAge) * 12 * 0.004;
-  } else if (pension.startAge > 65) {
-    adjustmentRate = 1 + (pension.startAge - 65) * 12 * 0.007;
-  }
-  return Math.round(monthlyBase * 12 * adjustmentRate);
-}
-
-function calcLifeEventExpense(lifeEvents: SimulationInput["lifeEvents"], age: number): number {
-  if (!lifeEvents) return 0;
-  return lifeEvents.filter((e) => e.age === age).reduce((sum, e) => sum + e.amount, 0);
-}
 
 function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
   let nisa = input.accounts.nisa;
@@ -135,7 +89,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
 
       for (const taxCategory of input.withdrawalOrder) {
         if (remaining <= 0) break;
-        const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
+        const balance = getAccountBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
         if (balance <= 0) continue;
         const withdrawAmount = Math.min(remaining, balance);
         const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
@@ -184,7 +138,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
         let deficit = -surplus;
         for (const taxCategory of input.withdrawalOrder) {
           if (deficit <= 0) break;
-          const balance = getBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
+          const balance = getAccountBalance(taxCategory, nisa, tokutei, ideco, gold_physical, cash);
           if (balance <= 0) continue;
           const draw = Math.min(deficit, balance);
           // 赤字取り崩し: 取得費を按分で減少

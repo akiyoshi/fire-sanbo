@@ -13,6 +13,7 @@ export {
   calcNisaTax,
   calcAnnualTax,
   calcGoldWithdrawalTax,
+  calcGoldTaxableIncome,
   calcPublicPensionDeduction,
   calcRetirementBonusNet,
   calcComprehensiveTax,

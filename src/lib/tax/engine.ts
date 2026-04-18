@@ -232,6 +232,14 @@ export function calcAnnualTax(
 }
 
 /**
+ * 金現物の総合課税対象所得を計算（50万円特別控除 + 1/2課税）
+ */
+export function calcGoldTaxableIncome(gain: number): number {
+  const afterDeduction = Math.max(0, gain - 500_000); // 50万円特別控除
+  return afterDeduction * 0.5;                         // 長期: 1/2課税
+}
+
+/**
  * 金現物（長期譲渡所得）の税額を計算
  * 5年超の長期保有前提: 50万円特別控除 + 1/2課税 → 総合課税
  *
@@ -245,8 +253,7 @@ export function calcGoldWithdrawalTax(
   cfg = config
 ): { tax: number; taxableIncome: number } {
   const gain = withdrawalAmount * gainRatio;
-  const afterDeduction = Math.max(0, gain - 500_000); // 50万円特別控除
-  const taxableIncome = afterDeduction * 0.5;          // 長期: 1/2課税
+  const taxableIncome = calcGoldTaxableIncome(gain);
 
   if (taxableIncome <= 0) {
     return { tax: 0, taxableIncome: 0 };
