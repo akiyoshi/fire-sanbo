@@ -2,6 +2,11 @@ import type { PensionInput, SimulationInput } from "./types";
 import type { TaxCategory } from "@/lib/tax";
 import type { CostBasis } from "./cost-basis";
 
+/** 繰上げ受給: 1ヶ月あたり0.4%減額（国民年金法附則9条の2第4項） */
+const PENSION_EARLY_RATE_PER_MONTH = 0.004;
+/** 繰下げ受給: 1ヶ月あたり0.7%増額（国民年金法第28条第4項） */
+const PENSION_LATE_RATE_PER_MONTH = 0.007;
+
 export function assertNever(x: never): never {
   throw new Error(`Unexpected tax category: ${x}`);
 }
@@ -17,9 +22,9 @@ export function calcAnnualPension(pension: PensionInput | undefined, age: number
   let adjustmentRate = 1.0;
 
   if (pension.startAge < 65) {
-    adjustmentRate = 1 - (65 - pension.startAge) * 12 * 0.004;
+    adjustmentRate = 1 - (65 - pension.startAge) * 12 * PENSION_EARLY_RATE_PER_MONTH;
   } else if (pension.startAge > 65) {
-    adjustmentRate = 1 + (pension.startAge - 65) * 12 * 0.007;
+    adjustmentRate = 1 + (pension.startAge - 65) * 12 * PENSION_LATE_RATE_PER_MONTH;
   }
 
   return Math.round(monthlyBase * 12 * adjustmentRate);

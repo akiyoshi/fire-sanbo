@@ -9,6 +9,7 @@ import { PrescriptionCard } from "@/components/prescription-card";
 import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
 import { WorstCaseCard } from "@/components/worst-case-card";
 import { WithdrawalCard } from "@/components/withdrawal-card";
+import { PortfolioOptimizer } from "@/components/portfolio-optimizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -655,6 +656,40 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             </summary>
             <div className="pl-6 pb-4">
               <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
+            </div>
+          </details>
+
+          {/* アセットアロケーション最適化 */}
+          <details className="group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <ChevronRight
+                className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+              <span className="font-medium text-sm">アセットアロケーション最適化</span>
+              <span className="text-xs text-muted-foreground">— 安全化・効率化の最適配分提案</span>
+            </summary>
+            <div className="pl-6 pb-4">
+              <PortfolioOptimizer
+                inline
+                currentPortfolio={form.portfolio}
+                onApply={(newPortfolio) => {
+                  setForm(prev => {
+                    const newForm = { ...prev, portfolio: newPortfolio };
+                    formRef.current = newForm;
+                    return newForm;
+                  });
+                  triggerRecalc(true);
+                }}
+                onApplyTarget={(target) => {
+                  setForm(prev => {
+                    const newForm = { ...prev, targetAllocation: target, rebalanceEnabled: true };
+                    formRef.current = newForm;
+                    return newForm;
+                  });
+                  triggerRecalc(true);
+                }}
+              />
             </div>
           </details>
         </div>

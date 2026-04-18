@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { optimizePortfolio } from "./optimizer";
+import { optimizePortfolio, selectByMode } from "./optimizer";
 import type { AssetClassId } from "./types";
 
 describe("optimizePortfolio", () => {
@@ -93,5 +93,54 @@ describe("optimizePortfolio", () => {
     const b = optimizePortfolio(full, 0.5, 5000, 123);
     expect(a.recommended.expectedReturn).toBe(b.recommended.expectedReturn);
     expect(a.recommended.risk).toBe(b.recommended.risk);
+  });
+});
+
+describe("selectByMode", () => {
+  const full: AssetClassId[] = [
+    "domestic_stock", "developed_stock", "emerging_stock",
+    "domestic_bond", "developed_bond", "emerging_bond",
+    "domestic_reit", "developed_reit", "gold",
+  ];
+
+  it("reduce-risk: 同リターンでリスクが下がる", () => {
+    const result = optimizePortfolio(full, 0.5);
+    // フロンティアの中間点より高リスクな現在ポートフォリオを想定
+    const mid = result.frontier[Math.floor(result.frontier.length / 2)];
+    const highRisk = mid.risk * 1.5;
+    const optimal = selectByMode(result.frontier, mid.expectedReturn, highRisk, "reduce-risk");
+    expect(optimal).not.toBeNull();
+    expect(optimal!.risk).toBeLessThan(highRisk);
+    expect(optimal!.expectedReturn).toBeGreaterThanOrEqual(mid.expectedReturn - 0.001);
+  });
+
+  it("increase-return: 同リスクでリターンが上がる", () => {
+    const result = optimizePortfolio(full, 0.5);
+    // フロンティアの中間点より低リターンな現在ポートフォリオを想定
+    const mid = result.frontier[Math.floor(result.frontier.length / 2)];
+    const lowReturn = mid.expectedReturn * 0.5;
+    const optimal = selectByMode(result.frontier, lowReturn, mid.risk, "increase-return");
+    expect(optimal).not.toBeNull();
+    expect(optimal!.expectedReturn).toBeGreaterThan(lowReturn);
+    expect(optimal!.risk).toBeLessThanOrEqual(mid.risk + 0.001);
+  });
+
+  it("reduce-risk: 既にフロンティア上なら改善なし（null）", () => {
+    const result = optimizePortfolio(full, 0.5);
+    const onFrontier = result.frontier[Math.floor(result.frontier.length / 2)];
+    const optimal = selectByMode(result.frontier, onFrontier.expectedReturn, onFrontier.risk, "reduce-risk");
+    expect(optimal).toBeNull();
+  });
+
+  it("increase-return: 既にフロンティア上なら改善なし（null）", () => {
+    const result = optimizePortfolio(full, 0.5);
+    const onFrontier = result.frontier[Math.floor(result.frontier.length / 2)];
+    const optimal = selectByMode(result.frontier, onFrontier.expectedReturn, onFrontier.risk, "increase-return");
+    expect(optimal).toBeNull();
+  });
+
+  it("空のフロンティアではnullを返す", () => {
+    expect(selectByMode([], 0.05, 0.15, "reduce-risk")).toBeNull();
+    expect(selectByMode([], 0.05, 0.15, "increase-return")).toBeNull();
   });
 });

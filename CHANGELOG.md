@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.5.7] - 2026-04-18
+
+リファクタリング: form-state分割、マジックナンバー定数化、取り崩し共通関数、ポートフォリオ最適化UI改善。293テスト全pass。
+
+### リファクタリング
+- `form-state.ts` (534行) → `form/types.ts` + `form/storage.ts` + `form/scenarios.ts` + `form/io.ts` + `form/derive.ts` に5分割。元ファイルはバレル再エクスポート(13行)に縮小。29箇所のimportパス変更ゼロ
+- `simulation/helpers.ts`: 年金繰上げ/繰下げ率 `0.004`/`0.007` → `PENSION_EARLY_RATE_PER_MONTH`/`PENSION_LATE_RATE_PER_MONTH`
+- `tax/engine.ts`: 金特別控除 `500_000`/`0.5` → `GOLD_SPECIAL_DEDUCTION`/`GOLD_LONG_TERM_RATIO`
+- `prescription/engine.ts`: 取り崩しループ24行 → `withdrawFromMember()` 1呼び出しに置換
+
+### 追加
+- `simulation/member-withdrawal.ts`: 退職後の課税考慮取り崩し共通関数。9テスト新規
+- `portfolio/optimizer.ts`: `selectByMode()` — 安全化(reduce-risk)/効率化(increase-return)モード。6テスト新規
+- `portfolio-optimizer.tsx`: inlineモード対応、モード切替UI、フロンティア上判定
+- `results.tsx`: アセットアロケーション最適化セクション追加（折りたたみ）
+
+### 修正
+- `form/derive.ts`: `withdrawalOrder`の重複エントリ拒否バリデーション追加
+- `portfolio-optimizer.tsx`: inlineモード時のEscapeキーリスナー不要登録を修正
+
 ## [4.5.6] - 2026-04-18
 
 テストカバレッジ拡充 + ESLint warning修正。269 → 279ユニットテスト、4 → 6 E2Eテスト。

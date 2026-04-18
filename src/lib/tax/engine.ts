@@ -231,12 +231,17 @@ export function calcAnnualTax(
   };
 }
 
+/** 金現物: 50万円特別控除（所得税法33条3項2号） */
+const GOLD_SPECIAL_DEDUCTION = 500_000;
+/** 金現物: 長期譲渡所得 1/2課税（所得税法22条2項2号） */
+const GOLD_LONG_TERM_RATIO = 0.5;
+
 /**
  * 金現物の総合課税対象所得を計算（50万円特別控除 + 1/2課税）
  */
 export function calcGoldTaxableIncome(gain: number): number {
-  const afterDeduction = Math.max(0, gain - 500_000); // 50万円特別控除
-  return afterDeduction * 0.5;                         // 長期: 1/2課税
+  const afterDeduction = Math.max(0, gain - GOLD_SPECIAL_DEDUCTION);
+  return afterDeduction * GOLD_LONG_TERM_RATIO;
 }
 
 /**

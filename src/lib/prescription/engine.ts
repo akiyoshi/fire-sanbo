@@ -20,9 +20,9 @@ import { PRNG, generateLogNormalReturn } from "@/lib/simulation";
 import { calcAnnualPension, calcLifeEventExpense, drawFromAccounts, contributeSurplus } from "@/lib/simulation/helpers";
 import type { MemberAccounts } from "@/lib/simulation/helpers";
 import { CostBasis } from "@/lib/simulation/cost-basis";
+import { withdrawFromMember } from "@/lib/simulation/member-withdrawal";
 import {
   calcAnnualTax,
-  calcWithdrawalTax,
   calcSocialInsurancePremium,
   calcPublicPensionDeduction,
   calcComprehensiveTax,
@@ -85,32 +85,14 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     if (age >= input.retirementAge) {
       const retiredSocialInsurance = calcSocialInsurancePremium(0, age);
       const needed = input.annualExpense + retiredSocialInsurance + lifeEventExpense;
-      let remaining = Math.max(0, needed - postRetirementIncome);
+      const remaining = Math.max(0, needed - postRetirementIncome);
 
-      for (const taxCategory of input.withdrawalOrder) {
-        if (remaining <= 0) break;
-        if (taxCategory === "ideco" && age < 60) continue;
-        const bal = taxCategory === "gold_physical" ? accts.gold
-          : taxCategory === "nisa" ? accts.nisa
-          : taxCategory === "tokutei" ? accts.tokutei
-          : taxCategory === "ideco" ? accts.ideco
-          : accts.cash;
-        if (bal <= 0) continue;
-        const withdrawAmount = Math.min(remaining, bal);
-        const result = calcWithdrawalTax(taxCategory, withdrawAmount, {
+      if (remaining > 0) {
+        const wResult = withdrawFromMember(accts, remaining, input.withdrawalOrder, age, {
           yearsOfService: input.idecoYearsOfService,
-          gainRatio: accts.tokuteiCB.gainRatio(accts.tokutei),
-          goldGainRatio: accts.goldCB.gainRatio(accts.gold),
-          otherComprehensiveIncome: comprehensiveIncome,
+          comprehensiveIncome,
         });
-        if (taxCategory === "tokutei" && accts.tokutei > 0) accts.tokuteiCB.withdraw(withdrawAmount, accts.tokutei);
-        if (taxCategory === "gold_physical" && accts.gold > 0) accts.goldCB.withdraw(withdrawAmount, accts.gold);
-        if (taxCategory === "nisa") accts.nisa -= withdrawAmount;
-        else if (taxCategory === "tokutei") accts.tokutei -= withdrawAmount;
-        else if (taxCategory === "ideco") accts.ideco -= withdrawAmount;
-        else if (taxCategory === "gold_physical") accts.gold -= withdrawAmount;
-        else accts.cash -= withdrawAmount;
-        remaining -= result.net;
+        comprehensiveIncome = wResult.comprehensiveIncome;
       }
     }
 

@@ -187,3 +187,40 @@ export function selectRecommended(
   }
   return recommended;
 }
+
+export type OptimizationMode = "reduce-risk" | "increase-return";
+
+/**
+ * 現在のポートフォリオを基準に、フロンティア上で最適化された点を選択
+ *
+ * - reduce-risk: 同じリターン水準でリスクを最小化
+ * - increase-return: 同じリスク水準でリターンを最大化
+ *
+ * フロンティア上に改善点がない場合は null を返す
+ */
+export function selectByMode(
+  frontier: EfficientFrontierPoint[],
+  currentReturn: number,
+  currentRisk: number,
+  mode: OptimizationMode,
+): EfficientFrontierPoint | null {
+  if (frontier.length === 0) return null;
+
+  if (mode === "reduce-risk") {
+    // 同じリターン以上でリスクが最小の点
+    const candidates = frontier.filter((p) => p.expectedReturn >= currentReturn - 0.001);
+    if (candidates.length === 0) return null;
+    const best = candidates.reduce((a, b) => (a.risk < b.risk ? a : b));
+    // 改善がない（リスクが同等以上）なら null
+    if (best.risk >= currentRisk - 0.001) return null;
+    return best;
+  }
+
+  // increase-return: 同じリスク以下でリターンが最大の点
+  const candidates = frontier.filter((p) => p.risk <= currentRisk + 0.001);
+  if (candidates.length === 0) return null;
+  const best = candidates.reduce((a, b) => (a.expectedReturn > b.expectedReturn ? a : b));
+  // 改善がない（リターンが同等以下）なら null
+  if (best.expectedReturn <= currentReturn + 0.001) return null;
+  return best;
+}
