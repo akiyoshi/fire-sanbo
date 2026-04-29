@@ -18,6 +18,9 @@ import { SimulationFlowSection } from "./sections/simulation-flow";
 import { AccountReturnSection } from "./sections/account-return";
 import { AccumulationRebalanceSection } from "./sections/accumulation-rebalance";
 import { PostRetirementRebalanceSection } from "./sections/post-retirement-rebalance";
+import { RetirementOverlapSection } from "./sections/retirement-overlap";
+import { SwrSection } from "./sections/swr";
+import { FurusatoSection } from "./sections/furusato";
 import taxConfig from "@/config/tax-config-2026.json";
 
 const TOC_GROUPS: TocGroup[] = [
@@ -58,6 +61,15 @@ const TOC_GROUPS: TocGroup[] = [
       { id: "sec-13", label: "13. 口座別リターンの導出" },
       { id: "sec-14", label: "14. 積立リバランス" },
       { id: "sec-15", label: "15. 退職後リバランス" },
+    ],
+  },
+  {
+    label: "v4.6 追加トピック",
+    anchorId: "grp-v46",
+    sections: [
+      { id: "sec-16", label: "16. 退職所得控除の重複期間（5/19年）" },
+      { id: "sec-17", label: "17. SWR と日本税制" },
+      { id: "sec-18", label: "18. ふるさと納税の年間上限" },
     ],
   },
 ];
@@ -140,6 +152,16 @@ export function MethodologyPage({ onBack }: MethodologyPageProps) {
               </div>
             </div>
 
+
+            {/* グループ5 (v4.6): 追加トピック */}
+            <div id="grp-v46" className="scroll-mt-20">
+              <h2 className="text-xl font-bold mb-6 pb-2 border-b">v4.6 追加トピック</h2>
+              <div className="space-y-10">
+                <RetirementOverlapSection />
+                <SwrSection />
+                <FurusatoSection />
+              </div>
+            </div>
             {/* グループ4: リバランスの仕組み */}
             <div id="grp-rebalance" className="scroll-mt-20">
               <h2 className="text-xl font-bold mb-6 pb-2 border-b">リバランスの仕組み</h2>

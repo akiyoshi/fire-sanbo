@@ -118,4 +118,38 @@ test.describe("FIRE参謀 E2E", () => {
     // 成功率テキストが引き続き表示されている
     await expect(page.getByText("成功確率")).toBeVisible();
   });
+
+  // v4.6.5: SWR インライン併記が結果画面に表示される (autoplan E2E #3 / AD-12)
+  test("SWR サマリ — 90%を維持できる月額支出が表示される", async ({ page }) => {
+    await page.goto("/fire-sanbo/");
+    await quickRun(page);
+    // 「90% を維持できる月額支出」という文字列が details サマリに含まれる
+    await expect(page.getByText(/90% を維持できる月額支出/)).toBeVisible({ timeout: 15000 });
+    // 「SWR」が同じ要素内に含まれる（rate表示）
+    await expect(page.getByText(/SWR\s/)).toBeVisible();
+  });
+
+  // v4.6.5: 退職翌年住民税ショックの注意喚起が表示される (autoplan E2E #2 / AD-11)
+  test("退職準備チェックリスト — 住民税の翌年請求分が表示される", async ({ page }) => {
+    await page.goto("/fire-sanbo/");
+    // 給与あり + 退職金 0 でも在職→退職遷移時に住民税ショックは発生する
+    await page.getByLabel("年収（税引き前）").fill("6000000");
+    await page.getByRole("button", { name: "すぐにシミュレーション" }).click();
+    await expect(page.getByText("成功確率")).toBeVisible({ timeout: 15000 });
+    // worst-case-card または退職準備セクションに住民税枠確保の文言が出る
+    // 成功率100%なら「退職準備チェックリスト」、失敗ありなら「最悪ケース診断書」のタイトル
+    await expect(page.getByText(/住民税の翌年請求分|退職準備チェックリスト/)).toBeVisible({ timeout: 10000 });
+  });
+
+  // v4.6.5: ふるさと納税 上限の年次推移が details にある (autoplan E2E AD-9)
+  test("ふるさと納税 上限の年次推移 details が存在する", async ({ page }) => {
+    await page.goto("/fire-sanbo/");
+    await quickRun(page);
+    // 年収 600 万なら課税所得 > 0 → details が表示される
+    const summary = page.locator("summary").filter({ hasText: "ふるさと納税 上限の年次推移" });
+    await expect(summary).toBeVisible({ timeout: 10000 });
+    await summary.click();
+    // 「上限額」列ヘッダが現れる
+    await expect(page.getByRole("columnheader", { name: "上限額" })).toBeVisible();
+  });
 });

@@ -499,7 +499,7 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
                   • Bengen 4% との差: <strong>{(swrSummary.vsBengen4Pct * 100).toFixed(2)} pt</strong>
                   {swrSummary.vsBengen4Pct < 0 ? "（より保守的）" : "（より積極的）"}
                 </p>
-                <p>• 年間支出 {Math.round(swrSummary.maxAnnualExpense / 10_000)} 万円以下なら成功確率 90% 以上</p>
+                <p>• 年間支出 {Math.round(swrSummary.maxAnnualExpense / 10_000)} 万円以下なら目標達成率 90% 以上</p>
                 <p>• 二分探索 {swrSummary.convergenceIterations} 反復で収束（試行数 {Math.min(simulationInput.numTrials, 100)}）</p>
               </div>
             </details>

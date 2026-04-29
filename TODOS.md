@@ -98,15 +98,17 @@ v4.6.0〜v4.6.3 でエンジン側完全実装済みの機能を UI に統合:
 - **AD-9 ふるさと納税 年次推移**: [results.tsx](src/components/results.tsx) 2軍に新 `<details>`「ふるさと納税 上限の年次推移」を追加。`y.furusatoLimit > 2000` の年のみ抽出、5年刻みで表示
 - **テスト**: 既存 360 件全パス（UI 変更は型 + ビルドで担保）。バンドル: results.js 416→423 kB
 
-### 📋 v4.6.5 — 仕上げ + 全体QA
+### ✅ v4.6.5 完了 (2026-04-29) — v4.6 系列の最終リリース
 
-- v4.6.0〜v4.6.4 の累積機能の E2E テスト追加（autoplan test plan §5: 3件目標）
-- 計算根拠書（methodology）への新セクション追加（autoplan §7.1）:
-  - §16 退職所得控除の重複期間ルール（5/19年）
-  - §17 SWR と日本税制
-  - §19 ふるさと納税の限度額
-- 免責条項の更新（autoplan §8.3）
-- リリースノート: v4.6 累積価値（autoplan CEO Outside Voice 懸念への応答）
+- **E2E +3件 (6→9)**: SWR サマリ表示 / 退職準備チェックリスト / ふるさと納税 details
+  - `npm run preview` 経由なので [results.tsx](src/components/results.tsx) で「成功確率 90% 以上」というテキストが strict-mode 違反を起こしていた問題を修正（→「目標達成率 90% 以上」）
+- **計算根拠書 (methodology) 拡張** — 新グループ「v4.6 追加トピック」を追加
+  - §16 [retirement-overlap.tsx](src/components/methodology/sections/retirement-overlap.tsx): 退職所得控除の重複期間（5/19年）
+  - §17 [swr.tsx](src/components/methodology/sections/swr.tsx): SWR と日本税制
+  - §18 [furusato.tsx](src/components/methodology/sections/furusato.tsx): ふるさと納税の年間上限（年収別早見表付き）
+- **TOC更新**: methodology-page.tsx に grp-v46 グループ追加
+- **テスト**: ユニット 360 件 + E2E 9 件 全パス。型チェック・ビルド OK
+- v4.6.0〜v4.6.5 の累積成果は CHANGELOG ではなく `git log --oneline v4.5.10..v4.6.5` で参照
 
 ### autoplan で記録した CEO Outside Voice の懸念（採否は v4.7 で再評価）
 
