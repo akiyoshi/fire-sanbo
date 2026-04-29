@@ -108,6 +108,14 @@ v4.5.8 の現状診断で「確率テストの flakiness」を懸念したが、
 
 将来的にエンジン挙動を大きく変更する予定が立った場合、その PR と合わせて再検討する。
 
+### 💭 cost-basis 細粒度テストの統合化（F-6、評価結果）
+
+[src/lib/simulation/cost-basis.test.ts](src/lib/simulation/cost-basis.test.ts) の 14 テストを「内部実装テスト」として統合テストに凝縮する案を v4.5.8 の現状診断で挙げたが、再評価の結果 **`CostBasis` は `withdrawFromMember` などの公開 API から呼ばれるドメインクラスであり、各テストは数値安定性・ゼロ除算防止・含み損回復などの不変式を検証している**。これらを統合テストに丸めると、回帰検出力が下がる懸念が大きい。維持する。
+
+### 💭 prescription-card UI モックの E2E 移行（F-5、評価結果）
+
+[src/components/prescription-card.test.tsx](src/components/prescription-card.test.tsx) の Slider モックを Playwright E2E に置き換える案を挙げたが、現状の unit テストは **`vi.useFakeTimers()` で debouncing を確定的に制御しており高速 (≈100ms) で flaky でない**。E2E に移すと「再計算完了の待機」が確率的になり flakiness が増えるリスクがある。E2E は [e2e/app.spec.ts](e2e/app.spec.ts) の What-if スライダー（月間生活費）でメインフローはカバー済み。維持する。
+
 ### 💭 Storybook 導入
 
 shadcn/ui コンポーネント + 自前カードコンポーネント（prescription-card / worst-case-card / withdrawal-card / portfolio-optimizer）のビジュアルリグレッションテスト。Vite 連携の Storybook 8。
