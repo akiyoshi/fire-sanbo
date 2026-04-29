@@ -12,7 +12,9 @@ export function importFormFromJSON(json: string): FormState | null {
     // CRIT-2: 旧バージョンも migrate 経由で受理（drop しない）
     const migrated = migrateForm(data);
     if (!migrated) return null;
-    const form = migrated as any;
+    // migrated は FormState だが、以降のフィールド検証では緩い構造として扱うため
+    // ローカル別名 `form` に再束縛する（unknown→Record アクセスのため Record 経由）
+    const form = migrated as Record<string, unknown> & FormState;
     // 基本的なバリデーション（v2/v3共通）
     if (!form || typeof form !== "object") return null;
     if (typeof form.currentAge !== "number" || typeof form.monthlyExpense !== "number") return null;

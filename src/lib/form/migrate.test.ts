@@ -80,8 +80,8 @@ describe("CRIT-2: migration positive path (v4.6.5 review fix)", () => {
     // FORM_SCHEMA_VERSION は import 定数なのでテストでは動かせない。
     // 代わりに migrators[FORM_SCHEMA_VERSION - 1] に identity を登録し、
     // version: FORM_SCHEMA_VERSION - 1 の入力を渡す。
-    __testing__.registerMigrator(FORM_SCHEMA_VERSION - 1, (legacy: any) => ({
-      ...legacy,
+    __testing__.registerMigrator(FORM_SCHEMA_VERSION - 1, (legacy: unknown) => ({
+      ...(legacy as Record<string, unknown>),
       // identity migrator: 何も変えずに次のバージョンに通す
     }));
   });
@@ -116,8 +116,8 @@ describe("CRIT-2: migration positive path (v4.6.5 review fix)", () => {
   it("[M-9] 連鎖 migrate (skip 1 step) — 中間バージョンの migrator も自動適用", () => {
     if (FORM_SCHEMA_VERSION < 2) return; // v1 未満なら検証不能
 
-    __testing__.registerMigrator(FORM_SCHEMA_VERSION - 2, (legacy: any) => ({
-      ...legacy,
+    __testing__.registerMigrator(FORM_SCHEMA_VERSION - 2, (legacy: unknown) => ({
+      ...(legacy as Record<string, unknown>),
       _testMarkerStep1: true,
     }));
     try {
@@ -125,10 +125,10 @@ describe("CRIT-2: migration positive path (v4.6.5 review fix)", () => {
         version: FORM_SCHEMA_VERSION - 2,
         form: DEFAULT_FORM,
       };
-      const result = migrateForm(legacy) as any;
+      const result = migrateForm(legacy) as Record<string, unknown> | null;
       expect(result).not.toBeNull();
       // 2 ステップ連鎖したことを確認
-      expect(result._testMarkerStep1).toBe(true);
+      expect(result?._testMarkerStep1).toBe(true);
     } finally {
       __testing__.clearMigrator(FORM_SCHEMA_VERSION - 2);
     }

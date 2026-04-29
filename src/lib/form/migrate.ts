@@ -13,7 +13,7 @@ import { FORM_SCHEMA_VERSION } from "./types";
  * 将来のスキーマバンプ (例: v5 → v6 で IdecoConfig 追加) はこの map に1行追加するだけで済む。
  */
 
-type Migrator = (form: any) => any;
+type Migrator = (form: unknown) => unknown;
 
 /**
  * バージョン N → N+1 のマイグレータ登録。
@@ -53,7 +53,7 @@ export function migrateForm(stored: unknown): FormState | null {
   if (typeof data.version !== "number" || !data.form || typeof data.form !== "object") return null;
 
   let version = data.version;
-  let form: any = data.form;
+  let form: unknown = data.form;
 
   // 現行より新しいバージョンは安全側で reject (forward-compat なし)
   if (version > FORM_SCHEMA_VERSION) return null;
