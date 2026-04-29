@@ -4,7 +4,7 @@
 
 > 改善余地がある領域を優先度順に列挙する作業バックログ（Diataxis: How-to / planning）。
 > ビジョン・設計判断は [DESIGN.md](DESIGN.md)、現状アーキテクチャは [ARCHITECTURE.md](ARCHITECTURE.md) を参照。
-> リリース履歴は [CHANGELOG.md](CHANGELOG.md) と git log を参照（本ファイルは「未着手の改善案」のみを扱う）。
+> リリース履歴は `git log --oneline` および git tag を参照（本ファイルは「未着手の改善案」のみを扱う）。
 
 ステータス凡例: 🔥 着手中 / 📋 計画 / 💭 アイディア / ❄️ 凍結
 
@@ -23,7 +23,7 @@
 - `tax-config-index.ts` の `getTaxConfig(year)` に分岐追加
 - `tax-config-index.test.ts` にスナップショットテスト追加
 - 設計判断: **開始年度の税制で全シミュレーション期間を固定**（将来の税制変更は反映しない、免責条項に明記）
-- 直近の対象: 2027 年度（v4.6 期予定）
+- 直近の対象: 2027 年度
 
 ### 📋 依存関係の継続メンテナンス
 
@@ -33,11 +33,11 @@
 
 ---
 
-## P0 — v4.7 最優先（リリース体験の安全化）
+## P0 — リリース体験の安全化
 
 ### 🔥 deploy 失敗検出フロー（`/ship` 事前ゲート + post-push 監視）
 
-**背景**: v4.6.0〜v4.6.6 の **7本連続でデプロイが失敗** しており、本番が v4.5.10 のまま約 1 時間取り残されていた（`/land-and-deploy` で初めて発覚）。原因は CI の `npm run lint` (`@typescript-eslint/no-explicit-any`) が `migrate.ts` で 7 件失敗していたが、`/ship` の事前検証は `vitest` + `tsc` のみで lint 未実行だったため見過ごした。
+**背景**: v4.6.0〜v4.6.6 の 7 本連続でデプロイが失敗し、本番が v4.5.10 のまま約 1 時間取り残された。原因は CI の `npm run lint` (`@typescript-eslint/no-explicit-any`) が `migrate.ts` で 7 件失敗していたが、`/ship` の事前検証は `vitest` + `tsc` のみで lint 未実行だったため見過ごした。
 
 **目的**: 「ローカルは緑、CI は赤、本番は古い版のまま」という silent failure を二度と起こさない。
 
@@ -45,167 +45,39 @@
 
 1. **`/ship` 事前ゲートの強化**（最重要）
    - `npm run lint` を tests / build と同列で必須チェックに昇格
-   - lint 失敗時は **commit 前** に停止、自動修正可能なものは fix offer
-   - 既存の vitest + tsc + build に lint を追加で約 +5 秒のコスト
-
+   - lint 失敗時は commit 前に停止、自動修正可能なものは fix offer
 2. **CI 失敗時のローカル通知 / 検出**
    - push 後 90 秒以内に `gh run list --limit 1 --json conclusion` をポーリング
-   - 失敗を検出したら、次のセッション開始時 (`/preamble` 相当) で警告を出す
-   - 候補: `.gstack/last-deploy-status.json` に書き込み、各スキル起動時に確認
-   - 別案: `gh run watch` を `/ship` の最終ステップに同梱（最大 5 分待機 + タイムアウト時は警告のみ）
-
+   - 失敗時は `.gstack/last-deploy-status.json` に書き込み、各スキル起動時に確認
+   - 別案: `gh run watch` を `/ship` 最終ステップに同梱（最大 5 分待機）
 3. **連続失敗の自動検出**
    - `gh run list --workflow=deploy.yml --limit 10` で過去10本を取得
-   - 直近3本以上が `failure` なら 🔴 アラートをセッション開始時に表示
-   - 「本番は v{N} で取り残されています、`/land-and-deploy` を実行してください」と誘導
-
-4. **Dependabot PR の deploy 失敗対応**
-   - メジャーバンプ Dependabot PR でも同じ仕組みで早期検出
-   - 失敗時は `@dependabot rebase` または手動修正のフロー記録
-
-5. **ドキュメント**
-   - [ARCHITECTURE.md §14 デプロイ](ARCHITECTURE.md#14-デプロイ) に「deploy 失敗時のリカバリ手順」を追記
-   - 学習記録: `npm run lint` を CI に置く以上、ローカル `/ship` でも必ず走らせる
+   - 直近 3 本以上が `failure` ならセッション開始時に🔴アラートを表示し `/land-and-deploy` を提案
+4. **Dependabot PR の deploy 失敗対応** — メジャーバンプでも同じ仕組みで早期検出
+5. **ドキュメント** — [ARCHITECTURE.md §14 デプロイ](ARCHITECTURE.md#14-デプロイ) に「deploy 失敗時のリカバリ手順」を追記
 
 **完了条件**:
 - [ ] `/ship` スキルに `npm run lint` ゲート追加
 - [ ] 連続失敗検出ロジックの実装と検証
 - [ ] ARCHITECTURE.md にリカバリ手順追記
-- [ ] 学習記録 (memory/learnings) にコミット
+- [ ] 学習記録（user memory）にコミット
 
-**優先度の根拠**: 「本番が古いまま」は機能バグより重大。プラニング・実装・テストが完璧でも、ユーザーに届いていなければ価値ゼロ。次の v4.7 マイルストーン着手前に必ず潰す。
+### 📋 リリースノートの累積価値設計
 
----
+CEO Outside Voice の懸念（[v4.6 autoplan review Phase 1](docs/v4.6-autoplan-review.md)）。段階リリースで「成功率 67% → 67.2%」のような微差を訴求するのではなく、「税理士相談で発見される論点を未然にカバー」のような累積価値を伝えるリリースノート構造を確立する。
 
-## P0 — v4.6 マイルストーン（FP / CFA / 税理士 精度向上）
+- v4.6 系（住民税ショック / ふるさと納税 / SWR / 5/19年）の累積版リリースノートをサンプルとして書き起こす
+- `/document-release` スキルにリリースノート生成テンプレートを追加
 
-`[FP-CFA-Tax]` 計画書 §4.1 から抜粋。プロのFP相談で必ず話題になる項目で、未対応のままだと「精度の高いツール」とは言えない領域。
+### 📋 gstack-review v4.6.5 で検出した Known Issues
 
-> **autoplan レビュー済み (2026-04-29):** [docs/v4.6-autoplan-review.md](docs/v4.6-autoplan-review.md) / [docs/v4.6-test-plan.md](docs/v4.6-test-plan.md)
-> リリース戦略: **段階リリース v4.6.0 → v4.6.3**（実装難易度昇順: F-2/T-10 → T-7 → C-3 → T-2）
-> v4.6.0 (F-2/T-10 + CRITICAL2件) **完了済み** — 残り T-7 / C-3 / T-2 を v4.6.1〜.3 で順次出荷
+`/gstack-review` で検出された未対応項目（v4.6.6 で auto-fix 済みは除外）。
 
-### ✅ v4.6.0 完了 (2026-04-29)
-
-- **CRIT-1: residentTax 二重計上** — 修正済み。最終在職年（age=retirementAge - 1）の住民税を退職年に繰り延べる minimal patch を [simulation/engine.ts](src/lib/simulation/engine.ts) と [prescription/engine.ts](src/lib/prescription/engine.ts) (`runTrialLite`) の両方に適用
-- **CRIT-2: FormState migration drop** — 修正済み。新規 [migrate.ts](src/lib/form/migrate.ts) を追加し storage / io 双方が `migrateForm()` 経由で版の差を吸収。v6 以降のスキーマ変更は `migrators[N]` に1行追加で対応可能
-- **F-2/T-10 退職翌年住民税ショック** — 完了。退職年に前年給与由来の住民税を `totalNeeded` に加算し breakdown にも記録
-- **テスト**: +14 件 (293→307)
-  - F-2/T-10 + CRIT-1 回帰: 7件 ([engine.test.ts](src/lib/simulation/engine.test.ts))
-  - migration: 7件 ([migrate.test.ts](src/lib/form/migrate.test.ts))
-- **UI 拡張は未実施**: WorstCaseCard 内「退職準備」セクション (autoplan AD-11) は v4.6.4 で UI 化予定
-
-### ✅ v4.6.1 完了 (2026-04-29)
-
-- **T-7 ふるさと納税上限** — 完了
-  - [tax/engine.ts](src/lib/tax/engine.ts): `calcFurusatoLimit(taxableIncome, marginalRate)` 新設、`calcMarginalIncomeTaxRate` ヘルパー追加
-  - **DRY**: `AnnualTaxResult` に `taxableIncome` / `marginalIncomeTaxRate` を露出（autoplan AD detected — 呼び出し側でのブラケット再計算不要）
-  - [simulation/engine.ts](src/lib/simulation/engine.ts) の `runTrial` で `YearResult.furusatoLimit?` を年次出力。在職中は給与所得から、退職後は総合課税所得から算定
-  - autoplan AD-9: 課税所得 0 の年も `2_000`（自己負担のみ）として記録、UI 表示時にフィルタする想定
-- **テスト**: +15 件 (307→322)
-  - [tax/furusato.test.ts](src/lib/tax/furusato.test.ts): 12件（境界5 + property 2 + DRY 1 + marginalRate 4）
-  - [simulation/engine.test.ts](src/lib/simulation/engine.test.ts): 統合 3件（在職/退職後ゼロ/退職後年金あり）
-- **UI 列追加は v4.6.4 に集約**
-
-### ✅ v4.6.2 完了 (2026-04-29)
-
-- **C-3 SWR 自動算定** — 完了
-  - [swr/engine.ts](src/lib/swr/engine.ts): `calcSWR(input, targetRate=0.90)` 新設
-  - 内部は `runSimulationLite` への委譲（autoplan AD-2、DRY）
-  - 探索範囲は `max(現在支出×3, 月100万)` まで拡張 — prescription expense 軸の制約「現在より少なく」を超えて、資産余裕ユーザーの真の SWR を算出
-  - 出力: `{ maxAnnualExpense, monthlyExpense, rate, vsBengen4Pct, targetRate, convergenceIterations }`
-- **テスト**: +10 件 (322→332)
-  - [swr/engine.test.ts](src/lib/swr/engine.test.ts): 境界4 + 委譲一致3 + property 3
-- **UI インライン併記は v4.6.4 で UI 統合**
-
-### ✅ v4.6.3 完了 (2026-04-29)
-
-- **T-2 iDeCo×退職金 5/19年ルール（完全版）** — 完了
-  - [tax/engine.ts](src/lib/tax/engine.ts):
-    - `calcEffectiveYearsForLumpSum(firstAge, firstYears, secondAge, secondYears, ruleYears)`: 重複期間 = `min(両者の年数) - gap`、`Math.max(0, ...)` ガード
-    - `calcCombinedLumpSumNet(ideco, bonus)`: 受給順序を自動判定（idecoFirst なら 5年ルール、bonusFirst なら 19年ルール）
-    - `findOptimalIdecoLumpSumAge(ideco, bonus, range=60-75)`: 60-75歳の離散探索で最適 receiveAge を返す
-- **テスト**: +28 件 (332→360)
-  - [tax/overlap.test.ts](src/lib/tax/overlap.test.ts): 境界13 + ruleYears切替2 + property3 + E2E税額4 + 受給順序2 + 最適探索4
-- **保留事項**:
-  - 処方箋エンジンへの軸追加（autoplan AD-14 二層探索）は影響範囲が大きく v4.6.4 以降に分割
-  - シミュレーション engine からの呼び出し配線も v4.6.4 で対応
-
-### ✅ v4.6.4 完了 (2026-04-29)
-
-v4.6.0〜v4.6.3 でエンジン側完全実装済みの機能を UI に統合:
-
-- **AD-12 SWR インライン併記**: [results.tsx](src/components/results.tsx) の成功率カード直下に `<details>` で「90%を維持できる月額支出: X万円（年Y万円・SWR Z%）」を表示。展開で Bengen 4% 比較・収束反復回数を表示
-  - `useMemo` で `calcSWR(simulationInput, 0.90)` をキャッシュ（試行数 100 上限）
-- **AD-10 idecoTiming 改善カード**: 成功率カード直下、iDeCo残高>0 かつ retirementBonus>0 かつ improvement>10万円 のときのみ表示。`findOptimalIdecoLumpSumAge` を利用
-- **AD-11 退職準備セクション**: [worst-case-card.tsx](src/components/worst-case-card.tsx) を改修し、worst-case とは独立に「退職準備チェックリスト」を表示。退職翌年住民税の現金枠アラート + 最終在職年のふるさと納税上限を提示。成功率 100% でも退職準備のみ表示する分岐に変更（カードタイトル切替）
-- **AD-9 ふるさと納税 年次推移**: [results.tsx](src/components/results.tsx) 2軍に新 `<details>`「ふるさと納税 上限の年次推移」を追加。`y.furusatoLimit > 2000` の年のみ抽出、5年刻みで表示
-- **テスト**: 既存 360 件全パス（UI 変更は型 + ビルドで担保）。バンドル: results.js 416→423 kB
-
-### ✅ v4.6.5 完了 (2026-04-29) — v4.6 系列の最終リリース
-
-- **E2E +3件 (6→9)**: SWR サマリ表示 / 退職準備チェックリスト / ふるさと納税 details
-  - `npm run preview` 経由なので [results.tsx](src/components/results.tsx) で「成功確率 90% 以上」というテキストが strict-mode 違反を起こしていた問題を修正（→「目標達成率 90% 以上」）
-- **計算根拠書 (methodology) 拡張** — 新グループ「v4.6 追加トピック」を追加
-  - §16 [retirement-overlap.tsx](src/components/methodology/sections/retirement-overlap.tsx): 退職所得控除の重複期間（5/19年）
-  - §17 [swr.tsx](src/components/methodology/sections/swr.tsx): SWR と日本税制
-  - §18 [furusato.tsx](src/components/methodology/sections/furusato.tsx): ふるさと納税の年間上限（年収別早見表付き）
-- **TOC更新**: methodology-page.tsx に grp-v46 グループ追加
-- **テスト**: ユニット 360 件 + E2E 9 件 全パス。型チェック・ビルド OK
-- v4.6.0〜v4.6.5 の累積成果は CHANGELOG ではなく `git log --oneline v4.5.10..v4.6.5` で参照
-
-### ✅ v4.6.6 完了 (2026-04-29) — gstack-review fix-up
-
-`/gstack-review` で検出された CRITICAL 4件 + INFORMATIONAL 17件のうち、自動修正可能な 6件を適用:
-
-- **C1 drift 検出テスト** (testing + maintainability MULTI-CONFIRMED): [prescription/engine.test.ts](src/lib/prescription/engine.test.ts) に runTrialLite vs runTrial の successRate 差を assert する drift 検出テスト 2件 + spouse 用 skip 1件を追加。今後 Lite 側に同期忘れの新機能が追加された時に CI が赤くなる安全弁
-- **C2 migrate 正常系テスト**: [migrate.ts](src/lib/form/migrate.ts) に `__testing__` テストフックを追加（`registerMigrator` / `clearMigrator`）。[migrate.test.ts](src/lib/form/migrate.test.ts) に M-7/M-8/M-9（identity migrate / throw kill-switch / 連鎖 skip-1-step）の3件追加
-- **C3 統合シナリオテスト**: [engine.test.ts](src/lib/simulation/engine.test.ts) に「退職年に全機能共起」シナリオ 2件追加（5/19年 + 退職金 + ふるさと納税 + 住民税ショックの相互作用検証）
-- **INFO furusato denominator 安全弁テスト** (+1件)
-- **INFO 5/19年 JSDoc 修正**: 「完全版」→「年単位近似版」と明記、月単位精度の限界を文書化
-- **テスト**: 360 → 366 → 368 件全パス + 1 skipped (intentional)、型チェック・ビルド OK
-
-### gstack-review v4.6.5 で検出した既知の課題 (Known Issues — v4.7 で対応検討)
-
-#### **C4: calcSWR の main-thread blocking** (performance, confidence 9)
-
-- [results.tsx](src/components/results.tsx#L303) の `useMemo([simulationInput])` が同期で `calcSWR` を実行
-- 25 binary-search iterations × 100 trials × 60 years = ~150K trial-years per slider tick
-- 現状 `numTrials = Math.min(simulationInput.numTrials, 100)` でキャップしているため許容範囲だが、低スペック端末では UX 遅延の可能性あり
-- **対応案**: SimulationWorker に `calcSWR` メソッドを追加して非同期化。または `swrSummary` 計算を 200ms debounce
-- **判断**: スライダー UX を計測してから対応（現状維持）
-
-#### **INFO #6: E2E OR マッチで false-pass リスク**
-
-- [e2e/app.spec.ts:147](e2e/app.spec.ts) の `getByText(/住民税の翌年請求分|退職準備チェックリスト/)` が成功率100%でも別パスで pass する
-- **対応案**: 低資産+高支出で worst-case を強制し、住民税文言の存在を厳密 assert
-- **判断**: false-pass の実害は低いため v4.7 で
-
-#### **INFO `findOptimalIdecoLumpSumAge.byAge` 未使用フィールド**
-
-- [tax/engine.ts](src/lib/tax/engine.ts#L526) の `byAge: { age, net, tax }[]` は UI 未使用
-- **対応案**: 将来のグラフ表示で活用、または削除
-- **判断**: グラフ実装まで保留（YAGNI）
-
-#### **INFO `furusatoLimit` の hot-loop 計算**
-
-- [simulation/engine.ts](src/lib/simulation/engine.ts#L745) で全試行 × 全年で `calcAnnualTax` + `calcFurusatoLimit` を実行（UI は5年刻み消費）
-- **対応案**: lazy 計算 or post-trial 計算に変更
-- **判断**: 単純年計算で <1ms/year のため v4.7 で
-
-#### **INFO 5/19年 UI 表示も「年単位近似」明記**
-
-- engine の JSDoc には記載済み (v4.6.6)
-- methodology page §16 と results.tsx の処方箋カードのコピーにも反映が望ましい
-- **判断**: v4.7 でドキュメント整備時に同期
-
-### autoplan で記録した CEO Outside Voice の懸念（採否は v4.7 で再評価）
-
-CEO Outside Voice は v4.6 のスコープ自体に強い異議を表明（[v4.6-autoplan-review.md Phase 1](docs/v4.6-autoplan-review.md)）。User Challenge 2 でユーザーは v4.6 計画維持を選択（P6「元の方向がデフォルト」）したため、以下を v4.7 検討事項として転記:
-
-- **配偶者UI配線が P1 のままで良いか**: `src/components/wizard/spouse-section.tsx` は実装済み、エンジン側もv3+で対応。1-2日でship可能。CEO Outside Voice 推定: 想定ユーザーの60-70%が世帯計画ニーズ
-- **「v4.6.x の累積価値」のリリースノート設計**: 段階リリースで「成功率 67% → 67.2%」のような微差ではなく、「税理士相談で発見される論点を未然にカバー」を訴求軸に
-- **新KPI候補**: 「処方箋カードで実行された施策数」（成功率改善以外の指標）
+- **C4: `calcSWR` の main-thread blocking** ([results.tsx:303](src/components/results.tsx)) — useMemo 同期で 25 反復 × 100 試行 × 60 年 ≈ 150K trial-years/tick。numTrials=100 キャップで現状許容範囲だが、低スペック端末で UX 遅延の可能性。**対応案**: SimulationWorker に `calcSWR` メソッド追加 or 200ms debounce
+- **E2E OR-match flakiness** ([e2e/app.spec.ts](e2e/app.spec.ts)) — `getByText(/住民税の翌年請求分|退職準備チェックリスト/)` が成功率 100% でも別パスで pass する。低資産+高支出で worst-case を強制する形に書き直し
+- **`findOptimalIdecoLumpSumAge.byAge` 未使用フィールド** ([tax/engine.ts](src/lib/tax/engine.ts)) — UI が消費していない。グラフ表示が決まるまで保留 or 削除
+- **`furusatoLimit` の hot-loop 計算** ([simulation/engine.ts](src/lib/simulation/engine.ts)) — 全試行 × 全年で `calcAnnualTax` + `calcFurusatoLimit` を実行。UI は 5 年刻み消費。lazy 化または post-trial 計算へ
+- **5/19 年「年単位近似」表記の UI 反映** — エンジン JSDoc には記載済みだが、methodology page §16 と results.tsx の処方箋カードコピーにも明記する
 
 ---
 
@@ -213,18 +85,16 @@ CEO Outside Voice は v4.6 のスコープ自体に強い異議を表明（[v4.6
 
 ### 💭 ウィザード UI に未配線コンポーネントを配線
 
-[src/components/wizard/](src/components/wizard/) には実装済みだが [wizard.tsx](src/components/wizard.tsx) で未 import の以下が眠っています。エンジン側は対応済みのため UI 配線のみで利用可能になります。
+[src/components/wizard/](src/components/wizard/) には実装済みだが [wizard.tsx](src/components/wizard.tsx) で未 import の以下が眠っている。エンジン側は対応済みのため UI 配線のみで利用可能。
 
-- `spouse-section.tsx` — 配偶者の年齢・退職年齢・年収を入力する CollapsibleCard。FormState `spouseEnabled` / `spouse` は既に v3+ で対応済み
-- `template-selector.tsx` — 5 種テンプレート（転職 / 住宅購入 / 教育費 / 早期退職 / 年金繰下げ）。`scenario-templates.ts` は実装済み
-- `quick-start.tsx` — 3 項目クイックスタート（v1.8.0 実装、v4.5.0 で `BasicSection` に統合した経緯あり、現状は重複）
-- `quick-preview.tsx` — ライブプレビュー
-
-判断: spouse-section の配線が最優先（エンジン機能の主要ギャップ）。template-selector は採否を再評価。quick-start / quick-preview は削除候補（重複機能）。
+- **`spouse-section.tsx`** — 配偶者の年齢・退職年齢・年収を入力する CollapsibleCard。FormState `spouseEnabled` / `spouse` は既に v3+ で対応済み。**最優先**: CEO Outside Voice ([v4.6 autoplan review](docs/v4.6-autoplan-review.md)) 推定で想定ユーザーの 60–70% が世帯計画ニーズ。1–2 日で ship 可能
+- `template-selector.tsx` — 5 種テンプレート（転職 / 住宅購入 / 教育費 / 早期退職 / 年金繰下げ）。`scenario-templates.ts` は実装済み。採否を再評価
+- `quick-start.tsx` — 3 項目クイックスタート（v1.8.0 実装、v4.5.0 で `BasicSection` に統合した経緯あり、現状は重複）。削除候補
+- `quick-preview.tsx` — ライブプレビュー。削除候補
 
 ### 💭 シーケンスリスクの可視化 `[FP-CFA-Tax]`
 
-退職直後5–10年のリターン序列が成功率を支配する事実が結果画面に出ていない。`runSimulation()` で「最初5年の累積リターンが下位25%だった試行のみ」のパーセンタイルを別系列で計算し、グラフに薄い赤系列を重ねて表示。詳細: [改善計画書 §5.5](docs/improvement-plan-fp-cfa-tax.md#55-c-1-シーケンスリスクの可視化)
+退職直後 5–10 年のリターン序列が成功率を支配する事実が結果画面に出ていない。`runSimulation()` で「最初 5 年の累積リターンが下位 25% だった試行のみ」のパーセンタイルを別系列で計算し、グラフに薄い赤系列を重ねて表示。詳細: [改善計画書 §5.5](docs/improvement-plan-fp-cfa-tax.md#55-c-1-シーケンスリスクの可視化)
 
 ### 💭 iDeCo 拠出フェーズ `[FP-CFA-Tax]`
 
@@ -270,7 +140,7 @@ CEO Outside Voice は v4.6 のスコープ自体に強い異議を表明（[v4.6
 
 ### 💭 配偶者控除／配偶者特別控除 `[FP-CFA-Tax]`
 
-納税者所得 ≤900万 / 950万 / 1000万 と配偶者所得 0–48万 / 48–133万 のテーブルから自動算定。専業主婦ケースで年税額10万円前後の差が出る。`tax/engine.ts` に `calcSpouseDeduction(primaryIncome, spouseIncome)` を追加。
+納税者所得 ≤900万 / 950万 / 1000万 と配偶者所得 0–48万 / 48–133万 のテーブルから自動算定。専業主婦ケースで年税額 10 万円前後の差が出る。`tax/engine.ts` に `calcSpouseDeduction(primaryIncome, spouseIncome)` を追加。
 
 ### 💭 NISA 成長/つみたて分離管理 `[FP-CFA-Tax]`
 
@@ -292,13 +162,21 @@ CEO Outside Voice は v4.6 のスコープ自体に強い異議を表明（[v4.6
 
 現状は単一の `withdrawalOrder`。「退職直後 5 年間は cash 優先 → その後 NISA → 特定口座」のような期間別ルールを設定可能にする。実装は `withdrawalOrder: WithdrawalRule[]` に拡張、各ルールに `fromAge` / `toAge` を持たせる。
 
+### 💭 SWR の Worker 化
+
+P0 Known Issues C4 (`calcSWR` の main-thread blocking) の根本解決として、`SimulationWorker` に `calcSWR` メソッドを追加し、results.tsx から `useEffect` 経由で非同期実行する。numTrials を 200+ に拡張する判断点で着手。
+
+### 💭 runTrial / runTrialLite の統合
+
+[prescription/engine.ts](src/lib/prescription/engine.ts) の `runTrialLite` は [simulation/engine.ts](src/lib/simulation/engine.ts) `runTrial` の手動コピーで、リバランス・配偶者・口座別リターン・ふるさと納税出力が未実装。drift 検出テスト（[prescription/engine.test.ts](src/lib/prescription/engine.test.ts)）で同期忘れは検出できるが、根本解決として共通ヘルパーへの抽出を検討。
+
 ---
 
 ## P3 — 計算根拠書 / メソドロジー
 
 ### 💭 セクション間クロスリファレンス
 
-15 セクションに「関連: §3 累進ブラケット」のような相互リンクを追加し、読者が任意の起点から計算根拠を辿れるようにする。
+18 セクションに「関連: §3 累進ブラケット」のような相互リンクを追加し、読者が任意の起点から計算根拠を辿れるようにする。
 
 ### 💭 動的計算例の入力可変化
 
@@ -316,21 +194,30 @@ v4.5.8 で `src/lib/test-utils/` を導入し、約 10 箇所のベタ書き `Si
 - 方針: 各テストの差分のみが見える形に整理（共通項はデフォルト値に依存させる）
 - 注意: `tokuteiGainRatio: 0` / `goldGainRatio: 0` などデフォルト値（0.5 / 0.3）と異なる箇所は明示的に override する必要がある
 
+### 💭 リリース KPI 計装
+
+CEO Outside Voice ([v4.6 autoplan review](docs/v4.6-autoplan-review.md)) の問題提起。「成功率改善」以外の KPI を計装する。
+
+- 候補: 「処方箋カードで実行された施策数」「シナリオ比較の利用率」「計算根拠書の閲覧深度」
+- localStorage ベースのプライバシー尊重型計装（外部サーバー送信なし）
+- DESIGN.md スコープに新セクションを追加する判断含めて検討
+
 ### 💭 Storybook 導入
 
 shadcn/ui コンポーネント + 自前カードコンポーネント（prescription-card / worst-case-card / withdrawal-card / portfolio-optimizer）のビジュアルリグレッションテスト。Vite 連携の Storybook 8。
 
 ### 💭 Mutation Testing
 
-Stryker で `src/lib/tax/` `src/lib/simulation/` のミューテーションスコアを測定。現状 293 ユニットテストがあるが「テストが本当に振る舞いを検証しているか」のメタ評価が欠落。
+Stryker で `src/lib/tax/` `src/lib/simulation/` のミューテーションスコアを測定。テストが「本当に振る舞いを検証しているか」のメタ評価。
 
 ### 💭 E2E カバレッジ拡大
 
-現在 6 テスト（基本フロー + 共有 URL + What-if）。追加候補:
+現在 9 テスト（基本フロー + 共有 URL + What-if + SWR サマリ + 退職準備 + ふるさと納税 details）。追加候補:
+
 - シナリオ保存 → 一覧復元
 - JSON エクスポート / インポート往復
 - 計算根拠書のスティッキー目次のスクロール追従
-- 配偶者あり世帯の入力 → 結果
+- 配偶者あり世帯の入力 → 結果（spouse-section の P1 配線が前提）
 
 ### 💭 パフォーマンス予算
 
@@ -348,7 +235,7 @@ Stryker で `src/lib/tax/` `src/lib/simulation/` のミューテーションス�
 - **PWA 化**: 月 1 回のツールに Service Worker は過剰
 - **リブランド / 名前変更**: ユーザー基盤が小さくコストに見合わない
 - **BtoB 検証 / 法人向け展開**: 個人ツールの延長として飛躍しすぎ
-- **CHANGELOG ファイル能動更新**: git log で十分（現状の `CHANGELOG.md` は履歴アーカイブとして残置のみ）
+- **CHANGELOG ファイル能動更新**: git log + git tag で十分（現状の `CHANGELOG.md` は履歴アーカイブとして残置のみ）
 - **VS Code 拡張化 / Electron アプリ化**: ブラウザ単体で完結する利点を失う
 
 ### エンジン / 運用理論 `[FP-CFA-Tax]`
@@ -373,4 +260,4 @@ Stryker で `src/lib/tax/` `src/lib/simulation/` のミューテーションス�
 
 ## メモ: 完了したバックログの参照先
 
-過去の完了済みバックログ要約は **[CHANGELOG.md](CHANGELOG.md)** および `git log --oneline` を参照。本ファイルからは「未着手の改善案」のみを扱うため、完了済みリストは持たない（重複防止）。
+過去の完了済みバックログ要約は `git log --oneline` および git tag を参照。本ファイルからは「未着手の改善案」のみを扱うため、完了済みリストは持たない（重複防止 — Diataxis: TODOs ≠ History）。
