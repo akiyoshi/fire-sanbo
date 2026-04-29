@@ -37,37 +37,61 @@
 
 `[FP-CFA-Tax]` 計画書 §4.1 から抜粋。プロのFP相談で必ず話題になる項目で、未対応のままだと「精度の高いツール」とは言えない領域。
 
-### 📋 退職翌年の住民税ショック計上 `[FP-CFA-Tax]`
+> **autoplan レビュー済み (2026-04-29):** [docs/v4.6-autoplan-review.md](docs/v4.6-autoplan-review.md) / [docs/v4.6-test-plan.md](docs/v4.6-test-plan.md)
+> リリース戦略: **段階リリース v4.6.0 → v4.6.3**（実装難易度昇順: F-2/T-10 → T-7 → C-3 → T-2）
+> v4.6.0 (F-2/T-10 + CRITICAL2件) **完了済み** — 残り T-7 / C-3 / T-2 を v4.6.1〜.3 で順次出荷
 
-- 退職前年の所得 × 10% を `age = retirementAge + 1` の支出に自動加算
-- `simulation/engine.ts` フェーズ1（収入）に1ブロック追加、`taxBreakdown.residentTax` に積算
-- テスト: 退職翌年の `taxBreakdown.residentTax` が前年所得に比例することを確認
-- UI: 「退職前1年のチェックリスト」に現金枠確保アラート
-- 詳細: [改善計画書 §5.3](docs/improvement-plan-fp-cfa-tax.md#53-f-2--t-10-退職翌年の住民税)
+### ✅ v4.6.0 完了 (2026-04-29)
 
-### 📋 ふるさと納税の年次上限算定 `[FP-CFA-Tax]`
+- **CRIT-1: residentTax 二重計上** — 修正済み。最終在職年（age=retirementAge - 1）の住民税を退職年に繰り延べる minimal patch を [simulation/engine.ts](src/lib/simulation/engine.ts) と [prescription/engine.ts](src/lib/prescription/engine.ts) (`runTrialLite`) の両方に適用
+- **CRIT-2: FormState migration drop** — 修正済み。新規 [migrate.ts](src/lib/form/migrate.ts) を追加し storage / io 双方が `migrateForm()` 経由で版の差を吸収。v6 以降のスキーマ変更は `migrators[N]` に1行追加で対応可能
+- **F-2/T-10 退職翌年住民税ショック** — 完了。退職年に前年給与由来の住民税を `totalNeeded` に加算し breakdown にも記録
+- **テスト**: +14 件 (293→307)
+  - F-2/T-10 + CRIT-1 回帰: 7件 ([engine.test.ts](src/lib/simulation/engine.test.ts))
+  - migration: 7件 ([migrate.test.ts](src/lib/form/migrate.test.ts))
+- **UI 拡張は未実施**: WorstCaseCard 内「退職準備」セクション (autoplan AD-11) は v4.6.1 と一括で UI 化予定
+
+### 📋 ふるさと納税の年次上限算定 `[FP-CFA-Tax]` — v4.6.1
 
 - `src/lib/tax/engine.ts` に `calcFurusatoLimit(taxableIncome, marginalRate)` を追加
-- 年次の上限額を結果画面のアクションカレンダー（12月）に表示
+- `calcAnnualTax` の戻り値に `marginalIncomeTaxRate` を露出（DRY — autoplan AD detected）
+- UI: 結果画面の年次表に「ふるさと納税 上限 X円」列追加。**課税所得>0の年のみ表示**（autoplan AD-9）。暦タスク化はP1 F-10で実施
 - 退職後は雑所得（年金＋副収入）の課税所得から再計算
-- テスト: 課税所得別の境界値 + 主要ブラケット（5/10/20/23/33%）でスナップショット
+- テスト: 8件（境界5 + property 2 + marginalRate露出 1）
 - 詳細: [改善計画書 §5.4](docs/improvement-plan-fp-cfa-tax.md#54-t-7-ふるさと納税上限)
 
-### 📋 SWR（Safe Withdrawal Rate）自動算定 `[FP-CFA-Tax]`
+### 📋 SWR（Safe Withdrawal Rate）自動算定 `[FP-CFA-Tax]` — v4.6.2
 
-- `src/lib/swr/engine.ts` を新設、`prescription/engine.ts` の expense 軸の二分探索を再利用
+- `src/lib/swr/engine.ts` を新設、ただし `prescription/engine.ts` の expense 軸二分探索ヘルパーへの**委譲ファサード**として実装（DRY — autoplan AD-2）
 - 出力: `{ maxAnnualExpense, rate, vsBengen4Pct }`
-- UI: 結果画面の「最優先アクション」カードに「90% 成功する月支出 = X 万円」
+- **UI: インライン併記**（autoplan User Challenge 1 — タブから方向転換）
+  - 成功率カード直下に1行「90%を維持できる月額支出: 33万円（年400万円・SWR 3.2%）」
+  - 詳細（confidence interval、Bengen 4%比較）は `<details>` で2軍展開
+  - primary 数値は「月額」（autoplan AD-12）
+- テスト: 10件（境界4 + 委譲一致3 + property 3）+ E2E 1件
 - 詳細: [改善計画書 §5.2](docs/improvement-plan-fp-cfa-tax.md#52-c-3-swr-自動算定)
 
-### 📋 iDeCo × 退職金 5/19 年ルール `[FP-CFA-Tax]`
+### 📋 iDeCo × 退職金 5/19 年ルール `[FP-CFA-Tax]` — v4.6.3
 
-- 退職所得控除の重複期間ルール（所得税法施行令70条）をエンジンに追加
-- `RetirementBonusInput.receiveAge` / 新型 `IdecoConfig` を `SimulationInput` に
-- `tax/engine.ts` に `calcEffectiveYearsForLumpSum()` を追加
-- 処方箋に新軸 `idecoTiming` を追加（離散探索 60–75）
+- 退職所得控除の重複期間計算（**完全版** — 所得税法施行令70条＋基本通達30-12）をエンジンに追加（autoplan Premise Gate P-3）
+- `RetirementBonusInput.receiveAge` / 新型 `IdecoConfig` を `SimulationInput` に追加
+- `tax/engine.ts` に `calcEffectiveYearsForLumpSum(p_age, p_yrs, s_age, s_yrs, ruleYears)` を追加。**`Math.max(0, ...)` ガード必須**（gap=0 で負値発生）
+- 5/19年定数は `tax-config-2026.json` に格納（autoplan AD-4 — 条文変更時メンテ性）
+- 処方箋に新軸 `idecoTiming` を追加。**二層探索**（外: 60-75歳の16点離散、内: 既存4軸独立）— 既存4軸との交互作用回避（autoplan AD-14）
+  - Worker 計算量 ~16倍 → 1-2秒。**UI プログレスバー新設必須**
+  - カードは iDeCo残高>0 かつ retirementBonus>0 の場合のみ表示（autoplan AD-10）
+  - **v6 スキーマバンプが必要**: `migrators[5]` に v5→v6 を追加（CRIT-2 で infra 配置済み）
 - 期待効果: 典型ケースで手取り合計 +60–80 万円
+- テスト: 30件（境界13 + e2e税額4 + 控除切替3 + 制約3 + ruleYears切替2 + 典型3 + 軸独立性回帰2）+ E2E 1件
 - 詳細: [改善計画書 §5.1](docs/improvement-plan-fp-cfa-tax.md#51-t-2-ideco--退職金の-519年ルール)
+
+### autoplan で記録した CEO Outside Voice の懸念（採否は v4.7 で再評価）
+
+CEO Outside Voice は v4.6 のスコープ自体に強い異議を表明（[v4.6-autoplan-review.md Phase 1](docs/v4.6-autoplan-review.md)）。User Challenge 2 でユーザーは v4.6 計画維持を選択（P6「元の方向がデフォルト」）したため、以下を v4.7 検討事項として転記:
+
+- **配偶者UI配線が P1 のままで良いか**: `src/components/wizard/spouse-section.tsx` は実装済み、エンジン側もv3+で対応。1-2日でship可能。CEO Outside Voice 推定: 想定ユーザーの60-70%が世帯計画ニーズ
+- **「v4.6.x の累積価値」のリリースノート設計**: 段階リリースで「成功率 67% → 67.2%」のような微差ではなく、「税理士相談で発見される論点を未然にカバー」を訴求軸に
+- **新KPI候補**: 「処方箋カードで実行された施策数」（成功率改善以外の指標）
 
 ---
 

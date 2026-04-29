@@ -53,9 +53,20 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
   const years: YearResult[] = [];
   let depletionAge: number | null = null;
 
+  // 退職翌年住民税ショック (F-2/T-10): 最終在職年の residentTax を退職年に繰り延べ。
+  // 在職モデルは原則「発生年課税」を維持するが、最終在職年（age = retirementAge - 1）のみ
+  // 翌年（退職年 = age = retirementAge）に支払うことで現実に発生する住民税ショックを再現する。
+  // CRIT-1: improvement-plan §5.3 の素直実装は二重計上になるため、最終年を「繰延」する。
+  let pDeferredResidentTax = 0;
+  let sDeferredResidentTax = 0;
+
   for (let age = input.currentAge; age <= input.endAge; age++) {
     const spouseAge = sp ? sp.currentAge + (age - input.currentAge) : 0;
     const taxBd: TaxBreakdown = { incomeTax: 0, residentTax: 0, socialInsurance: 0, withdrawalTax: 0, total: 0 };
+
+    // 退職翌年住民税ショックの追加支出（退職年のみ正値、それ以外は 0）
+    let pResidentTaxShock = 0;
+    let sResidentTaxShock = 0;
 
     // ====== 収入フェーズ ======
 
@@ -65,8 +76,19 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       const taxResult = calcAnnualTax(input.annualSalary, age);
       pIncome = taxResult.netIncome;
       taxBd.incomeTax += taxResult.incomeTax;
-      taxBd.residentTax += taxResult.residentTax;
       taxBd.socialInsurance += taxResult.socialInsurance;
+      if (age === input.retirementAge - 1) {
+        // 最終在職年: 住民税は翌年の退職年に繰延 → 当年は支払わない
+        pIncome += taxResult.residentTax;
+        pDeferredResidentTax = taxResult.residentTax;
+      } else {
+        taxBd.residentTax += taxResult.residentTax;
+      }
+    } else if (age === input.retirementAge && pDeferredResidentTax > 0) {
+      // 退職年: 前年（最終在職年）の住民税ショックを支払い
+      taxBd.residentTax += pDeferredResidentTax;
+      pResidentTaxShock = pDeferredResidentTax;
+      pDeferredResidentTax = 0;
     }
 
     // Spouse: 退職前の給与所得
@@ -75,8 +97,18 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       const taxResult = calcAnnualTax(sp.annualSalary, spouseAge);
       sIncome = taxResult.netIncome;
       taxBd.incomeTax += taxResult.incomeTax;
-      taxBd.residentTax += taxResult.residentTax;
       taxBd.socialInsurance += taxResult.socialInsurance;
+      if (spouseAge === sp.retirementAge - 1) {
+        // Spouse 最終在職年: 翌年に繰延
+        sIncome += taxResult.residentTax;
+        sDeferredResidentTax = taxResult.residentTax;
+      } else {
+        taxBd.residentTax += taxResult.residentTax;
+      }
+    } else if (sp && spouseAge === sp.retirementAge && sDeferredResidentTax > 0) {
+      taxBd.residentTax += sDeferredResidentTax;
+      sResidentTaxShock = sDeferredResidentTax;
+      sDeferredResidentTax = 0;
     }
 
     // ====== 退職金フェーズ ======
@@ -177,9 +209,9 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       const sSocialIns = sp && spouseRetired ? calcSocialInsurancePremium(0, spouseAge) : 0;
       taxBd.socialInsurance += pSocialIns + sSocialIns;
 
-      // 世帯全体の必要額 = 生活費 + 社保(退職者分) + ライフイベント − 在職者の手取り − 年金・副収入
+      // 世帯全体の必要額 = 生活費 + 社保(退職者分) + ライフイベント + 退職翌年住民税ショック − 在職者の手取り − 年金・副収入
       const totalSocialInsurance = pSocialIns + sSocialIns;
-      const totalNeeded = input.annualExpense + totalSocialInsurance + lifeEventExpense;
+      const totalNeeded = input.annualExpense + totalSocialInsurance + lifeEventExpense + pResidentTaxShock + sResidentTaxShock;
       const workerIncome = (!primaryRetired ? pIncome : 0) + (!spouseRetired ? sIncome : 0);
       let remaining = Math.max(0, totalNeeded - workerIncome - postRetirementIncome);
 

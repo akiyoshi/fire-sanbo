@@ -1133,3 +1133,129 @@ describe("リバランスのエッジケース", () => {
     }
   });
 });
+
+/* ---------- v4.6: F-2/T-10 退職翌年住民税ショック ---------- */
+
+describe("退職翌年住民税ショック (F-2/T-10)", () => {
+  // 共通: 確定論的シナリオ（σ=0、numTrials=1、seed固定）で年次の住民税を直接観測
+  const baseDeterministic = (overrides: Partial<SimulationInput> = {}): SimulationInput =>
+    createSimulationInput({
+      currentAge: 48,
+      retirementAge: 50,
+      endAge: 55,
+      annualSalary: 6_000_000,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 20_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      numTrials: 1,
+      inflationRate: 0,
+      seed: 42,
+      ...overrides,
+    });
+
+  it("退職年（age=retirementAge）の住民税が前年の在職給与に比例する", () => {
+    const input = baseDeterministic();
+    const result = runSimulation(input);
+    const yrs = result.trials[0].years;
+    const atRetire = yrs.find((y) => y.age === 50)!;
+    const atWorking = yrs.find((y) => y.age === 49)!;
+    // 退職年の住民税 > 0（前年給与の住民税ショック）
+    expect(atRetire.taxBreakdown.residentTax).toBeGreaterThan(100_000);
+    // 最終在職年（age=49）の住民税は繰延 → 0
+    expect(atWorking.taxBreakdown.residentTax).toBe(0);
+  });
+
+  it("給与=0で退職するケースは住民税ショック額が均等割相当のみ", () => {
+    const input = baseDeterministic({ annualSalary: 0 });
+    const result = runSimulation(input);
+    const atRetire = result.trials[0].years.find((y) => y.age === 50)!;
+    // 給与0 → 所得割 0、均等割（perCapita + forestEnvironmentTax = ¥6,000）のみ
+    // ショック自体は前年給与(0)由来なので、課税効果は均等割のみ
+    expect(atRetire.taxBreakdown.residentTax).toBeLessThan(20_000);
+  });
+
+  it("退職年以外の年（age ≠ retirementAge）にショック追加なし", () => {
+    const input = baseDeterministic();
+    const result = runSimulation(input);
+    const yrs = result.trials[0].years;
+    // age=51, 52, ... の住民税は postRetirement 由来のみ（給与なし → 0 or 年金分）
+    for (const y of yrs.filter((y) => y.age >= 51)) {
+      // pension/sideIncome なしなので 0
+      expect(y.taxBreakdown.residentTax).toBe(0);
+    }
+  });
+
+  // CRIT-1 回帰: 二重計上していないこと
+  it("[CRIT-1 回帰] 全年合計 residentTax が在職年数分のみ（二重計上なし）", () => {
+    const input = baseDeterministic({
+      currentAge: 30,
+      retirementAge: 50, // 在職: 30..49 = 20年分
+      endAge: 51,
+    });
+    const result = runSimulation(input);
+    const yrs = result.trials[0].years;
+    const total = yrs.reduce((acc, y) => acc + y.taxBreakdown.residentTax, 0);
+    // 給与600万・在職20年の住民税が20年分計上されているはず
+    // calcAnnualTax(600万) の residentTax を 20倍した値と一致（誤差<5%）
+    // 給与600万の概算住民税 ≈ 30万円（粗い見積）
+    const expectedPerYear = total / 20;
+    expect(expectedPerYear).toBeGreaterThan(150_000);
+    expect(expectedPerYear).toBeLessThan(400_000);
+    // 二重計上していたら 21年分となり ~5% 過剰になる
+    // ここではタイト境界をかけず、年数分布で検証する
+    const yearsWithResidentTax = yrs.filter((y) => y.taxBreakdown.residentTax > 0).length;
+    expect(yearsWithResidentTax).toBe(20); // 在職18年(30..47) + 通常 + 退職年1年 = 19+1=20年
+  });
+
+  it("[CRIT-1 回帰] 最終在職年（age=49）と退職年（age=50）の合計が住民税1年分に一致", () => {
+    const input = baseDeterministic();
+    const result = runSimulation(input);
+    const yrs = result.trials[0].years;
+    const atFinalWork = yrs.find((y) => y.age === 49)!;
+    const atRetire = yrs.find((y) => y.age === 50)!;
+    // 最終在職年 = 0（繰延）、退職年 = 約30万円（前年給与600万分）
+    expect(atFinalWork.taxBreakdown.residentTax).toBe(0);
+    expect(atRetire.taxBreakdown.residentTax).toBeGreaterThan(150_000);
+    expect(atRetire.taxBreakdown.residentTax).toBeLessThan(400_000);
+  });
+
+  it("配偶者（後発退職）にも同様にショック適用", () => {
+    const input = baseDeterministic({
+      currentAge: 48,
+      retirementAge: 50,
+      endAge: 55,
+      annualSalary: 6_000_000,
+      accounts: { nisa: 0, tokutei: 30_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+    });
+    const spouse: SpouseInput = {
+      currentAge: 46,
+      retirementAge: 50, // spouseAge=50 → primary age=52
+      annualSalary: 4_000_000,
+      accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      idecoYearsOfService: 0,
+      tokuteiGainRatio: 0.5,
+      goldGainRatio: 0.3,
+    };
+    const result = runSimulation({ ...input, spouse });
+    const yrs = result.trials[0].years;
+    // primary 退職年（age=50）と spouse 退職年（age=52）の両方で住民税ショック発生
+    const atPrimaryRetire = yrs.find((y) => y.age === 50)!;
+    const atSpouseRetire = yrs.find((y) => y.age === 52)!;
+    expect(atPrimaryRetire.taxBreakdown.residentTax).toBeGreaterThan(100_000);
+    // spouse retired 年は spouse の前年給与400万分の住民税が乗る
+    expect(atSpouseRetire.taxBreakdown.residentTax).toBeGreaterThan(50_000);
+  });
+
+  it("currentAge=retirementAge（即退職）はショックなし（在職年なし）", () => {
+    const input = baseDeterministic({
+      currentAge: 50,
+      retirementAge: 50,
+      endAge: 55,
+      annualSalary: 0,
+    });
+    const result = runSimulation(input);
+    const atRetire = result.trials[0].years.find((y) => y.age === 50)!;
+    expect(atRetire.taxBreakdown.residentTax).toBe(0);
+  });
+});

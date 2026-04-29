@@ -41,12 +41,24 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     goldCB: new CostBasis(input.accounts.gold_physical, input.goldGainRatio),
   };
 
+  // 退職翌年住民税ショック (CRIT-1 / F-2/T-10): runTrial と同じ繰延ロジック
+  let deferredResidentTax = 0;
+
   for (let age = input.currentAge; age <= input.endAge; age++) {
     // 給与所得
     let income = 0;
+    let residentTaxShock = 0;
     if (age < input.retirementAge) {
       const taxResult = calcAnnualTax(input.annualSalary, age);
       income = taxResult.netIncome;
+      if (age === input.retirementAge - 1) {
+        // 最終在職年: 住民税を翌年に繰延（cash に戻す）
+        income += taxResult.residentTax;
+        deferredResidentTax = taxResult.residentTax;
+      }
+    } else if (age === input.retirementAge && deferredResidentTax > 0) {
+      residentTaxShock = deferredResidentTax;
+      deferredResidentTax = 0;
     }
 
     // 退職金
@@ -84,7 +96,7 @@ function runTrialLite(input: SimulationInput, rng: PRNGType): boolean {
     // 取り崩しフェーズ（退職後）
     if (age >= input.retirementAge) {
       const retiredSocialInsurance = calcSocialInsurancePremium(0, age);
-      const needed = input.annualExpense + retiredSocialInsurance + lifeEventExpense;
+      const needed = input.annualExpense + retiredSocialInsurance + lifeEventExpense + residentTaxShock;
       const remaining = Math.max(0, needed - postRetirementIncome);
 
       if (remaining > 0) {

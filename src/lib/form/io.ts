@@ -1,5 +1,6 @@
 import type { FormState } from "./types";
 import { FORM_SCHEMA_VERSION } from "./types";
+import { migrateForm } from "./migrate";
 
 export function exportFormToJSON(form: FormState): string {
   return JSON.stringify({ version: FORM_SCHEMA_VERSION, form }, null, 2);
@@ -8,7 +9,10 @@ export function exportFormToJSON(form: FormState): string {
 export function importFormFromJSON(json: string): FormState | null {
   try {
     const data = JSON.parse(json);
-    const form = data.form;
+    // CRIT-2: 旧バージョンも migrate 経由で受理（drop しない）
+    const migrated = migrateForm(data);
+    if (!migrated) return null;
+    const form = migrated as any;
     // 基本的なバリデーション（v2/v3共通）
     if (!form || typeof form !== "object") return null;
     if (typeof form.currentAge !== "number" || typeof form.monthlyExpense !== "number") return null;
@@ -34,7 +38,6 @@ export function importFormFromJSON(json: string): FormState | null {
         t.weight = Math.max(0, Math.min(1, t.weight));
       }
     }
-    if (data.version !== FORM_SCHEMA_VERSION) return null;
     return form as FormState;
   } catch {
     return null;
