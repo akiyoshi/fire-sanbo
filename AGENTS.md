@@ -8,7 +8,7 @@
 
 - フレームワーク: Vite 6（dev / build）+ React 19
 - スタイル: Tailwind CSS v4 + shadcn/ui (OKLCH トークン)
-- テスト: Vitest（293 テスト）+ Playwright E2E（6 テスト）
+- テスト: Vitest（368 テスト）+ Playwright E2E（9 テスト）
 - 計算エンジン: [src/lib/](src/lib/) 以下（純 TypeScript、フレームワーク非依存）
 - Web Worker: [src/lib/simulation/worker.ts](src/lib/simulation/worker.ts)
 - テーマ: next-themes（Next.js 非依存で動作）
@@ -86,7 +86,7 @@
 
 ## バージョニング
 
-- 現在: v4.5.10（[package.json](package.json#L3)）
+- 現在: v4.6.7（[package.json](package.json#L3)）
 - パッチ: バグ修正・ドキュメント整理
 - マイナー: 機能追加・スキーマ拡張
 - メジャー: 採用していない（破壊的変更を避ける方針）

@@ -84,7 +84,7 @@ type AppState =
 
 ---
 
-## 4. 税エンジン — 18 関数
+## 4. 税エンジン — 23 関数
 
 [src/lib/tax/engine.ts](src/lib/tax/engine.ts) は 2026 年度税制（[src/config/tax-config-2026.json](src/config/tax-config-2026.json)）を参照する純関数群です。年度切替は [src/config/tax-config-index.ts](src/config/tax-config-index.ts) の `getTaxConfig(year)` で抽象化されており、新年度 JSON を追加するだけで対応できます。
 
@@ -94,6 +94,7 @@ type AppState =
 - `calcBasicDeduction(totalIncome)` / `calcResidentBasicDeduction(totalIncome)`
 - `calcTaxableIncome(totalIncome, socialInsuranceDeduction)`
 - `calcIncomeTax(taxableIncome)` — 累進ブラケット + 復興特別所得税 2.1%
+- `calcMarginalIncomeTaxRate(taxableIncome)` — ブラケット税率（v4.6.1）
 - `calcResidentTax(totalIncome, socialInsuranceDeduction)` — 所得割 + 均等割
 
 ### 社会保険料
@@ -105,6 +106,9 @@ type AppState =
 - `calcRetirementIncomeDeduction(yearsOfService)` — 40 万 × years（≤20 年）+ 70 万 ×（years−20）
 - `calcRetirementTaxableIncome(lumpSum, yearsOfService)` — `floor((lumpSum - deduction) * 0.5)`
 - `calcRetirementBonusNet(amount, yearsOfService)` → `{ net, tax }`
+- `calcEffectiveYearsForLumpSum(firstAge, firstYears, secondAge, secondYears, ruleYears)` — 退職所得控除の重複期間ルール（5/19 年、年単位近似、v4.6.3）
+- `calcCombinedLumpSumNet(ideco, bonus)` — iDeCo 一時金 + 退職金の合算手取り。受給順序を自動判定（v4.6.3）
+- `findOptimalIdecoLumpSumAge(ideco, bonus, range=60-75)` — 最適 receiveAge を離散探索（v4.6.3）
 - `calcTokuteiTax(gain)` → 20.315%
 - `calcNisaTax(gain)` → 0
 - `calcGoldWithdrawalTax(withdrawal, gainRatio, otherIncome)` — 50 万特別控除 + 1/2 課税（長期）
@@ -112,12 +116,15 @@ type AppState =
 ### 年金・副収入
 
 - `calcPublicPensionDeduction(pensionIncome, age)` — 65 歳未満 / 以上で異なる累進控除
-- `calcPensionTax(pensionIncome, age)` → `{ incomeTax, residentTax, total }`
-- `calcSideIncomeTax(sideIncome)` → `{ incomeTax, residentTax, total, net }`
+- `calcComprehensiveTax(pensionTaxable, sideIncome, socialInsuranceDeduction)` → `{ incomeTax, residentTax, total }`
+
+### ふるさと納税
+
+- `calcFurusatoLimit(taxableIncome, marginalRate)` — 自己負担 2,000 円で済む年間寄附上限（総務省ポータル準拠、v4.6.1）
 
 ### 統合
 
-- `calcAnnualTax(salary, age)` → `{ employmentIncome, socialInsurance, incomeTax, residentTax, totalTax, netIncome }`
+- `calcAnnualTax(salary, age)` → `{ employmentIncome, socialInsurance, incomeTax, residentTax, totalTax, netIncome, taxableIncome, marginalIncomeTaxRate }`（後者 2 フィールドは v4.6.1 で追加 — `calcFurusatoLimit` が呼び出し側で再計算せず利用するため）
 - `calcWithdrawalTax(taxCategory, amount, options)` → `WithdrawalResult { gross, tax, net, taxCategory }`（NISA / tokutei / ideco / gold / cash にディスパッチ）
 
 ---
@@ -154,6 +161,16 @@ cash 末尾固定 + 残り課税口座（NISA / tokutei / iDeCo / gold）の全�
 | アロケーション | 効率的フロンティアを走査し「リスクを X% → Y% に調整」を提案、ワンクリック適用 |
 
 各処方箋には難易度タグ（やさしい / ふつう / むずかしい）が付与され、最高インパクトのカードはアクセントボーダーで視覚的に強調されます。runTrialLite は `MemberAccounts` + 共通関数で書き直され（v4.5.5）、Spouse/Primary 重複と iDeCo 60 歳制約のバグが解消されています。
+
+### SWR エンジン（v4.6.2）
+
+[src/lib/swr/engine.ts](src/lib/swr/engine.ts) は `runSimulationLite()` への薄い委譲ファサードで、目標成功率（既定 90%）を満たす最大の年間支出を二分探索します。`prescription/engine.ts` の expense 軸と同じロジックですが、探索範囲を `max(現在支出 × 3, 月100万)` まで拡張するため、資産余裕ユーザーの真の SWR を返せます。
+
+出力 `SWRResult` は `{ maxAnnualExpense, monthlyExpense, rate, vsBengen4Pct, targetRate, convergenceIterations }`。結果画面では成功率カード直下に「90% を維持できる月額支出: X 万円」をインライン表示します（autoplan AD-12）。
+
+### iDeCo×退職金 受給年最適化（v4.6.3）
+
+[src/lib/tax/engine.ts](src/lib/tax/engine.ts) の `findOptimalIdecoLumpSumAge()` は 60〜75 歳を離散探索し、`calcCombinedLumpSumNet()` の合計手取りが最大となる受給年齢を返します。シミュレーション全体は変えず、純粋に税最適化のみを提示するため軽量（< 1ms）。改善カードは iDeCo 残高 > 0 かつ retirementBonus > 0 のときだけ表示され、improvement > 10 万円の場合に「`{optimalAge}` 歳に遅らせると手取り +X 万円」と提案します。
 
 ---
 
@@ -195,14 +212,15 @@ SimulationInput {
 
 ## 9. FormState 永続化
 
-[src/lib/form/](src/lib/form/) は v4.5.7 で 5 ファイルに分割：
+[src/lib/form/](src/lib/form/) は v4.5.7 で 5 ファイルに分割、v4.6.0 でマイグレーション基盤を追加：
 
 | ファイル | 責務 |
 |---------|------|
 | `types.ts` | FormState v5 型定義 |
-| `storage.ts` | localStorage 読み書き + マイグレーション（v2 → v3 → v4 → v5） |
+| `storage.ts` | localStorage 読み書き。`migrateForm()` 経由で旧バージョンを吸収 |
+| `migrate.ts` | スキーマ版差マイグレーション基盤（v4.6.0）。`migrators[N]` への登録で v(N) → v(N+1) を連鎖適用。テスト用フック `__testing__` を `export` |
 | `scenarios.ts` | 名前付きシナリオの保存・読込・一覧 |
-| `io.ts` | JSON エクスポート / インポート、共有 URL から復元 |
+| `io.ts` | JSON エクスポート / インポート、共有 URL から復元。`migrateForm()` 経由で旧バージョンも受理 |
 | `derive.ts` | `formToSimulationInput()` / `spouseFormToInput()` — バリデーション・ガード適用 |
 
 [src/lib/form-state.ts](src/lib/form-state.ts) はバレル再エクスポート（13 行）として残置、29 箇所のインポートパスは未変更です。
@@ -210,7 +228,8 @@ SimulationInput {
 スキーマ進化:
 - **v3**: ライフイベント・年金・退職金・副収入
 - **v4**: `withdrawalOrder`
-- **v5**: `targetAllocation` + `rebalanceEnabled`
+- **v5**: `targetAllocation` + `rebalanceEnabled`（現行）
+- **v6 以降**: `migrate.ts` の `migrators[N]` に 1 行追加で対応
 
 ---
 
@@ -242,22 +261,22 @@ src/components/
 │   # 上記 6 セクションだけが wizard.tsx で import・レンダリングされています。
 │   # spouse-section / template-selector / quick-start / quick-preview は
 │   # ファイルとしては存在しますが現在未配線です（TODOS 参照）。
-├── results.tsx             # 1軍(常時表示) + 2軍(折りたたみ) + What-if + シナリオ保存
+├── results.tsx             # 1軍(常時表示) + 2軍(折りたたみ) + What-if + シナリオ保存。SWR インライン併記 + iDeCo×退職金 改善カードを成功率カード直下に表示（v4.6.4）
 ├── guide-page.tsx          # はじめにガイド（チュートリアル）
 ├── prescription-card.tsx   # 処方箋
-├── worst-case-card.tsx     # 最悪ケース診断書
+├── worst-case-card.tsx     # 最悪ケース診断書 + 退職前1年チェックリスト（住民税ショック現金枠 + ふるさと納税上限、v4.6.4）
 ├── withdrawal-card.tsx     # 取り崩し最適化UI
 ├── tax-breakdown-card.tsx  # 税負担の内訳
 ├── portfolio-optimizer.tsx # 効率的フロンティア（inline モード対応）
 ├── scenario-compare.tsx    # シナリオ比較
 ├── theme-toggle.tsx        # ダーク / ライト切替
-├── methodology/            # 計算根拠書（15 セクション + IntersectionObserver 目次）
+├── methodology/            # 計算根拠書（18 セクション + IntersectionObserver 目次。v4.6.5 で 5/19年・SWR・ふるさと納税 を追加）
 └── ui/                     # shadcn/ui
 ```
 
 ### 結果画面の情報階層
 
-1 カラムレイアウト。1 軍は常時表示（成功率・最優先アクション・資産推移チャート・What-if スライダー・最悪ケース診断書）、2 軍は `<details>` で折りたたみ（処方箋・取り崩し最適化・アセットアロケーション最適化・税負担の内訳）。p5 vs 中央値の対比テーブルは重要年を間引き、暴落年・枯渇年をハイライトします。
+1 カラムレイアウト。1 軍は常時表示（成功率・最優先アクション・SWR インライン・iDeCo タイミング改善カード・資産推移チャート・What-if スライダー・最悪ケース診断書 / 退職準備チェックリスト）、2 軍は `<details>` で折りたたみ（処方箋・取り崩し最適化・アセットアロケーション最適化・税負担の内訳・ふるさと納税 上限の年次推移）。p5 vs 中央値の対比テーブルは重要年を間引き、暴落年・枯渇年をハイライトします。
 
 ---
 
@@ -265,23 +284,27 @@ src/components/
 
 | ファイル | テスト数 | 検証範囲 |
 |---------|---------|---------|
+| `simulation/engine.test.ts` | 66 | 成功率、パーセンタイル、インフレ、年金、配偶者、iDeCo、costBasis、リバランスエッジ、退職翌年住民税ショック (F-2/T-10)、ふるさと納税年次出力 (T-7)、退職年統合シナリオ |
 | `form-state.test.ts` | 55 | 入力変換、ストレージ、シナリオ、年齢ガード、上限、DoS 対策 |
-| `simulation/engine.test.ts` | 54 | 成功率、パーセンタイル、インフレ、年金、配偶者、iDeCo、costBasis、リバランスエッジ |
 | `tax/engine.test.ts` | 43 | 全税計算、エッジケース、FIRE シナリオ |
-| `prescription/engine.test.ts` | 22 | 処方箋生成、難易度、収入軸、アロケーション軸、境界値 |
+| `tax/overlap.test.ts` | 28 | iDeCo×退職金 5/19 年ルール、重複期間境界、最適 receiveAge 探索（v4.6.3 新規） |
+| `prescription/engine.test.ts` | 24 (+1 skipped) | 処方箋生成、難易度、収入軸、アロケーション軸、境界値、runTrial/runTrialLite drift 検出 |
 | `portfolio/optimizer.test.ts` | 18 | フロンティア、ウェイト、リスク許容度、selectByMode |
 | `url-share.test.ts` | 17 | 圧縮/展開、decompression bomb |
 | `withdrawal/optimizer.test.ts` | 15 | 順列、ランキング、決定論モード、cash 除外、yearlyAssets |
 | `simulation/cost-basis.test.ts` | 14 | CostBasis: 初期化、gainRatio、contribute、withdraw、含み損回復 |
+| `tax/furusato.test.ts` | 13 | ふるさと納税上限、限界税率、ブラケット境界、denominator 安全弁（v4.6.1 新規） |
+| `form/migrate.test.ts` | 10 | FormState 版差マイグレーション、identity / throw kill-switch / 連鎖 skip-1-step（v4.6.0 新規） |
 | `portfolio/engine.test.ts` | 10 | ポートフォリオ合成、相関 |
 | `simulation/helpers.test.ts` | 10 | drawFromAccounts、contributeSurplus |
 | `scenario-templates.test.ts` | 10 | テンプレート適用、delta マージ |
+| `swr/engine.test.ts` | 10 | SWR 自動算定、二分探索収束、prescription 委譲一致（v4.6.2 新規） |
 | `simulation/member-withdrawal.test.ts` | 9 | 退職後課税考慮取り崩し |
 | `simulation/diagnosis.test.ts` | 7 | p5 診断、失敗分類 |
+| `tax-config-index.test.ts` | 4 | 年度切替 |
 | `wizard.test.tsx` | 4 | Wizard UI コンポーネント |
 | `prescription-card.test.tsx` | 1 | 処方箋カード UI |
-| `tax-config-index.test.ts` | 4 | 年度切替 |
-| **合計** | **368** | + Playwright E2E 9（SWR/退職準備/ふるさと納税 含む） |
+| **合計** | **368** | + Playwright E2E 9（SWR サマリ / 退職準備 / ふるさと納税 details 含む） |
 
 ### テスト共通ユーティリティ
 
