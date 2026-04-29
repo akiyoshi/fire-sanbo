@@ -49,16 +49,19 @@
 - **テスト**: +14 件 (293→307)
   - F-2/T-10 + CRIT-1 回帰: 7件 ([engine.test.ts](src/lib/simulation/engine.test.ts))
   - migration: 7件 ([migrate.test.ts](src/lib/form/migrate.test.ts))
-- **UI 拡張は未実施**: WorstCaseCard 内「退職準備」セクション (autoplan AD-11) は v4.6.1 と一括で UI 化予定
+- **UI 拡張は未実施**: WorstCaseCard 内「退職準備」セクション (autoplan AD-11) は v4.6.4 で UI 化予定
 
-### 📋 ふるさと納税の年次上限算定 `[FP-CFA-Tax]` — v4.6.1
+### ✅ v4.6.1 完了 (2026-04-29)
 
-- `src/lib/tax/engine.ts` に `calcFurusatoLimit(taxableIncome, marginalRate)` を追加
-- `calcAnnualTax` の戻り値に `marginalIncomeTaxRate` を露出（DRY — autoplan AD detected）
-- UI: 結果画面の年次表に「ふるさと納税 上限 X円」列追加。**課税所得>0の年のみ表示**（autoplan AD-9）。暦タスク化はP1 F-10で実施
-- 退職後は雑所得（年金＋副収入）の課税所得から再計算
-- テスト: 8件（境界5 + property 2 + marginalRate露出 1）
-- 詳細: [改善計画書 §5.4](docs/improvement-plan-fp-cfa-tax.md#54-t-7-ふるさと納税上限)
+- **T-7 ふるさと納税上限** — 完了
+  - [tax/engine.ts](src/lib/tax/engine.ts): `calcFurusatoLimit(taxableIncome, marginalRate)` 新設、`calcMarginalIncomeTaxRate` ヘルパー追加
+  - **DRY**: `AnnualTaxResult` に `taxableIncome` / `marginalIncomeTaxRate` を露出（autoplan AD detected — 呼び出し側でのブラケット再計算不要）
+  - [simulation/engine.ts](src/lib/simulation/engine.ts) の `runTrial` で `YearResult.furusatoLimit?` を年次出力。在職中は給与所得から、退職後は総合課税所得から算定
+  - autoplan AD-9: 課税所得 0 の年も `2_000`（自己負担のみ）として記録、UI 表示時にフィルタする想定
+- **テスト**: +15 件 (307→322)
+  - [tax/furusato.test.ts](src/lib/tax/furusato.test.ts): 12件（境界5 + property 2 + DRY 1 + marginalRate 4）
+  - [simulation/engine.test.ts](src/lib/simulation/engine.test.ts): 統合 3件（在職/退職後ゼロ/退職後年金あり）
+- **UI 列追加は v4.6.4 に集約**
 
 ### 📋 SWR（Safe Withdrawal Rate）自動算定 `[FP-CFA-Tax]` — v4.6.2
 

@@ -18,6 +18,9 @@ import {
   calcRetirementBonusNet,
   calcGoldWithdrawalTax,
   calcGoldTaxableIncome,
+  calcFurusatoLimit,
+  calcMarginalIncomeTaxRate,
+  calcTaxableIncome,
 } from "@/lib/tax";
 
 /**
@@ -563,6 +566,22 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
 
     const totalIncome = pIncome + sIncome + postRetirementIncome;
 
+    // v4.6.1 (T-7): ふるさと納税年間上限。
+    // 在職時は primary の給与所得課税所得から、退職後は primary の総合課税所得（年金+副収入）の課税所得から算定。
+    // autoplan AD-9: 課税所得 0 の年は 2,000 円（自己負担のみ）として記録、UI 側で表示フィルタ。
+    let furusatoLimit = 2_000;
+    if (age < input.retirementAge) {
+      const primaryAnnual = calcAnnualTax(input.annualSalary, age);
+      furusatoLimit = calcFurusatoLimit(
+        primaryAnnual.taxableIncome,
+        primaryAnnual.marginalIncomeTaxRate,
+      );
+    } else if (pComprehensiveIncome > 0) {
+      const taxableComp = calcTaxableIncome(pComprehensiveIncome, 0);
+      const marginal = calcMarginalIncomeTaxRate(taxableComp);
+      furusatoLimit = calcFurusatoLimit(taxableComp, marginal);
+    }
+
     years.push({
       age,
       totalAssets: Math.round(totalAssets),
@@ -575,6 +594,7 @@ function runTrial(input: SimulationInput, rng: PRNG): TrialResult {
       expense: input.annualExpense + lifeEventExpense,
       taxBreakdown: taxBd,
       withdrawal: Math.round(withdrawal),
+      furusatoLimit,
       portfolioReturn: (() => {
         const totalPrev = pNisaPrev + pTokuteiPrev + pIdecoPrev + pGoldPrev;
         if (totalPrev <= 0) return 0;

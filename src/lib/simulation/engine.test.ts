@@ -1259,3 +1259,64 @@ describe("退職翌年住民税ショック (F-2/T-10)", () => {
     expect(atRetire.taxBreakdown.residentTax).toBe(0);
   });
 });
+
+/* ---------- v4.6.1: T-7 ふるさと納税上限 (年次表示) ---------- */
+
+describe("ふるさと納税上限 (T-7) — 年次出力", () => {
+  it("在職中の年に furusatoLimit > 2,000（給与所得から計算）", () => {
+    const input = createSimulationInput({
+      currentAge: 35,
+      retirementAge: 50,
+      endAge: 70,
+      annualSalary: 6_000_000,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      numTrials: 1,
+      seed: 42,
+    });
+    const result = runSimulation(input);
+    const inWork = result.trials[0].years.find((y) => y.age === 40)!;
+    expect(inWork.furusatoLimit).toBeDefined();
+    expect(inWork.furusatoLimit!).toBeGreaterThan(40_000);
+    expect(inWork.furusatoLimit!).toBeLessThan(150_000);
+  });
+
+  it("給与なし・年金なし・副収入なしの退職後は furusatoLimit = 2,000（自己負担のみ）", () => {
+    const input = createSimulationInput({
+      currentAge: 50,
+      retirementAge: 50,
+      endAge: 60,
+      annualSalary: 0,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 30_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      numTrials: 1,
+      seed: 42,
+      pension: undefined,
+    });
+    const result = runSimulation(input);
+    const postRetire = result.trials[0].years.find((y) => y.age === 55)!;
+    expect(postRetire.furusatoLimit).toBe(2_000);
+  });
+
+  it("退職後・年金収入ありの年は furusatoLimit > 2,000", () => {
+    const input = createSimulationInput({
+      currentAge: 65,
+      retirementAge: 65,
+      endAge: 80,
+      annualSalary: 0,
+      annualExpense: 3_000_000,
+      accounts: { nisa: 0, tokutei: 30_000_000, ideco: 0, gold_physical: 0, cash: 0 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      numTrials: 1,
+      seed: 42,
+      // 公的年金等控除を超える年金収入で課税所得 > 0 を発生させる
+      pension: { kosei: 250_000, kokumin: 65_000, startAge: 65 },
+    });
+    const result = runSimulation(input);
+    const at70 = result.trials[0].years.find((y) => y.age === 70)!;
+    // 課税所得 > 0 の年は限度額が自己負担を上回る
+    expect(at70.furusatoLimit!).toBeGreaterThan(2_000);
+  });
+});

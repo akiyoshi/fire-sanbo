@@ -151,6 +151,12 @@ export interface YearResult {
   taxBreakdown: TaxBreakdown;
   withdrawal: number;
   portfolioReturn: number;
+  /**
+   * ふるさと納税の年間上限額（円、自己負担2,000円分含む）。
+   * v4.6.1 (T-7): 課税所得 > 0 の年のみ正値、それ以外は 2,000（下限）。
+   * UI 側は autoplan AD-9 に従い「課税所得 > 0 の年のみ表示」する。
+   */
+  furusatoLimit?: number;
 }
 
 export interface TrialResult {

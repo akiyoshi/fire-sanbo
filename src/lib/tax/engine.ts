@@ -133,6 +133,30 @@ export function calcIncomeTax(taxableIncome: number, cfg = config): number {
 }
 
 /**
+ * 課税所得から限界税率（その所得が属するブラケットの税率）を取得。
+ *
+ * v4.6.1 (T-7): ふるさと納税の上限算定で必要。`calcAnnualTax` の戻り値にも露出。
+ *
+ * 注意: 復興特別所得税（×1.021）はふるさと納税公式側で別途適用するため、ここでは
+ *       純粋なブラケット税率（5/10/20/23/33/40/45%）のみを返す。
+ *
+ * @param taxableIncome - 課税所得（円）
+ * @returns 0〜0.45 の税率
+ */
+export function calcMarginalIncomeTaxRate(
+  taxableIncome: number,
+  cfg = config
+): number {
+  if (taxableIncome <= 0) return 0;
+  for (const bracket of cfg.incomeTax.brackets) {
+    if (bracket.to !== null && taxableIncome > bracket.to) continue;
+    return bracket.rate;
+  }
+  // 全ブラケット to !== null なら最後のブラケットの税率
+  return cfg.incomeTax.brackets[cfg.incomeTax.brackets.length - 1]?.rate ?? 0;
+}
+
+/**
  * 住民税額を計算（所得割 + 均等割）
  */
 export function calcResidentTax(
@@ -203,6 +227,10 @@ export interface AnnualTaxResult {
   residentTax: number;
   totalTax: number;
   netIncome: number;
+  /** 課税所得（v4.6.1 T-7 ふるさと納税 上限算定で参照） */
+  taxableIncome: number;
+  /** 限界所得税率（v4.6.1 T-7） */
+  marginalIncomeTaxRate: number;
 }
 
 /**
@@ -220,6 +248,7 @@ export function calcAnnualTax(
   const residentTax = calcResidentTax(employmentIncome, socialInsurance, cfg);
   const totalTax = incomeTax + residentTax + socialInsurance;
   const netIncome = salary - totalTax;
+  const marginalIncomeTaxRate = calcMarginalIncomeTaxRate(taxableIncome, cfg);
 
   return {
     employmentIncome,
@@ -228,7 +257,39 @@ export function calcAnnualTax(
     residentTax,
     totalTax,
     netIncome,
+    taxableIncome,
+    marginalIncomeTaxRate,
   };
+}
+
+/**
+ * ふるさと納税の年間自己負担2,000円で済む寄附上限額。
+ *
+ * v4.6.1 (T-7): 総務省「ふるさと納税ポータル」の標準計算式に準拠。
+ *
+ *   limit = (taxableIncome × 0.10 × 0.20) / (1 − marginalRate × 1.021 − 0.10) + 2000
+ *
+ * - 0.10 = 住民税所得割の標準税率
+ * - 0.20 = 特例控除部分の上限割合
+ * - 1.021 = 復興特別所得税の係数
+ *
+ * 課税所得 0 円のユーザーは 2,000 円（自己負担分のみ）を返す。
+ *
+ * @param taxableIncome - 課税所得（円、`calcAnnualTax().taxableIncome` を渡す）
+ * @param marginalIncomeTaxRate - 限界所得税率（0〜0.45、`calcAnnualTax().marginalIncomeTaxRate`）
+ * @returns 上限額（円、整数）
+ */
+export function calcFurusatoLimit(
+  taxableIncome: number,
+  marginalIncomeTaxRate: number,
+): number {
+  const FLAT_FEE = 2000;
+  if (taxableIncome <= 0) return FLAT_FEE;
+  // 高所得側で分母が 0 や負になることはない（最大 marginalRate=0.45 なら 0.5405、最低 0.05 なら 0.7990）
+  const denominator = 1 - marginalIncomeTaxRate * 1.021 - 0.10;
+  if (denominator <= 0) return FLAT_FEE; // 安全弁
+  const numerator = taxableIncome * 0.10 * 0.20;
+  return Math.floor(numerator / denominator) + FLAT_FEE;
 }
 
 /** 金現物: 50万円特別控除（所得税法33条3項2号） */
