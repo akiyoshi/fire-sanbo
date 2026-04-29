@@ -238,11 +238,10 @@ src/components/
 │   ├── portfolio-section   # 資産入力 + 合成 + 最適化 + アロケーションバー
 │   ├── income-section      # 年金・退職金・副収入
 │   ├── events-section      # ライフイベント
-│   ├── advanced-section    # インフレ率・含み益率・試行回数
-│   ├── spouse-section      # 配偶者入力
-│   ├── template-selector   # テンプレートプリセット 5 種
-│   ├── quick-start         # 3 項目クイックスタート
-│   └── quick-preview       # ライブプレビュー
+│   └── advanced-section    # インフレ率・含み益率・試行回数
+│   # 上記 6 セクションだけが wizard.tsx で import・レンダリングされています。
+│   # spouse-section / template-selector / quick-start / quick-preview は
+│   # ファイルとしては存在しますが現在未配線です（TODOS 参照）。
 ├── results.tsx             # 1軍(常時表示) + 2軍(折りたたみ) + What-if + シナリオ保存
 ├── guide-page.tsx          # はじめにガイド（チュートリアル）
 ├── prescription-card.tsx   # 処方箋
@@ -279,7 +278,8 @@ src/components/
 | `scenario-templates.test.ts` | 10 | テンプレート適用、delta マージ |
 | `simulation/member-withdrawal.test.ts` | 9 | 退職後課税考慮取り崩し |
 | `simulation/diagnosis.test.ts` | 7 | p5 診断、失敗分類 |
-| `wizard.test + prescription-card.test` | 4 + 4 | UI コンポーネント |
+| `wizard.test.tsx` | 4 | Wizard UI コンポーネント |
+| `prescription-card.test.tsx` | 1 | 処方箋カード UI |
 | `tax-config-index.test.ts` | 4 | 年度切替 |
 | **合計** | **293** | + Playwright E2E 6（共有 URL 復元、What-if スライダー含む） |
 

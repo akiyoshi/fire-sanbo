@@ -29,7 +29,18 @@
 
 ## P1 — UX 改善
 
-### 💭 結果画面のオンボーディングオーバーレイ
+### � ウィザード UI に未配線コンポーネントを配線
+
+[src/components/wizard/](src/components/wizard/) には実装済みだが [wizard.tsx](src/components/wizard.tsx) で未 import の以下が眠っています。エンジン側は対応済みのため UI 配線のみで利用可能になります。
+
+- `spouse-section.tsx` — 配偶者の年齢・退職年齢・年収を入力する CollapsibleCard。FormState `spouseEnabled` / `spouse` は既に v3+ で対応済み
+- `template-selector.tsx` — 5 種テンプレート（転職 / 住宅購入 / 教育費 / 早期退職 / 年金繰下げ）。`scenario-templates.ts` は実装済み
+- `quick-start.tsx` — 3 項目クイックスタート（v1.8.0 実装、v4.5.0 で `BasicSection` に統合した経緯あり、現状は重複）
+- `quick-preview.tsx` — ライブプレビュー
+
+判断: spouse-section の配線が最優先（エンジン機能の主要ギャップ）。template-selector は採否を再評価。quick-start / quick-preview は削除候補（重複機能）。
+
+### �💭 結果画面のオンボーディングオーバーレイ
 
 新規ユーザー向けに、結果画面の「成功率ゲージ → What-if スライダー → 処方箋」を 3 ステップでハイライトするコーチマーク。`localStorage` に `hasSeenResultsTour` を保存し 1 回限り表示。
 
