@@ -36,7 +36,7 @@
 | 新機能の追加 | ARCHITECTURE.md（実装地図）+ DESIGN.md（採用理由が新規の場合のみ） |
 | 設計判断の変更 | DESIGN.md（理由を更新） |
 | 内部リファクタ | ARCHITECTURE.md（影響箇所のみ） |
-| TODOS.md の項目を着手 | TODOS.md でステータス変更、完了したら「完了済み」セクションへ移動 |
+| TODOS.md の項目を着手 | TODOS.md でステータス変更、完了したらエントリ自体を削除（履歴は CHANGELOG.md / git log を参照） |
 | テスト追加 | ARCHITECTURE.md §12 のテスト数を更新 |
 | 依存関係のメジャーバンプ評価 | DESIGN.md / ARCHITECTURE.md §15 のチェックリスト |
 | 凍結項目の再開 / 新規凍結 | TODOS.md の凍結セクション |
