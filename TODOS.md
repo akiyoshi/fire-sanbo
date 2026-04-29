@@ -33,6 +33,50 @@
 
 ---
 
+## P0 — v4.7 最優先（リリース体験の安全化）
+
+### 🔥 deploy 失敗検出フロー（`/ship` 事前ゲート + post-push 監視）
+
+**背景**: v4.6.0〜v4.6.6 の **7本連続でデプロイが失敗** しており、本番が v4.5.10 のまま約 1 時間取り残されていた（`/land-and-deploy` で初めて発覚）。原因は CI の `npm run lint` (`@typescript-eslint/no-explicit-any`) が `migrate.ts` で 7 件失敗していたが、`/ship` の事前検証は `vitest` + `tsc` のみで lint 未実行だったため見過ごした。
+
+**目的**: 「ローカルは緑、CI は赤、本番は古い版のまま」という silent failure を二度と起こさない。
+
+**実装**:
+
+1. **`/ship` 事前ゲートの強化**（最重要）
+   - `npm run lint` を tests / build と同列で必須チェックに昇格
+   - lint 失敗時は **commit 前** に停止、自動修正可能なものは fix offer
+   - 既存の vitest + tsc + build に lint を追加で約 +5 秒のコスト
+
+2. **CI 失敗時のローカル通知 / 検出**
+   - push 後 90 秒以内に `gh run list --limit 1 --json conclusion` をポーリング
+   - 失敗を検出したら、次のセッション開始時 (`/preamble` 相当) で警告を出す
+   - 候補: `.gstack/last-deploy-status.json` に書き込み、各スキル起動時に確認
+   - 別案: `gh run watch` を `/ship` の最終ステップに同梱（最大 5 分待機 + タイムアウト時は警告のみ）
+
+3. **連続失敗の自動検出**
+   - `gh run list --workflow=deploy.yml --limit 10` で過去10本を取得
+   - 直近3本以上が `failure` なら 🔴 アラートをセッション開始時に表示
+   - 「本番は v{N} で取り残されています、`/land-and-deploy` を実行してください」と誘導
+
+4. **Dependabot PR の deploy 失敗対応**
+   - メジャーバンプ Dependabot PR でも同じ仕組みで早期検出
+   - 失敗時は `@dependabot rebase` または手動修正のフロー記録
+
+5. **ドキュメント**
+   - [ARCHITECTURE.md §14 デプロイ](ARCHITECTURE.md#14-デプロイ) に「deploy 失敗時のリカバリ手順」を追記
+   - 学習記録: `npm run lint` を CI に置く以上、ローカル `/ship` でも必ず走らせる
+
+**完了条件**:
+- [ ] `/ship` スキルに `npm run lint` ゲート追加
+- [ ] 連続失敗検出ロジックの実装と検証
+- [ ] ARCHITECTURE.md にリカバリ手順追記
+- [ ] 学習記録 (memory/learnings) にコミット
+
+**優先度の根拠**: 「本番が古いまま」は機能バグより重大。プラニング・実装・テストが完璧でも、ユーザーに届いていなければ価値ゼロ。次の v4.7 マイルストーン着手前に必ず潰す。
+
+---
+
 ## P0 — v4.6 マイルストーン（FP / CFA / 税理士 精度向上）
 
 `[FP-CFA-Tax]` 計画書 §4.1 から抜粋。プロのFP相談で必ず話題になる項目で、未対応のままだと「精度の高いツール」とは言えない領域。
