@@ -2,6 +2,8 @@
 
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
+ナビゲーション: **README** · [DESIGN](DESIGN.md) · [ARCHITECTURE](ARCHITECTURE.md) · [TODOS](TODOS.md) · [Archive](docs/archive/)
+
 日本の税制・社会保険料を反映したモンテカルロFIREシミュレーター。
 
 「成功確率67%」で終わらない — 支出削減・退職延期・収入増加・アロケーション最適化の4軸で「90%にするには？」を逆算する処方箋エンジン搭載。
@@ -30,7 +32,7 @@
 | スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
 | アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |
-| テスト | Vitest (279テスト, ~2秒) + Playwright E2E (6テスト) |
+| テスト | Vitest (293テスト, ~10秒) + Playwright E2E (6テスト) |
 | 言語 | TypeScript 5 (strict) |
 | 品質 | ESLint 9 + typescript-eslint + react-hooks |
 | CI/CD | GitHub Actions → GitHub Pages |
@@ -45,30 +47,19 @@ npm run test:e2e   # playwright E2Eテスト
 npm run build      # 本番ビルド → dist/
 ```
 
-## プロジェクト構造
+## ドキュメント
 
-```
-src/
-├── App.tsx              # エントリポイント (6フェーズステートマシン + React.lazy)
-├── main.tsx             # ReactDOM.createRoot
-├── app/globals.css      # Tailwind + テーマ変数 (OKLCH)
-├── components/          # UI コンポーネント
-│   ├── wizard.tsx       # 入力フォーム + CollapsibleCardセクション
-│   ├── wizard/          # セクション別入力 + 目標アロケーションUI
-│   ├── results.tsx      # 結果画面 + What-if + シナリオ保存
-│   ├── guide-page.tsx   # はじめにガイド（チュートリアル）
-│   ├── prescription-card.tsx  # 処方箋
-│   ├── worst-case-card.tsx    # 最悪ケース診断書
-│   ├── portfolio-optimizer.tsx # 効率的フロンティア
-│   ├── scenario-compare.tsx   # シナリオ比較
-│   ├── methodology/     # 計算根拠書 (15セクション・4グループ)
-│   └── ui/              # shadcn/ui
-├── config/              # 税制・資産クラスデータ (JSON) + テンプレート + 年度切替
-└── lib/                 # 計算エンジン (フレームワーク非依存)
-    ├── url-share.ts     # 共有URL圧縮/展開
-    ├── simulation/      # モンテカルロ + Worker + 診断 + costBasis追跡 + 口座ヘルパー
-    ├── prescription/    # 処方箋 (二分探索)
-    ├── tax/             # 税制エンジン
-    ├── portfolio/       # ポートフォリオ合成 + 最適化
-    └── withdrawal/      # 取り崩し順序最適化
-```
+| ファイル | 役割 |
+|---------|------|
+| [DESIGN.md](DESIGN.md) | ビジョン・原則・設計判断 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 現在の実装（コード地図・エンジン詳細・テスト構成） |
+| [TODOS.md](TODOS.md) | 未着手の改善案（優先度付き） |
+| [CHANGELOG.md](CHANGELOG.md) | 履歴アーカイブ |
+| [AGENTS.md](AGENTS.md) | AI エージェント向けの作業ルール |
+| [docs/archive/](docs/archive/) | 過去の大規模設計判断（履歴） |
+
+プロジェクト構造の詳細は [ARCHITECTURE.md §11](ARCHITECTURE.md#11-ui-コンポーネント) を参照してください。
+
+## ライセンス
+
+個人プロジェクトとして公開。免責: 投資判断の責任はユーザーに帰属します。
