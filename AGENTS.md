@@ -55,9 +55,38 @@
 - 新フィールドはオプショナル + デフォルト値で後方互換を維持
 - FormState スキーマ変更時は `storage.ts` のマイグレーションを追加
 
+## テストコード規約
+
+テストヘルパーの命名と配置は以下に従ってください。違反した場合 PR レビューで差し戻されます。
+
+### 命名
+
+| 用途 | プレフィックス | 例 |
+|------|---------------|----|
+| テストデータ生成（オブジェクト/複合データ） | `create*()` | `createSimulationInput()`, `createMemberAccounts()` |
+| 共通アサーション | `expect*()` | `expectPercentilesOrdered()`, `expectInRange()` |
+| URL/文字列など組み立てが複雑な値 | `build*()` | `buildShareHash()` |
+
+**禁止:**
+- `make*()` 系の命名（過去の `makeAccts` / `makeYear` / `makeAccounts` は廃止）
+- テストファイルごとに同等の fixture を再定義すること
+
+### 配置
+
+- ファクトリ関数 (`create*`) は [src/lib/test-utils/fixtures.ts](src/lib/test-utils/fixtures.ts)
+- アサーション関数 (`expect*`) は [src/lib/test-utils/assertions.ts](src/lib/test-utils/assertions.ts)
+- インポート: `import { createSimulationInput } from "@/lib/test-utils";`
+- `src/lib/test-utils/` は **テストファイルからのみ** import する（本番コードからの参照禁止）
+
+### 既定値の方針
+
+- `createSimulationInput()` の既定値は「働き世代の個人 FIRE」を想定した中庸な値
+- テスト固有の差分は `overrides` で明示的に上書きする（既定値に依存しすぎない）
+- ファイルローカルに 2 ヶ所以上同じ overrides を書く場合は、ファイル内ヘルパー（例: `function baseInput(o) { return createSimulationInput({ numTrials: 200, ...o }); }`）として 1 度だけラップする
+
 ## バージョニング
 
-- 現在: v4.5.7（[package.json](package.json#L3)）
+- 現在: v4.5.8（[package.json](package.json#L3)）
 - パッチ: バグ修正・ドキュメント整理
 - マイナー: 機能追加・スキーマ拡張
 - メジャー: 採用していない（破壊的変更を避ける方針）

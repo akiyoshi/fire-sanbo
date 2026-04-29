@@ -1,6 +1,6 @@
 # FIRE参謀 — アーキテクチャ
 
-> **バージョン**: v4.5.7（293 ユニットテスト + 6 E2E）
+> **バージョン**: v4.5.8（293 ユニットテスト + 6 E2E）
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
 ナビゲーション: [README](README.md) · [DESIGN](DESIGN.md) · **ARCHITECTURE** · [TODOS](TODOS.md) · [Archive](docs/archive/)
@@ -261,7 +261,7 @@ src/components/
 
 ---
 
-## 12. テスト構成（v4.5.7 — 293 ユニット + 6 E2E）
+## 12. テスト構成（v4.5.8 — 293 ユニット + 6 E2E）
 
 | ファイル | テスト数 | 検証範囲 |
 |---------|---------|---------|
@@ -282,6 +282,14 @@ src/components/
 | `prescription-card.test.tsx` | 1 | 処方箋カード UI |
 | `tax-config-index.test.ts` | 4 | 年度切替 |
 | **合計** | **293** | + Playwright E2E 6（共有 URL 復元、What-if スライダー含む） |
+
+### テスト共通ユーティリティ
+
+[src/lib/test-utils/](src/lib/test-utils/) にテスト専用のヘルパーを集約。テストファイルからのみ参照可、本番コードからの import は禁止。
+
+- [fixtures.ts](src/lib/test-utils/fixtures.ts): `createSimulationInput`, `createMemberAccounts`, `createSpouseInput`, `createYearResult`, `createTrialResult`
+- [assertions.ts](src/lib/test-utils/assertions.ts): `expectPercentilesOrdered`, `expectInRange`
+- 命名規約と利用方針は [AGENTS.md](AGENTS.md) の「テストコード規約」を参照
 
 ---
 

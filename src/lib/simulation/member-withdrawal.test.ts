@@ -1,27 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { withdrawFromMember } from "./member-withdrawal";
-import type { MemberAccounts } from "./helpers";
 import { CostBasis } from "./cost-basis";
 import type { TaxCategory } from "@/lib/tax";
-
-function makeAccounts(overrides: Partial<Record<"nisa" | "tokutei" | "ideco" | "gold" | "cash", number>> = {}): MemberAccounts {
-  return {
-    nisa: overrides.nisa ?? 0,
-    tokutei: overrides.tokutei ?? 0,
-    ideco: overrides.ideco ?? 0,
-    gold: overrides.gold ?? 0,
-    cash: overrides.cash ?? 1_000_000,
-    nisaCumulative: overrides.nisa ?? 0,
-    tokuteiCB: new CostBasis(overrides.tokutei ?? 0, 0.5),
-    goldCB: new CostBasis(overrides.gold ?? 0, 0.3),
-  };
-}
+import { createMemberAccounts } from "@/lib/test-utils";
 
 const DEFAULT_ORDER: TaxCategory[] = ["cash", "nisa", "tokutei", "gold_physical", "ideco"];
 
 describe("withdrawFromMember", () => {
   it("cashのみ取り崩し: 税ゼロ", () => {
-    const accts = makeAccounts({ cash: 3_000_000 });
+    const accts = createMemberAccounts({ cash: 3_000_000 });
     const result = withdrawFromMember(accts, 1_000_000, DEFAULT_ORDER, 65, {
       yearsOfService: 20,
       comprehensiveIncome: 0,
@@ -33,7 +20,7 @@ describe("withdrawFromMember", () => {
 
   it("NISA → tokutei順: NISAは非課税、tokuteiは課税", () => {
     const order: TaxCategory[] = ["nisa", "tokutei", "cash", "gold_physical", "ideco"];
-    const accts = makeAccounts({ nisa: 500_000, tokutei: 2_000_000 });
+    const accts = createMemberAccounts({ nisa: 500_000, tokutei: 2_000_000 });
     const result = withdrawFromMember(accts, 1_000_000, order, 65, {
       yearsOfService: 20,
       comprehensiveIncome: 0,
@@ -48,7 +35,7 @@ describe("withdrawFromMember", () => {
 
   it("iDeCo 60歳未満はスキップ", () => {
     const order: TaxCategory[] = ["ideco", "cash", "nisa", "tokutei", "gold_physical"];
-    const accts = makeAccounts({ ideco: 5_000_000, cash: 1_000_000 });
+    const accts = createMemberAccounts({ ideco: 5_000_000, cash: 1_000_000 });
     const result = withdrawFromMember(accts, 500_000, order, 55, {
       yearsOfService: 20,
       comprehensiveIncome: 0,
@@ -61,7 +48,7 @@ describe("withdrawFromMember", () => {
 
   it("iDeCo 60歳以上は取り崩し可能", () => {
     const order: TaxCategory[] = ["ideco", "cash", "nisa", "tokutei", "gold_physical"];
-    const accts = makeAccounts({ ideco: 5_000_000 });
+    const accts = createMemberAccounts({ ideco: 5_000_000 });
     const result = withdrawFromMember(accts, 500_000, order, 60, {
       yearsOfService: 20,
       comprehensiveIncome: 0,
@@ -71,7 +58,7 @@ describe("withdrawFromMember", () => {
   });
 
   it("tokutei取り崩しでCostBasis按分減少", () => {
-    const accts = makeAccounts({ tokutei: 2_000_000 });
+    const accts = createMemberAccounts({ tokutei: 2_000_000 });
     // gainRatio = 0.5 → 含み益50%
     const cbBefore = accts.tokuteiCB.gainRatio(accts.tokutei);
     expect(cbBefore).toBeCloseTo(0.5);
@@ -88,7 +75,7 @@ describe("withdrawFromMember", () => {
   });
 
   it("gold取り崩しでcomprehensiveIncome累積", () => {
-    const accts = makeAccounts({ gold: 3_000_000 });
+    const accts = createMemberAccounts({ gold: 3_000_000 });
     const order: TaxCategory[] = ["gold_physical", "cash", "nisa", "tokutei", "ideco"];
     const result = withdrawFromMember(accts, 1_000_000, order, 65, {
       yearsOfService: 20,
@@ -102,7 +89,7 @@ describe("withdrawFromMember", () => {
   });
 
   it("gold大口取り崩しでcomprehensiveIncomeが増加", () => {
-    const accts = makeAccounts({ gold: 10_000_000 });
+    const accts = createMemberAccounts({ gold: 10_000_000 });
     // costBasis作り直し: gainRatio=0.5 → 含み益50%
     accts.goldCB = new CostBasis(10_000_000, 0.5);
     const order: TaxCategory[] = ["gold_physical", "cash", "nisa", "tokutei", "ideco"];
@@ -118,7 +105,7 @@ describe("withdrawFromMember", () => {
   });
 
   it("deficit > 全口座残高 → 全額引き出し", () => {
-    const accts = makeAccounts({ cash: 500_000, nisa: 300_000 });
+    const accts = createMemberAccounts({ cash: 500_000, nisa: 300_000 });
     const result = withdrawFromMember(accts, 2_000_000, DEFAULT_ORDER, 65, {
       yearsOfService: 20,
       comprehensiveIncome: 0,
@@ -129,7 +116,7 @@ describe("withdrawFromMember", () => {
   });
 
   it("deficit = 0 → 何も引き出さない", () => {
-    const accts = makeAccounts({ cash: 1_000_000 });
+    const accts = createMemberAccounts({ cash: 1_000_000 });
     const result = withdrawFromMember(accts, 0, DEFAULT_ORDER, 65, {
       yearsOfService: 20,
       comprehensiveIncome: 0,

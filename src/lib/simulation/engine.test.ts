@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import { PRNG, generateLogNormalReturn } from "./random";
 import { runSimulation } from "./engine";
 import type { SimulationInput, SpouseInput } from "./types";
+import {
+  createSimulationInput,
+  expectPercentilesOrdered,
+} from "@/lib/test-utils";
 
 describe("乱数生成", () => {
   it("シード固定で再現可能", () => {
@@ -53,22 +57,10 @@ describe("乱数生成", () => {
 });
 
 describe("モンテカルロシミュレーション", () => {
-  const baseInput: SimulationInput = {
-    currentAge: 35,
-    retirementAge: 50,
-    endAge: 95,
+  const baseInput: SimulationInput = createSimulationInput({
     annualSalary: 8_000_000,
-    annualExpense: 3_600_000,
     accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0, cash: 0 },
-    allocation: { expectedReturn: 0.05, standardDeviation: 0.15 },
-    idecoYearsOfService: 20,
-    tokuteiGainRatio: 0.5,
-    goldGainRatio: 0.3,
-    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
-    numTrials: 100,
-    inflationRate: 0.02,
-    seed: 42,
-  };
+  });
 
   // P0 #5: 固定リターン0%、支出>収入 → 成功確率低い
   it("低リターン・高支出で成功確率が低い", () => {
@@ -104,12 +96,7 @@ describe("モンテカルロシミュレーション", () => {
 
   it("パーセンタイルの正しい順序: p5 ≤ p25 ≤ p50 ≤ p75 ≤ p95", () => {
     const result = runSimulation(baseInput);
-    for (let i = 0; i < result.ages.length; i++) {
-      expect(result.percentiles.p5[i]).toBeLessThanOrEqual(result.percentiles.p25[i]);
-      expect(result.percentiles.p25[i]).toBeLessThanOrEqual(result.percentiles.p50[i]);
-      expect(result.percentiles.p50[i]).toBeLessThanOrEqual(result.percentiles.p75[i]);
-      expect(result.percentiles.p75[i]).toBeLessThanOrEqual(result.percentiles.p95[i]);
-    }
+    expectPercentilesOrdered(result);
   });
 
   it("年齢配列が正しい", () => {
@@ -145,22 +132,15 @@ describe("モンテカルロシミュレーション", () => {
 describe("取り崩し順序", () => {
   // P0 #7: NISA→特定→iDeCo順 → 税額が逆順より少ない
   it("NISA先行の方が税額が少ない", () => {
-    const baseInput: SimulationInput = {
+    const baseInput: SimulationInput = createSimulationInput({
       currentAge: 50,
       retirementAge: 50,
       endAge: 70,
       annualSalary: 0,
-      annualExpense: 3_600_000,
       accounts: { nisa: 30_000_000, tokutei: 30_000_000, ideco: 20_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
-      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 50,
-      inflationRate: 0.02,
-      seed: 42,
-    };
+    });
 
     const nisaFirst = runSimulation(baseInput);
     const idecoFirst = runSimulation({
@@ -553,7 +533,7 @@ describe("iDeCo年齢制約", () => {
 });
 
 describe("口座別リターン（Stage 1）", () => {
-  const baseInput: SimulationInput = {
+  const baseInput: SimulationInput = createSimulationInput({
     currentAge: 50,
     retirementAge: 50,
     endAge: 60,
@@ -561,14 +541,10 @@ describe("口座別リターン（Stage 1）", () => {
     annualExpense: 0,
     accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.05, standardDeviation: 0 },
-    idecoYearsOfService: 20,
-    tokuteiGainRatio: 0.5,
-    goldGainRatio: 0.3,
     withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
     numTrials: 1,
     inflationRate: 0,
-    seed: 42,
-  };
+  });
 
   it("accountAllocationsがあると口座別にリターンが適用される", () => {
     const input: SimulationInput = {

@@ -2,26 +2,16 @@ import { describe, it, expect } from "vitest";
 import { runSimulationLite, generatePrescriptions } from "./engine";
 import type { FrontierPoint } from "./engine";
 import type { SimulationInput } from "@/lib/simulation";
+import { createSimulationInput } from "@/lib/test-utils";
 
-/** テスト用の基準入力 */
+/** prescription テスト基準入力（既定 200 試行 / 支出 300 万 / iDeCo 15 年）。差分は overrides で上書き */
 function baseInput(overrides?: Partial<SimulationInput>): SimulationInput {
-  return {
-    currentAge: 35,
-    retirementAge: 50,
-    endAge: 95,
-    annualSalary: 6_000_000,
+  return createSimulationInput({
     annualExpense: 3_000_000,
-    accounts: { nisa: 3_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0, cash: 0 },
-    allocation: { expectedReturn: 0.05, standardDeviation: 0.15 },
     idecoYearsOfService: 15,
-    tokuteiGainRatio: 0.5,
-    goldGainRatio: 0.3,
-    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: 200,
-    inflationRate: 0.02,
-    seed: 42,
     ...overrides,
-  };
+  });
 }
 
 describe("runSimulationLite", () => {

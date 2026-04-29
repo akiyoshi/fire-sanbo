@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { optimizeWithdrawalOrder } from "./optimizer";
-import type { SimulationInput } from "@/lib/simulation";
+import { createSimulationInput } from "@/lib/test-utils";
 
-const baseInput: SimulationInput = {
+const baseInput = createSimulationInput({
   currentAge: 50,
   retirementAge: 50,
   endAge: 80,
@@ -10,14 +10,8 @@ const baseInput: SimulationInput = {
   annualExpense: 3_600_000,
   accounts: { nisa: 20_000_000, tokutei: 20_000_000, ideco: 10_000_000, gold_physical: 0, cash: 0 },
   allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
-  idecoYearsOfService: 20,
-  tokuteiGainRatio: 0.5,
-  goldGainRatio: 0.3,
-  withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
   numTrials: 50,
-  inflationRate: 0.02,
-  seed: 42,
-};
+});
 
 describe("取り崩し順序最適化", () => {
   it("残高>0のアクティブカテゴリの全パターンが返される", () => {
