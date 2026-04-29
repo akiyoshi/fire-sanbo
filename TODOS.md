@@ -94,6 +94,20 @@
 
 ## P4 — 開発者体験 / 品質
 
+### 📋 engine.test.ts 残りベタ書き入力の整理（v4.5.8 継続）
+
+v4.5.8 で `src/lib/test-utils/` を導入し、約 10 箇所のベタ書き `SimulationInput` を `createSimulationInput({...})` 経由に整理した。残り約 16 箇所のベタ書き入力（特に `tokuteiGainRatio: 0` のような非デフォルト値を含むテスト）はまだ未整理。
+
+- 対象: [src/lib/simulation/engine.test.ts](src/lib/simulation/engine.test.ts) の `const x: SimulationInput = { ... }` 形式
+- 方針: 各テストの差分のみが見える形に整理（共通項はデフォルト値に依存させる）
+- 注意: `tokuteiGainRatio: 0` / `goldGainRatio: 0` などデフォルト値（0.5 / 0.3）と異なる箇所は明示的に override する必要がある
+
+### 💭 確率テストの許容幅明示化（F-7、評価結果）
+
+v4.5.8 の現状診断で「確率テストの flakiness」を懸念したが、再評価の結果 **すべての確率テストは `seed: 42` 固定で deterministic** であり、現行の閾値（`successRate < 0.5` など）はリファクタリング耐性も十分。`numTrials` を上げて許容幅を狭める作業は **CI 実行時間とのトレードオフが見合わない** ため、当面着手しない。
+
+将来的にエンジン挙動を大きく変更する予定が立った場合、その PR と合わせて再検討する。
+
 ### 💭 Storybook 導入
 
 shadcn/ui コンポーネント + 自前カードコンポーネント（prescription-card / worst-case-card / withdrawal-card / portfolio-optimizer）のビジュアルリグレッションテスト。Vite 連携の Storybook 8。

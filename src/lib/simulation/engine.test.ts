@@ -159,7 +159,7 @@ describe("取り崩し順序", () => {
 /* ---------- v0.9: 年金・退職金・副収入・ライフイベント・NISA枠 ---------- */
 
 describe("年金統合", () => {
-  const pensionInput: SimulationInput = {
+  const pensionInput: SimulationInput = createSimulationInput({
     currentAge: 50,
     retirementAge: 50,
     endAge: 80,
@@ -167,14 +167,8 @@ describe("年金統合", () => {
     annualExpense: 3_000_000,
     accounts: { nisa: 20_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
-    idecoYearsOfService: 20,
-    tokuteiGainRatio: 0.5,
-    goldGainRatio: 0.3,
-    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: 50,
-    inflationRate: 0.02,
-    seed: 42,
-  };
+  });
 
   it("年金ありは年金なしより成功率が高い", () => {
     const withPension = runSimulation({
@@ -216,22 +210,15 @@ describe("年金統合", () => {
 
 describe("退職金", () => {
   it("退職金ありで退職年の資産が増加", () => {
-    const base: SimulationInput = {
+    const base: SimulationInput = createSimulationInput({
       currentAge: 48,
       retirementAge: 50,
       endAge: 60,
       annualSalary: 8_000_000,
-      annualExpense: 3_600_000,
       accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
-      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 10,
-      inflationRate: 0.02,
-      seed: 42,
-    };
+    });
     const withBonus = runSimulation({
       ...base,
       retirementBonus: { amount: 20_000_000, yearsOfService: 25 },
@@ -245,7 +232,7 @@ describe("退職金", () => {
 
 describe("副収入（サイドFIRE）", () => {
   it("副収入ありで取り崩し額が減少", () => {
-    const base: SimulationInput = {
+    const base: SimulationInput = createSimulationInput({
       currentAge: 50,
       retirementAge: 50,
       endAge: 70,
@@ -253,14 +240,8 @@ describe("副収入（サイドFIRE）", () => {
       annualExpense: 3_000_000,
       accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
-      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 10,
-      inflationRate: 0.02,
-      seed: 42,
-    };
+    });
     const withSide = runSimulation({
       ...base,
       sideIncome: { annualAmount: 1_500_000, untilAge: 65 },
@@ -274,25 +255,17 @@ describe("副収入（サイドFIRE）", () => {
 
 describe("ライフイベント", () => {
   it("ライフイベントのある年は支出が増加", () => {
-    const base: SimulationInput = {
-      currentAge: 35,
+    const base: SimulationInput = createSimulationInput({
       retirementAge: 60,
       endAge: 70,
       annualSalary: 8_000_000,
-      annualExpense: 3_600_000,
       accounts: { nisa: 5_000_000, tokutei: 10_000_000, ideco: 3_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
-      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 10,
-      inflationRate: 0.02,
-      seed: 42,
       lifeEvents: [
         { label: "住宅購入", age: 40, amount: 10_000_000 },
       ],
-    };
+    });
     const result = runSimulation(base);
     // 40歳（index=5）の支出は通常+1000万
     const at40 = result.trials[0].years[5];
@@ -305,23 +278,17 @@ describe("ライフイベント", () => {
 
 describe("NISA年間積立枠", () => {
   it("NISA枠設定ありで余剰がNISAに優先配分", () => {
-    const base: SimulationInput = {
-      currentAge: 35,
-      retirementAge: 50,
+    const base: SimulationInput = createSimulationInput({
       endAge: 60,
       annualSalary: 8_000_000,
       annualExpense: 2_000_000,
       accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 15,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
-      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 1,
       inflationRate: 0.0,
-      seed: 42,
       nisaConfig: { annualLimit: 3_600_000, lifetimeLimit: 18_000_000 },
-    };
+    });
     const result = runSimulation(base);
     // 1年目: 手取り - 支出 の余剰分、NISA枠360万まではNISAに入る
     const year1 = result.trials[0].years[0];
@@ -329,23 +296,17 @@ describe("NISA年間積立枠", () => {
   });
 
   it("NISA枠なし（従来互換）で全額特定口座", () => {
-    const base: SimulationInput = {
-      currentAge: 35,
-      retirementAge: 50,
+    const base: SimulationInput = createSimulationInput({
       endAge: 60,
       annualSalary: 8_000_000,
       annualExpense: 2_000_000,
       accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.04, standardDeviation: 0.01 },
       idecoYearsOfService: 15,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
-      withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
       numTrials: 1,
       inflationRate: 0.0,
-      seed: 42,
       // nisaConfig未設定
-    };
+    });
     const result = runSimulation(base);
     // NISA口座は初期値0のまま増えない（リターンで増えるだけ）
     // 実際には初期値0なので0*return=0
@@ -358,22 +319,13 @@ describe("NISA年間積立枠", () => {
 /* ---------- v1.0: 世帯シミュレーション ---------- */
 
 describe("世帯シミュレーション", () => {
-  const singleInput: SimulationInput = {
-    currentAge: 35,
-    retirementAge: 50,
+  const singleInput: SimulationInput = createSimulationInput({
     endAge: 80,
-    annualSalary: 6_000_000,
-    annualExpense: 3_600_000,
     accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 2_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.05, standardDeviation: 0.01 },
     idecoYearsOfService: 15,
-    tokuteiGainRatio: 0.5,
-    goldGainRatio: 0.3,
-    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
     numTrials: 50,
-    inflationRate: 0.02,
-    seed: 42,
-  };
+  });
 
   const spouse: SpouseInput = {
     currentAge: 33,
@@ -465,7 +417,7 @@ describe("世帯シミュレーション", () => {
 });
 
 describe("iDeCo年齢制約", () => {
-  const idecoInput: SimulationInput = {
+  const idecoInput: SimulationInput = createSimulationInput({
     currentAge: 50,
     retirementAge: 50,
     endAge: 70,
@@ -473,14 +425,10 @@ describe("iDeCo年齢制約", () => {
     annualExpense: 2_000_000,
     accounts: { nisa: 0, tokutei: 0, ideco: 30_000_000, gold_physical: 0, cash: 0 },
     allocation: { expectedReturn: 0.03, standardDeviation: 0 },
-    idecoYearsOfService: 20,
-    tokuteiGainRatio: 0.5,
-    goldGainRatio: 0.3,
     withdrawalOrder: ["ideco", "nisa", "tokutei", "gold_physical", "cash"],
     numTrials: 1,
     inflationRate: 0,
-    seed: 42,
-  };
+  });
 
   it("60歳未満ではiDeCoから取り崩しできない", () => {
     const result = runSimulation(idecoInput);
@@ -503,23 +451,17 @@ describe("iDeCo年齢制約", () => {
 
   it("退職前の赤字フェーズでiDeCoのみ保有なら取り崩しゼロ", () => {
     // 退職前に巨額ライフイベントで赤字 → iDeCoのみなので取り崩し不可
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 30,
-      retirementAge: 50,
-      endAge: 70,
       annualSalary: 3_000_000,
       annualExpense: 2_000_000,
       accounts: { nisa: 0, tokutei: 0, ideco: 10_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.03, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
       withdrawalOrder: ["ideco", "nisa", "tokutei", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       lifeEvents: [{ label: "住宅購入", age: 31, amount: 20_000_000 }],
-    };
+    });
     const result = runSimulation(input);
     // 31歳: ライフイベント20Mで大赤字 → iDeCoのみ保有かつ age<60 → 取り崩し不可
     const at31 = result.trials[0].years[1];
@@ -577,28 +519,23 @@ describe("口座別リターン（Stage 1）", () => {
 
 describe("積立リバランス（Stage 2）", () => {
   it("目標ウェイトに近づくように積立先を選択する", () => {
-    const input: SimulationInput = {
-      currentAge: 35,
+    const input: SimulationInput = createSimulationInput({
       retirementAge: 45,
       endAge: 50,
       annualSalary: 6_000_000,
       annualExpense: 3_000_000,
       accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0.05, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
       withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       nisaConfig: { annualLimit: 3_600_000, lifetimeLimit: 18_000_000 },
       rebalance: {
         enabled: true,
         targetWeights: { nisa: 0.6, tokutei: 0.2, ideco: 0, gold_physical: 0, cash: 0.2 },
         threshold: 0.05,
       },
-    };
+    });
     const result = runSimulation(input);
     // 目標: NISA 60%, tokutei 20%, cash 20%
     // リバランスにより、NISAへの積立が優先されるはず
@@ -651,7 +588,7 @@ describe("退職後リバランス（Stage 3）", () => {
 
   it("リバランス後の総資産はリバランス前以下（money-creation防止）", () => {
     // 全資産がNISAに集中、目標は50/50 → NISAから売却して tokutei に移す
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 60,
       retirementAge: 60,
       endAge: 65,
@@ -659,19 +596,15 @@ describe("退職後リバランス（Stage 3）", () => {
       annualExpense: 0, // 支出ゼロでリバランスの影響のみを観察
       accounts: { nisa: 20_000_000, tokutei: 0, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 }, // リターンゼロ
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
       withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       rebalance: {
         enabled: true,
         targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
         threshold: 0.05,
       },
-    };
+    });
     const result = runSimulation(input);
     for (const year of result.trials[0].years) {
       // リターン0・支出0なので、資産の増加は起こり得ない（リバランス課税による減少のみ許容）
@@ -681,7 +614,7 @@ describe("退職後リバランス（Stage 3）", () => {
 
   it("特定口座の売却でtaxBreakdown.withdrawalTaxに20.315%課税が反映される", () => {
     // tokutei が過大 → 売却 → 課税
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 60,
       retirementAge: 60,
       endAge: 62,
@@ -689,19 +622,15 @@ describe("退職後リバランス（Stage 3）", () => {
       annualExpense: 0,
       accounts: { nisa: 5_000_000, tokutei: 15_000_000, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5, // 含み益率50%
-      goldGainRatio: 0.3,
       withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       rebalance: {
         enabled: true,
         targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
         threshold: 0.05,
       },
-    };
+    });
     const result = runSimulation(input);
     const year0 = result.trials[0].years[0];
     // tokutei 15M → target 10M の場合、5M売却 × 50%含み益 × 20.315% ≈ 508K の税
@@ -714,7 +643,7 @@ describe("退職後リバランス（Stage 3）", () => {
   });
 
   it("55歳FIREでiDeCoはリバランスから除外される（60歳未満ロック）", () => {
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 55,
       retirementAge: 55,
       endAge: 65,
@@ -722,19 +651,15 @@ describe("退職後リバランス（Stage 3）", () => {
       annualExpense: 500_000,
       accounts: { nisa: 5_000_000, tokutei: 5_000_000, ideco: 10_000_000, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
       withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       rebalance: {
         enabled: true,
         targetWeights: { nisa: 0.25, tokutei: 0.25, ideco: 0.25, gold_physical: 0, cash: 0.25 },
         threshold: 0.05,
       },
-    };
+    });
     const result = runSimulation(input);
     // 55-59歳: iDeCoの残高はリバランスで変動しない（ロック）
     for (let i = 0; i < 5; i++) {
@@ -749,7 +674,7 @@ describe("退職後リバランス（Stage 3）", () => {
 describe("金の総合課税統合", () => {
   it("年金+金売却の同一年で税額が単独計算の合計より大きい", () => {
     // 年金あり + 金取り崩しのケース
-    const withPension: SimulationInput = {
+    const withPension: SimulationInput = createSimulationInput({
       currentAge: 65,
       retirementAge: 65,
       endAge: 70,
@@ -757,15 +682,12 @@ describe("金の総合課税統合", () => {
       annualExpense: 3_000_000,
       accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 20_000_000, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
       goldGainRatio: 0.5,
       withdrawalOrder: ["gold_physical", "nisa", "tokutei", "ideco", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       pension: { kosei: 100_000, kokumin: 65_000, startAge: 65 },
-    };
+    });
     // 年金なしの同一設定
     const withoutPension: SimulationInput = {
       ...withPension,
@@ -781,7 +703,7 @@ describe("金の総合課税統合", () => {
   });
 
   it("金のみ取り崩し(年金なし)→後方互換で正常動作", () => {
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 65,
       retirementAge: 65,
       endAge: 70,
@@ -789,14 +711,11 @@ describe("金の総合課税統合", () => {
       annualExpense: 2_000_000,
       accounts: { nisa: 0, tokutei: 0, ideco: 0, gold_physical: 20_000_000, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
       goldGainRatio: 0.5,
       withdrawalOrder: ["gold_physical", "nisa", "tokutei", "ideco", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
-    };
+    });
     const result = runSimulation(input);
     // 金のみ・年金なしは正常に動作する
     expect(result.successRate).toBeGreaterThanOrEqual(0);
@@ -809,7 +728,7 @@ describe("金の総合課税統合", () => {
 
   it("リバランス金売却が累進税率で課税される（一律20%ではない）", () => {
     // 年金収入が高い状態で金リバランス → 累進で税率が上がる
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 65,
       retirementAge: 65,
       endAge: 68,
@@ -817,20 +736,17 @@ describe("金の総合課税統合", () => {
       annualExpense: 500_000,
       accounts: { nisa: 5_000_000, tokutei: 0, ideco: 0, gold_physical: 15_000_000, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 },
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
       goldGainRatio: 0.5,
       withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       pension: { kosei: 150_000, kokumin: 65_000, startAge: 65 },
       rebalance: {
         enabled: true,
         targetWeights: { nisa: 0.5, tokutei: 0, ideco: 0, gold_physical: 0.5, cash: 0 },
         threshold: 0.05,
       },
-    };
+    });
     const result = runSimulation(input);
     // リバランスで金が売却される場合、withdrawalTaxが発生する
     // 重要: calcGoldWithdrawalTax(amount, ratio, comprehensiveIncome) を使っている
@@ -878,22 +794,17 @@ describe("取得費（costBasis）追跡", () => {
   it("積立するとcostBasisが増えて含み益率が低下し税率が下がる", () => {
     // 同額の取り崩しに対して、積立がある方がgainRatio低→税率低
     // 余剰を tokutei に積立 → costBasis増加 → gainRatio低下
-    const withSurplus: SimulationInput = {
+    const withSurplus: SimulationInput = createSimulationInput({
       currentAge: 40,
-      retirementAge: 50,
       endAge: 52,
       annualSalary: 8_000_000,
       annualExpense: 3_000_000, // 余剰→tokuteiに積立
       accounts: { nisa: 0, tokutei: 10_000_000, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 }, // リターン0
-      idecoYearsOfService: 20,
-      tokuteiGainRatio: 0.5,
-      goldGainRatio: 0.3,
       withdrawalOrder: ["tokutei", "nisa", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
-    };
+    });
     // 積立なし（余剰ゼロ）
     const noSurplus: SimulationInput = {
       ...withSurplus,
@@ -971,7 +882,7 @@ describe("取得費（costBasis）追跡", () => {
 
   it("リバランスで動的gainRatioが使われる", () => {
     // リターンで含み益率が変化した後のリバランス
-    const input: SimulationInput = {
+    const input: SimulationInput = createSimulationInput({
       currentAge: 60,
       retirementAge: 60,
       endAge: 63,
@@ -979,19 +890,16 @@ describe("取得費（costBasis）追跡", () => {
       annualExpense: 0,
       accounts: { nisa: 5_000_000, tokutei: 15_000_000, ideco: 0, gold_physical: 0, cash: 0 },
       allocation: { expectedReturn: 0, standardDeviation: 0 },
-      idecoYearsOfService: 20,
       tokuteiGainRatio: 0, // 含み益ゼロ → costBasis = 15M
-      goldGainRatio: 0.3,
       withdrawalOrder: ["nisa", "tokutei", "ideco", "gold_physical", "cash"],
       numTrials: 1,
       inflationRate: 0,
-      seed: 42,
       rebalance: {
         enabled: true,
         targetWeights: { nisa: 0.5, tokutei: 0.5, ideco: 0, gold_physical: 0, cash: 0 },
         threshold: 0.05,
       },
-    };
+    });
     const result = runSimulation(input);
     // gainRatio=0 → 含み益なし → リバランス売却しても税=0
     const year0 = result.trials[0].years[0];
