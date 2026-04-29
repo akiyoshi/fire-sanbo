@@ -73,6 +73,14 @@ describe("v4.6.1: ふるさと納税上限 (calcFurusatoLimit)", () => {
     }
   });
 
+  // gstack-review v4.6.5: denominator <= 0 安全弁の検証
+  it("[安全弁] marginalRate=1.0 など分母が非正になる異常値で 2,000 を返す", () => {
+    // 1 - 1.0 * 1.021 - 0.10 = -0.121 (< 0)
+    expect(calcFurusatoLimit(5_000_000, 1.0)).toBe(2_000);
+    // 1 - 0.95 * 1.021 - 0.10 ≈ -0.07 (< 0)
+    expect(calcFurusatoLimit(10_000_000, 0.95)).toBe(2_000);
+  });
+
   // ---- C) `calcAnnualTax` への marginalRate 露出 (1件) ----
 
   it("[DRY] calcAnnualTax の戻り値だけで上限が算定可能（再計算不要）", () => {

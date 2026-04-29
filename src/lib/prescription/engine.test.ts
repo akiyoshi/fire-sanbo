@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { runSimulationLite, generatePrescriptions } from "./engine";
 import type { FrontierPoint } from "./engine";
 import type { SimulationInput } from "@/lib/simulation";
+import { runSimulation } from "@/lib/simulation/engine";
 import { createSimulationInput } from "@/lib/test-utils";
 
 /** prescription テスト基準入力（既定 200 試行 / 支出 300 万 / iDeCo 15 年）。差分は overrides で上書き */
@@ -240,5 +241,61 @@ describe("処方箋の境界値", () => {
     // retirement処方箋が生成され、75歳以下であること
     expect(retireRx).toBeDefined();
     expect(retireRx!.targetValue).toBeLessThanOrEqual(75);
+  });
+});
+
+/* ---------- gstack-review v4.6.5 (C1): runTrial / runTrialLite drift detection ---------- */
+
+describe("runTrialLite と runTrial の drift 検出", () => {
+  // /gstack-review C1: runTrialLite は runTrial の手動コピーで、新機能追加時の同期忘れリスクが高い。
+  // 完全一致は要求できない（Lite は意図的にリバランス・配偶者・口座別リターンを持たない）が、
+  // **基本的なシングル世帯シナリオでは successRate が大きく乖離しない** ことを検証する。
+  // 乖離が広がった場合に CI が赤くなり、Lite 側の更新忘れに気づける。
+
+  const SINGLE_HOUSEHOLD_BASE: SimulationInput = {
+    currentAge: 50,
+    retirementAge: 50,
+    endAge: 80,
+    annualSalary: 0,
+    annualExpense: 3_000_000,
+    accounts: { nisa: 10_000_000, tokutei: 10_000_000, ideco: 5_000_000, gold_physical: 0, cash: 0 },
+    allocation: { expectedReturn: 0.04, standardDeviation: 0.15 },
+    idecoYearsOfService: 20,
+    tokuteiGainRatio: 0.5,
+    goldGainRatio: 0.3,
+    withdrawalOrder: ["nisa", "tokutei", "gold_physical", "ideco"],
+    numTrials: 200,
+    inflationRate: 0.02,
+    seed: 42,
+  };
+
+  it("[drift] シングル世帯・基本シナリオで successRate の差は < 5%", () => {
+    const liteRate = runSimulationLite(SINGLE_HOUSEHOLD_BASE);
+    const heavyResult = runSimulation(SINGLE_HOUSEHOLD_BASE);
+    const heavyRate = heavyResult.successRate;
+    expect(Math.abs(liteRate - heavyRate)).toBeLessThan(0.05);
+  });
+
+  it("[drift] 退職金あり・iDeCo ありシナリオでも乖離 < 8%", () => {
+    const input: SimulationInput = {
+      ...SINGLE_HOUSEHOLD_BASE,
+      currentAge: 48,
+      retirementAge: 50,
+      endAge: 75,
+      annualSalary: 6_000_000,
+      retirementBonus: { amount: 10_000_000, yearsOfService: 25 },
+      pension: { kosei: 100_000, kokumin: 65_000, startAge: 65 },
+    };
+    const liteRate = runSimulationLite(input);
+    const heavyRate = runSimulation(input).successRate;
+    // Heavy 側は furusato 計算 + 住民税繰延あり → わずかに値が下がる方向
+    // 8% は経験的閾値: これを超えたら Lite 側に同期忘れの疑い
+    expect(Math.abs(liteRate - heavyRate)).toBeLessThan(0.08);
+  });
+
+  // NOTE: 配偶者あり (spouse) のテストは現状 runTrialLite が spouse 未対応のため
+  // 大きく乖離する。spouse サポートを Lite に追加した時点でこのテストを有効化:
+  it.skip("[drift] 配偶者あり世帯では現状 Lite と乖離する (Lite に spouse 未実装)", () => {
+    // TODOS: v4.7+ で spouse を Lite にも実装したら有効化
   });
 });

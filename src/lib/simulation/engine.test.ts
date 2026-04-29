@@ -1320,3 +1320,75 @@ describe("ふるさと納税上限 (T-7) — 年次出力", () => {
     expect(at70.furusatoLimit!).toBeGreaterThan(2_000);
   });
 });
+
+/* ---------- v4.6.5 (gstack-review C3): 統合シナリオ ---------- */
+
+describe("v4.6 統合シナリオ — 退職年に全機能が共起", () => {
+  // /gstack-review C3: 5/19年ルール + 退職金 + ふるさと納税 + 住民税ショック が
+  // 同一試行内で正しく相互作用することを担保する。
+
+  it("退職年に retirementBonus の税 + 住民税ショック + ふるさと納税上限が同時に出る", () => {
+    const input = createSimulationInput({
+      currentAge: 48,
+      retirementAge: 50,
+      endAge: 65,
+      annualSalary: 8_000_000, // 退職前年に課税所得あり → ふるさと納税上限 + 住民税ショック大
+      annualExpense: 4_000_000,
+      accounts: { nisa: 5_000_000, tokutei: 30_000_000, ideco: 8_000_000, gold_physical: 0, cash: 5_000_000 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      numTrials: 1,
+      seed: 42,
+      // 退職金: 勤続30年で1500万円 (退職所得控除 1500万 ちょうど → 税ゼロぎりぎり)
+      retirementBonus: { amount: 15_000_000, yearsOfService: 30 },
+      pension: { kosei: 200_000, kokumin: 65_000, startAge: 65 },
+    });
+
+    const result = runSimulation(input);
+    const yrs = result.trials[0].years;
+
+    // 退職前年(49) のふるさと納税上限は給与 800 万由来で大きい
+    const atFinalWork = yrs.find((y) => y.age === 49)!;
+    expect(atFinalWork.furusatoLimit!).toBeGreaterThan(50_000);
+    // 最終在職年は住民税繰延 → 0
+    expect(atFinalWork.taxBreakdown.residentTax).toBe(0);
+
+    // 退職年(50) には:
+    //  (a) 前年給与由来の住民税ショック (>15万)
+    //  (b) 退職金の税 (退職所得控除 1500万に対して amount=1500万 → 課税所得0 → 税0)
+    const atRetire = yrs.find((y) => y.age === 50)!;
+    expect(atRetire.taxBreakdown.residentTax).toBeGreaterThan(150_000); // 住民税ショック
+    expect(atRetire.taxBreakdown.withdrawalTax).toBe(0); // 退職金は控除内
+
+    // 退職後・年金未開始 (51-64): 住民税ショックなし、ふるさと納税上限は自己負担のみ
+    const at55 = yrs.find((y) => y.age === 55)!;
+    expect(at55.taxBreakdown.residentTax).toBe(0);
+    expect(at55.furusatoLimit).toBe(2_000);
+
+    // 年金開始(65): 課税所得発生 → ふるさと納税上限が上昇
+    const at65 = yrs.find((y) => y.age === 65)!;
+    expect(at65.furusatoLimit!).toBeGreaterThanOrEqual(2_000);
+  });
+
+  it("退職金が控除超過で課税対象になるケース", () => {
+    const input = createSimulationInput({
+      currentAge: 48,
+      retirementAge: 50,
+      endAge: 55,
+      annualSalary: 6_000_000,
+      annualExpense: 3_600_000,
+      accounts: { nisa: 0, tokutei: 20_000_000, ideco: 0, gold_physical: 0, cash: 5_000_000 },
+      allocation: { expectedReturn: 0, standardDeviation: 0 },
+      numTrials: 1,
+      seed: 42,
+      // 勤続15年 (控除 600万) で退職金 2000万 → 課税所得 (2000-600)/2=700万
+      retirementBonus: { amount: 20_000_000, yearsOfService: 15 },
+    });
+
+    const result = runSimulation(input);
+    const atRetire = result.trials[0].years.find((y) => y.age === 50)!;
+    // 退職金の税が発生
+    expect(atRetire.taxBreakdown.withdrawalTax).toBeGreaterThan(500_000);
+    // 住民税ショックも同時発生
+    expect(atRetire.taxBreakdown.residentTax).toBeGreaterThan(150_000);
+  });
+});

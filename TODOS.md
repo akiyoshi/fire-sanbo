@@ -110,6 +110,51 @@ v4.6.0〜v4.6.3 でエンジン側完全実装済みの機能を UI に統合:
 - **テスト**: ユニット 360 件 + E2E 9 件 全パス。型チェック・ビルド OK
 - v4.6.0〜v4.6.5 の累積成果は CHANGELOG ではなく `git log --oneline v4.5.10..v4.6.5` で参照
 
+### ✅ v4.6.6 完了 (2026-04-29) — gstack-review fix-up
+
+`/gstack-review` で検出された CRITICAL 4件 + INFORMATIONAL 17件のうち、自動修正可能な 6件を適用:
+
+- **C1 drift 検出テスト** (testing + maintainability MULTI-CONFIRMED): [prescription/engine.test.ts](src/lib/prescription/engine.test.ts) に runTrialLite vs runTrial の successRate 差を assert する drift 検出テスト 2件 + spouse 用 skip 1件を追加。今後 Lite 側に同期忘れの新機能が追加された時に CI が赤くなる安全弁
+- **C2 migrate 正常系テスト**: [migrate.ts](src/lib/form/migrate.ts) に `__testing__` テストフックを追加（`registerMigrator` / `clearMigrator`）。[migrate.test.ts](src/lib/form/migrate.test.ts) に M-7/M-8/M-9（identity migrate / throw kill-switch / 連鎖 skip-1-step）の3件追加
+- **C3 統合シナリオテスト**: [engine.test.ts](src/lib/simulation/engine.test.ts) に「退職年に全機能共起」シナリオ 2件追加（5/19年 + 退職金 + ふるさと納税 + 住民税ショックの相互作用検証）
+- **INFO furusato denominator 安全弁テスト** (+1件)
+- **INFO 5/19年 JSDoc 修正**: 「完全版」→「年単位近似版」と明記、月単位精度の限界を文書化
+- **テスト**: 360 → 366 → 368 件全パス + 1 skipped (intentional)、型チェック・ビルド OK
+
+### gstack-review v4.6.5 で検出した既知の課題 (Known Issues — v4.7 で対応検討)
+
+#### **C4: calcSWR の main-thread blocking** (performance, confidence 9)
+
+- [results.tsx](src/components/results.tsx#L303) の `useMemo([simulationInput])` が同期で `calcSWR` を実行
+- 25 binary-search iterations × 100 trials × 60 years = ~150K trial-years per slider tick
+- 現状 `numTrials = Math.min(simulationInput.numTrials, 100)` でキャップしているため許容範囲だが、低スペック端末では UX 遅延の可能性あり
+- **対応案**: SimulationWorker に `calcSWR` メソッドを追加して非同期化。または `swrSummary` 計算を 200ms debounce
+- **判断**: スライダー UX を計測してから対応（現状維持）
+
+#### **INFO #6: E2E OR マッチで false-pass リスク**
+
+- [e2e/app.spec.ts:147](e2e/app.spec.ts) の `getByText(/住民税の翌年請求分|退職準備チェックリスト/)` が成功率100%でも別パスで pass する
+- **対応案**: 低資産+高支出で worst-case を強制し、住民税文言の存在を厳密 assert
+- **判断**: false-pass の実害は低いため v4.7 で
+
+#### **INFO `findOptimalIdecoLumpSumAge.byAge` 未使用フィールド**
+
+- [tax/engine.ts](src/lib/tax/engine.ts#L526) の `byAge: { age, net, tax }[]` は UI 未使用
+- **対応案**: 将来のグラフ表示で活用、または削除
+- **判断**: グラフ実装まで保留（YAGNI）
+
+#### **INFO `furusatoLimit` の hot-loop 計算**
+
+- [simulation/engine.ts](src/lib/simulation/engine.ts#L745) で全試行 × 全年で `calcAnnualTax` + `calcFurusatoLimit` を実行（UI は5年刻み消費）
+- **対応案**: lazy 計算 or post-trial 計算に変更
+- **判断**: 単純年計算で <1ms/year のため v4.7 で
+
+#### **INFO 5/19年 UI 表示も「年単位近似」明記**
+
+- engine の JSDoc には記載済み (v4.6.6)
+- methodology page §16 と results.tsx の処方箋カードのコピーにも反映が望ましい
+- **判断**: v4.7 でドキュメント整備時に同期
+
 ### autoplan で記録した CEO Outside Voice の懸念（採否は v4.7 で再評価）
 
 CEO Outside Voice は v4.6 のスコープ自体に強い異議を表明（[v4.6-autoplan-review.md Phase 1](docs/v4.6-autoplan-review.md)）。User Challenge 2 でユーザーは v4.6 計画維持を選択（P6「元の方向がデフォルト」）したため、以下を v4.7 検討事項として転記:
