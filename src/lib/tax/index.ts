@@ -19,6 +19,9 @@ export {
   calcPublicPensionDeduction,
   calcRetirementBonusNet,
   calcComprehensiveTax,
+  calcEffectiveYearsForLumpSum,
+  calcCombinedLumpSumNet,
+  findOptimalIdecoLumpSumAge,
 } from "./engine";
 export type { AnnualTaxResult } from "./engine";
 

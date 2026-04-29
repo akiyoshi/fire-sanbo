@@ -391,6 +391,166 @@ export function calcRetirementBonusNet(
   return { net: amount - tax, tax };
 }
 
+/* ---------- v4.6.3 (T-2): iDeCo × 退職金 5/19 年ルール ---------- */
+
+/**
+ * 退職所得の重複勤務期間ルール（所得税法施行令70条 + 基本通達30-12）に基づき、
+ * 後発側の退職一時金（iDeCo一時金 or 退職金）の控除年数から重複期間を差し引いた
+ * 「実効勤続年数」を返す。
+ *
+ * v4.6.3 (T-2 完全版): autoplan Premise Gate P-3 で合意。
+ *
+ * ルール（2026年現在の解釈）:
+ * - 退職金（先）→ iDeCo一時金（後）: 受給年差が **19年** 以内なら、iDeCo側の加入年数控除から
+ *   重複期間（min(退職勤続, iDeCo加入) - gap）を差し引く（gap が 19以上ならフル控除）
+ * - iDeCo一時金（先）→ 退職金（後）: 受給年差が **5年** 以内なら、退職金側の勤続年数控除から
+ *   同様の重複期間を差し引く（gap が 5以上ならフル控除）
+ *
+ * 控除年数が 0 を割る場合は `Math.max(0, ...)` でガード（80万円下限保証は
+ * `calcRetirementIncomeDeduction` 内で適用される）。
+ *
+ * @param firstAge - 先発側の受給年齢
+ * @param firstYears - 先発側の勤続/加入年数
+ * @param secondAge - 後発側の受給年齢
+ * @param secondYears - 後発側の勤続/加入年数
+ * @param ruleYears - 適用ルール（先発が iDeCo なら 5、退職金なら 19）
+ * @returns 後発側の実効年数（0 以上の整数）
+ */
+export function calcEffectiveYearsForLumpSum(
+  firstAge: number,
+  firstYears: number,
+  secondAge: number,
+  secondYears: number,
+  ruleYears: 5 | 19,
+): number {
+  if (firstYears < 0 || secondYears < 0) return Math.max(0, secondYears);
+  const gap = secondAge - firstAge;
+  if (gap < 0) {
+    // 順序が逆: 引数の使い方が間違い → 安全側で何も差し引かずそのまま返す
+    return secondYears;
+  }
+  if (gap >= ruleYears) {
+    // フル控除（重複期間なし）
+    return secondYears;
+  }
+  // 重複期間 = min(両者の年数) - gap
+  const overlap = Math.max(0, Math.min(firstYears, secondYears) - gap);
+  return Math.max(0, secondYears - overlap);
+}
+
+/**
+ * iDeCo 一時金 + 退職金の合計手取り（5/19 年ルール適用）。
+ *
+ * - `idecoFirst=true` のとき: iDeCo 先、退職金後 → 退職金側の控除を 5 年ルールで圧縮
+ * - `idecoFirst=false` のとき: 退職金先、iDeCo 後 → iDeCo 側の控除を 19 年ルールで圧縮
+ *
+ * @param ideco - iDeCo 一時金（金額・受給年齢・加入年数）
+ * @param bonus - 退職金（金額・受給年齢・勤続年数）
+ * @returns `{ idecoNet, idecoTax, bonusNet, bonusTax, totalNet, totalTax }`
+ */
+export function calcCombinedLumpSumNet(
+  ideco: { amount: number; receiveAge: number; yearsOfContribution: number },
+  bonus: { amount: number; receiveAge: number; yearsOfService: number },
+  cfg = config,
+): {
+  idecoNet: number;
+  idecoTax: number;
+  bonusNet: number;
+  bonusTax: number;
+  totalNet: number;
+  totalTax: number;
+} {
+  const idecoFirst = ideco.receiveAge <= bonus.receiveAge;
+
+  // 先発側はフル控除
+  const idecoYears = idecoFirst
+    ? ideco.yearsOfContribution
+    : calcEffectiveYearsForLumpSum(
+        bonus.receiveAge,
+        bonus.yearsOfService,
+        ideco.receiveAge,
+        ideco.yearsOfContribution,
+        19,
+      );
+  const bonusYears = idecoFirst
+    ? calcEffectiveYearsForLumpSum(
+        ideco.receiveAge,
+        ideco.yearsOfContribution,
+        bonus.receiveAge,
+        bonus.yearsOfService,
+        5,
+      )
+    : bonus.yearsOfService;
+
+  const idecoResult = calcRetirementBonusNet(ideco.amount, idecoYears, cfg);
+  const bonusResult = calcRetirementBonusNet(bonus.amount, bonusYears, cfg);
+  return {
+    idecoNet: idecoResult.net,
+    idecoTax: idecoResult.tax,
+    bonusNet: bonusResult.net,
+    bonusTax: bonusResult.tax,
+    totalNet: idecoResult.net + bonusResult.net,
+    totalTax: idecoResult.tax + bonusResult.tax,
+  };
+}
+
+/**
+ * iDeCo 受給年齢を変動させて、退職金とのペアリングで合計手取り最大となる
+ * 受給年齢を求める（処方箋カードの 1 軸として利用）。
+ *
+ * v4.6.3 (T-2): 60〜75 歳の離散探索。autoplan AD-14 の二層探索（外: idecoTiming、
+ * 内: 既存4軸）は v4.6.4 以降の課題として保留。本ヘルパーは「シミュレーション資産推移」
+ * を変えず、退職金 × iDeCo 一時金の純粋な税最適化のみを返す。
+ *
+ * @param ideco - iDeCo 一時金（金額・加入年数）。`receiveAge` は探索で動かすので不要
+ * @param bonus - 退職金（金額・受給年齢・勤続年数）
+ * @param searchRange - 探索範囲（既定 60〜75 歳）
+ * @returns 最適 receiveAge とその時の手取り、現状（=bonus.receiveAge と同じ）との差
+ */
+export function findOptimalIdecoLumpSumAge(
+  ideco: { amount: number; yearsOfContribution: number; currentReceiveAge: number },
+  bonus: { amount: number; receiveAge: number; yearsOfService: number },
+  searchRange: { from: number; to: number } = { from: 60, to: 75 },
+  cfg = config,
+): {
+  optimalAge: number;
+  optimalNet: number;
+  currentNet: number;
+  improvement: number;
+  byAge: { age: number; net: number; tax: number }[];
+} {
+  const byAge: { age: number; net: number; tax: number }[] = [];
+  let bestAge = ideco.currentReceiveAge;
+  let bestNet = -Infinity;
+
+  for (let age = searchRange.from; age <= searchRange.to; age++) {
+    const r = calcCombinedLumpSumNet(
+      { amount: ideco.amount, receiveAge: age, yearsOfContribution: ideco.yearsOfContribution },
+      bonus,
+      cfg,
+    );
+    byAge.push({ age, net: r.totalNet, tax: r.totalTax });
+    if (r.totalNet > bestNet) {
+      bestNet = r.totalNet;
+      bestAge = age;
+    }
+  }
+
+  const currentResult = calcCombinedLumpSumNet(
+    { amount: ideco.amount, receiveAge: ideco.currentReceiveAge, yearsOfContribution: ideco.yearsOfContribution },
+    bonus,
+    cfg,
+  );
+
+  return {
+    optimalAge: bestAge,
+    optimalNet: bestNet,
+    currentNet: currentResult.totalNet,
+    improvement: bestNet - currentResult.totalNet,
+    byAge,
+  };
+}
+
 /**
  * 総合課税所得（年金雑所得 + 副収入）に対する所得税+住民税を一括計算
  * 基礎控除は1回のみ適用

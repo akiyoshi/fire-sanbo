@@ -1,6 +1,6 @@
 # FIRE参謀 — アーキテクチャ
 
-> **バージョン**: v4.6.2（332 ユニットテスト + 6 E2E）
+> **バージョン**: v4.6.3（360 ユニットテスト + 6 E2E）
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
 ナビゲーション: [README](README.md) · [DESIGN](DESIGN.md) · **ARCHITECTURE** · [TODOS](TODOS.md) · [Archive](docs/archive/)
@@ -18,7 +18,7 @@
 | アイコン | lucide-react（SVG） |
 | 計算 | Web Worker（モンテカルロをオフスレッド実行） |
 | 言語 | TypeScript 5（strict、bundler moduleResolution） |
-| テスト | Vitest 332ユニット + Playwright 6 E2E |
+| テスト | Vitest 360ユニット + Playwright 6 E2E |
 | 品質 | ESLint 9 + typescript-eslint + eslint-plugin-react-hooks 7 |
 | CI/CD | GitHub Actions → GitHub Pages（全アクション SHA-pinned） |
 
@@ -261,7 +261,7 @@ src/components/
 
 ---
 
-## 12. テスト構成（v4.6.2 — 332 ユニット + 6 E2E）
+## 12. テスト構成（v4.6.3 — 360 ユニット + 6 E2E）
 
 | ファイル | テスト数 | 検証範囲 |
 |---------|---------|---------|
@@ -281,7 +281,7 @@ src/components/
 | `wizard.test.tsx` | 4 | Wizard UI コンポーネント |
 | `prescription-card.test.tsx` | 1 | 処方箋カード UI |
 | `tax-config-index.test.ts` | 4 | 年度切替 |
-| **合計** | **332** | + Playwright E2E 6（共有 URL 復元、What-if スライダー含む） |
+| **合計** | **360** | + Playwright E2E 6（共有 URL 復元、What-if スライダー含む） |
 
 ### テスト共通ユーティリティ
 

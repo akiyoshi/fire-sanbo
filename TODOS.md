@@ -74,19 +74,38 @@
   - [swr/engine.test.ts](src/lib/swr/engine.test.ts): 境界4 + 委譲一致3 + property 3
 - **UI インライン併記は v4.6.4 で UI 統合**
 
-### 📋 iDeCo × 退職金 5/19 年ルール `[FP-CFA-Tax]` — v4.6.3
+### ✅ v4.6.3 完了 (2026-04-29)
 
-- 退職所得控除の重複期間計算（**完全版** — 所得税法施行令70条＋基本通達30-12）をエンジンに追加（autoplan Premise Gate P-3）
-- `RetirementBonusInput.receiveAge` / 新型 `IdecoConfig` を `SimulationInput` に追加
-- `tax/engine.ts` に `calcEffectiveYearsForLumpSum(p_age, p_yrs, s_age, s_yrs, ruleYears)` を追加。**`Math.max(0, ...)` ガード必須**（gap=0 で負値発生）
-- 5/19年定数は `tax-config-2026.json` に格納（autoplan AD-4 — 条文変更時メンテ性）
-- 処方箋に新軸 `idecoTiming` を追加。**二層探索**（外: 60-75歳の16点離散、内: 既存4軸独立）— 既存4軸との交互作用回避（autoplan AD-14）
-  - Worker 計算量 ~16倍 → 1-2秒。**UI プログレスバー新設必須**
-  - カードは iDeCo残高>0 かつ retirementBonus>0 の場合のみ表示（autoplan AD-10）
-  - **v6 スキーマバンプが必要**: `migrators[5]` に v5→v6 を追加（CRIT-2 で infra 配置済み）
-- 期待効果: 典型ケースで手取り合計 +60–80 万円
-- テスト: 30件（境界13 + e2e税額4 + 控除切替3 + 制約3 + ruleYears切替2 + 典型3 + 軸独立性回帰2）+ E2E 1件
-- 詳細: [改善計画書 §5.1](docs/improvement-plan-fp-cfa-tax.md#51-t-2-ideco--退職金の-519年ルール)
+- **T-2 iDeCo×退職金 5/19年ルール（完全版）** — 完了
+  - [tax/engine.ts](src/lib/tax/engine.ts):
+    - `calcEffectiveYearsForLumpSum(firstAge, firstYears, secondAge, secondYears, ruleYears)`: 重複期間 = `min(両者の年数) - gap`、`Math.max(0, ...)` ガード
+    - `calcCombinedLumpSumNet(ideco, bonus)`: 受給順序を自動判定（idecoFirst なら 5年ルール、bonusFirst なら 19年ルール）
+    - `findOptimalIdecoLumpSumAge(ideco, bonus, range=60-75)`: 60-75歳の離散探索で最適 receiveAge を返す
+- **テスト**: +28 件 (332→360)
+  - [tax/overlap.test.ts](src/lib/tax/overlap.test.ts): 境界13 + ruleYears切替2 + property3 + E2E税額4 + 受給順序2 + 最適探索4
+- **保留事項**:
+  - 処方箋エンジンへの軸追加（autoplan AD-14 二層探索）は影響範囲が大きく v4.6.4 以降に分割
+  - シミュレーション engine からの呼び出し配線も v4.6.4 で対応
+
+### 📋 v4.6.4 — UI 統合 (autoplan AD-9〜AD-13)
+
+v4.6.0〜v4.6.3 でエンジン側は完全実装済み。UI への配線をまとめて実施:
+
+- **AD-9**: 結果画面の年次表に「ふるさと納税 上限 X円」列を追加（課税所得>0の年のみ）
+- **AD-11**: WorstCaseCard 内に「退職準備」セクションを追加（退職翌年住民税アラート + ふるさと納税上限+iDeCo最適年齢）
+- **AD-12**: SWR を成功率カード直下に「90%を維持できる月額支出: X 万円（年Y万円・SWR Z%）」インライン表示
+- **AD-10**: idecoTiming 改善カード（findOptimalIdecoLumpSumAge 利用）— iDeCo残高>0 かつ retirementBonus>0 のときのみ表示
+- **AD-13**: 全新規UI要素に loading/empty/error/partial 状態を仕様化
+
+### 📋 v4.6.5 — 仕上げ + 全体QA
+
+- v4.6.0〜v4.6.4 の累積機能の E2E テスト追加（autoplan test plan §5: 3件目標）
+- 計算根拠書（methodology）への新セクション追加（autoplan §7.1）:
+  - §16 退職所得控除の重複期間ルール（5/19年）
+  - §17 SWR と日本税制
+  - §19 ふるさと納税の限度額
+- 免責条項の更新（autoplan §8.3）
+- リリースノート: v4.6 累積価値（autoplan CEO Outside Voice 懸念への応答）
 
 ### autoplan で記録した CEO Outside Voice の懸念（採否は v4.7 で再評価）
 
