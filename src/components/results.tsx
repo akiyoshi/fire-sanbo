@@ -5,6 +5,8 @@ import type { FormState } from "@/lib/form-state";
 import { formToSimulationInput, saveScenario } from "@/lib/form-state";
 import { runSimulation } from "@/lib/simulation";
 import { optimizeWithdrawalOrder } from "@/lib/withdrawal";
+import { calcSWR } from "@/lib/swr";
+import { findOptimalIdecoLumpSumAge } from "@/lib/tax";
 import { PrescriptionCard } from "@/components/prescription-card";
 import { TaxBreakdownCard } from "@/components/tax-breakdown-card";
 import { WorstCaseCard } from "@/components/worst-case-card";
@@ -306,6 +308,43 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
   const prescriptionRef = useRef<HTMLDetailsElement>(null);
   const simulationInput = useMemo(() => formToSimulationInput(form), [form]);
 
+  // v4.6.4: SWR インライン併記 (autoplan AD-12)
+  // calcSWR は内部で runSimulationLite を numTrials 回実行する → 試行数を抑える
+  const swrSummary = useMemo(() => {
+    try {
+      const lightInput = { ...simulationInput, numTrials: Math.min(simulationInput.numTrials, 100) };
+      return calcSWR(lightInput, 0.90);
+    } catch {
+      return null;
+    }
+  }, [simulationInput]);
+
+  // v4.6.4: iDeCo×退職金 5/19年ルール改善カード (autoplan AD-10)
+  // iDeCo残高 > 0 かつ retirementBonus > 0 のときのみ表示
+  const idecoOptimal = useMemo(() => {
+    const idecoBalance = form.portfolio
+      .filter((p) => p.taxCategory === "ideco")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const bonus = form.retirementBonus;
+    if (idecoBalance <= 0 || !bonus || bonus.amount <= 0) return null;
+    try {
+      return findOptimalIdecoLumpSumAge(
+        {
+          amount: idecoBalance,
+          yearsOfContribution: form.idecoYearsOfService,
+          currentReceiveAge: form.retirementAge, // 既定: 退職金と同年受給
+        },
+        {
+          amount: bonus.amount,
+          receiveAge: form.retirementAge,
+          yearsOfService: bonus.yearsOfService,
+        },
+      );
+    } catch {
+      return null;
+    }
+  }, [form.portfolio, form.retirementBonus, form.idecoYearsOfService, form.retirementAge]);
+
   // 処方箋のtop1（最優先アクション表示用）
   const [topPrescription, setTopPrescription] = useState<PrescriptionResult | null>(null);
 
@@ -441,6 +480,50 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
             <p className="text-center text-sm font-medium text-success mt-1 animate-in fade-in duration-200">
               {applyBadge}
             </p>
+          )}
+          {/* v4.6.4 (C-3): SWR インライン併記 (autoplan AD-12) */}
+          {swrSummary && swrSummary.maxAnnualExpense > 0 && (
+            <details className="text-center text-sm mt-3">
+              <summary className="cursor-pointer hover:text-primary transition-colors list-none">
+                <span className="text-muted-foreground">90% を維持できる月額支出: </span>
+                <span className="font-semibold text-foreground">
+                  {Math.round(swrSummary.monthlyExpense / 10_000)}万円
+                </span>
+                <span className="text-muted-foreground">
+                  {" "}（年{Math.round(swrSummary.maxAnnualExpense / 10_000)}万円・SWR{" "}
+                  {(swrSummary.rate * 100).toFixed(1)}%） ▼
+                </span>
+              </summary>
+              <div className="mt-2 px-3 py-2 bg-muted/40 rounded text-xs text-left text-muted-foreground space-y-1">
+                <p>
+                  • Bengen 4% との差: <strong>{(swrSummary.vsBengen4Pct * 100).toFixed(2)} pt</strong>
+                  {swrSummary.vsBengen4Pct < 0 ? "（より保守的）" : "（より積極的）"}
+                </p>
+                <p>• 年間支出 {Math.round(swrSummary.maxAnnualExpense / 10_000)} 万円以下なら成功確率 90% 以上</p>
+                <p>• 二分探索 {swrSummary.convergenceIterations} 反復で収束（試行数 {Math.min(simulationInput.numTrials, 100)}）</p>
+              </div>
+            </details>
+          )}
+          {/* v4.6.4 (T-2): iDeCo×退職金 5/19年ルール改善カード (autoplan AD-10) */}
+          {idecoOptimal && idecoOptimal.improvement > 10_000 && (
+            <details className="text-center text-sm mt-2">
+              <summary className="cursor-pointer hover:text-primary transition-colors list-none">
+                <span className="text-warning">💡 iDeCo 一時金の受給を </span>
+                <span className="font-semibold text-foreground">
+                  {idecoOptimal.optimalAge}歳
+                </span>
+                <span className="text-muted-foreground">
+                  {" "}に遅らせると手取り <strong>+{Math.round(idecoOptimal.improvement / 10_000)}万円</strong> ▼
+                </span>
+              </summary>
+              <div className="mt-2 px-3 py-2 bg-muted/40 rounded text-xs text-left text-muted-foreground space-y-1">
+                <p>• 退職金とiDeCo一時金を同年受給すると退職所得控除が圧縮されます（所得税法施行令70条）</p>
+                <p>• 退職金 → iDeCo一時金: 受給年差 19 年でフル控除</p>
+                <p>• iDeCo一時金 → 退職金: 受給年差 5 年でフル控除</p>
+                <p>• 現状（{form.retirementAge}歳同年受給）の手取り: {Math.round(idecoOptimal.currentNet / 10_000)}万円</p>
+                <p>• 最適（{idecoOptimal.optimalAge}歳）の手取り: <strong>{Math.round(idecoOptimal.optimalNet / 10_000)}万円</strong></p>
+              </div>
+            </details>
           )}
           {topPrescription && !topPrescription.alreadyAchieved && topPrescription.prescriptions.length > 0 && (
             <button
@@ -658,6 +741,53 @@ export function Results({ initialForm, initialResult, worker, onBack }: ResultsP
               <TaxBreakdownCard result={result} retirementAge={form.retirementAge} />
             </div>
           </details>
+
+          {/* v4.6.4 (T-7): ふるさと納税 上限の年次推移 (autoplan AD-9) */}
+          {result.trials[0]?.years.some((y) => (y.furusatoLimit ?? 0) > 2_000) && (
+            <details className="group">
+              <summary className="cursor-pointer list-none flex items-center gap-2 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+                  aria-hidden="true"
+                />
+                <span className="font-medium text-sm">ふるさと納税 上限の年次推移</span>
+                <span className="text-xs text-muted-foreground">— 2,000円自己負担で最大寄附可能な金額</span>
+              </summary>
+              <div className="pl-6 pb-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <caption className="sr-only">ふるさと納税 年間上限額の推移（課税所得 0 円超の年のみ）</caption>
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-1 pr-3 font-medium">年齢</th>
+                        <th className="text-right py-1 px-2 font-medium">フェーズ</th>
+                        <th className="text-right py-1 px-2 font-medium">上限額</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.trials[0]!.years
+                        .filter((y) => (y.furusatoLimit ?? 0) > 2_000)
+                        .filter((_, i, arr) => i % 5 === 0 || i === arr.length - 1)
+                        .map((y) => (
+                          <tr key={y.age} className="border-b border-muted">
+                            <td className="py-1 pr-3">{y.age}歳</td>
+                            <td className="text-right py-1 px-2 text-muted-foreground">
+                              {y.age < form.retirementAge ? "在職中" : "退職後"}
+                            </td>
+                            <td className="text-right py-1 px-2 font-medium">
+                              {Math.round((y.furusatoLimit ?? 0) / 1000) / 10}万円
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    課税所得が 0 円の年は表示されません。実際の上限は家族構成・他の控除により変動します。
+                  </p>
+                </div>
+              </div>
+            </details>
+          )}
 
           {/* アセットアロケーション最適化 */}
           <details className="group">

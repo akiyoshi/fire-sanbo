@@ -1,6 +1,6 @@
 # FIRE参謀 — アーキテクチャ
 
-> **バージョン**: v4.6.3（360 ユニットテスト + 6 E2E）
+> **バージョン**: v4.6.4（360 ユニットテスト + 6 E2E）
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
 ナビゲーション: [README](README.md) · [DESIGN](DESIGN.md) · **ARCHITECTURE** · [TODOS](TODOS.md) · [Archive](docs/archive/)
@@ -261,7 +261,7 @@ src/components/
 
 ---
 
-## 12. テスト構成（v4.6.3 — 360 ユニット + 6 E2E）
+## 12. テスト構成（v4.6.4 — 360 ユニット + 6 E2E）
 
 | ファイル | テスト数 | 検証範囲 |
 |---------|---------|---------|

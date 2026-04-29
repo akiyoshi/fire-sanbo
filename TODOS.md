@@ -87,15 +87,16 @@
   - 処方箋エンジンへの軸追加（autoplan AD-14 二層探索）は影響範囲が大きく v4.6.4 以降に分割
   - シミュレーション engine からの呼び出し配線も v4.6.4 で対応
 
-### 📋 v4.6.4 — UI 統合 (autoplan AD-9〜AD-13)
+### ✅ v4.6.4 完了 (2026-04-29)
 
-v4.6.0〜v4.6.3 でエンジン側は完全実装済み。UI への配線をまとめて実施:
+v4.6.0〜v4.6.3 でエンジン側完全実装済みの機能を UI に統合:
 
-- **AD-9**: 結果画面の年次表に「ふるさと納税 上限 X円」列を追加（課税所得>0の年のみ）
-- **AD-11**: WorstCaseCard 内に「退職準備」セクションを追加（退職翌年住民税アラート + ふるさと納税上限+iDeCo最適年齢）
-- **AD-12**: SWR を成功率カード直下に「90%を維持できる月額支出: X 万円（年Y万円・SWR Z%）」インライン表示
-- **AD-10**: idecoTiming 改善カード（findOptimalIdecoLumpSumAge 利用）— iDeCo残高>0 かつ retirementBonus>0 のときのみ表示
-- **AD-13**: 全新規UI要素に loading/empty/error/partial 状態を仕様化
+- **AD-12 SWR インライン併記**: [results.tsx](src/components/results.tsx) の成功率カード直下に `<details>` で「90%を維持できる月額支出: X万円（年Y万円・SWR Z%）」を表示。展開で Bengen 4% 比較・収束反復回数を表示
+  - `useMemo` で `calcSWR(simulationInput, 0.90)` をキャッシュ（試行数 100 上限）
+- **AD-10 idecoTiming 改善カード**: 成功率カード直下、iDeCo残高>0 かつ retirementBonus>0 かつ improvement>10万円 のときのみ表示。`findOptimalIdecoLumpSumAge` を利用
+- **AD-11 退職準備セクション**: [worst-case-card.tsx](src/components/worst-case-card.tsx) を改修し、worst-case とは独立に「退職準備チェックリスト」を表示。退職翌年住民税の現金枠アラート + 最終在職年のふるさと納税上限を提示。成功率 100% でも退職準備のみ表示する分岐に変更（カードタイトル切替）
+- **AD-9 ふるさと納税 年次推移**: [results.tsx](src/components/results.tsx) 2軍に新 `<details>`「ふるさと納税 上限の年次推移」を追加。`y.furusatoLimit > 2000` の年のみ抽出、5年刻みで表示
+- **テスト**: 既存 360 件全パス（UI 変更は型 + ビルドで担保）。バンドル: results.js 416→423 kB
 
 ### 📋 v4.6.5 — 仕上げ + 全体QA
 

@@ -160,24 +160,67 @@ export function WorstCaseCard({ result, retirementAge }: WorstCaseCardProps) {
     return diagnoseFailure(p5Trial, retirementAge, result.percentiles.p50);
   }, [result, retirementAge]);
 
-  // 全試行が成功の場合は表示しない
-  if (result.successRate >= 1.0) return null;
+  // v4.6.4 (autoplan AD-11): 退職準備セクション。最終在職年〜退職年の住民税ショック
+  // と ふるさと納税上限を、worst-case とは独立に表示する（成功時でも見せる）。
+  // findP5Trial は worstCase でも 1 試行を返すため、その年次データを使う。
+  const retirementPrep = useMemo(() => {
+    const trial = findP5Trial(result);
+    const atRetire = trial.years.find((y) => y.age === retirementAge);
+    const beforeRetire = trial.years.find((y) => y.age === retirementAge - 1);
+    if (!atRetire) return null;
+    return {
+      retirementAge,
+      // 退職翌年住民税ショック（age=retirementAge の住民税は前年給与由来）
+      residentTaxShock: atRetire.taxBreakdown.residentTax,
+      furusatoLimitInWork: beforeRetire?.furusatoLimit ?? null,
+    };
+  }, [result, retirementAge]);
+
+  // 全試行が成功の場合: 退職準備のみ表示
+  const showWorstCase = result.successRate < 1.0;
+
+  if (!showWorstCase && !retirementPrep) return null;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>最悪ケース診断書（p5）</CardTitle>
+        <CardTitle>{showWorstCase ? "最悪ケース診断書（p5）" : "退職準備チェックリスト"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <DiagnosisSummary diagnosis={diagnosis} />
-        <ComparisonTable
-          diagnosis={diagnosis}
-          medianAssets={result.percentiles.p50}
-          ages={result.ages}
-        />
-        <p className="text-xs text-muted-foreground">
-          p5 = 下位5%シナリオ。20回に1回程度起こりうる悪いケースです。
-        </p>
+        {/* v4.6.4 退職準備セクション (autoplan AD-11) */}
+        {retirementPrep && retirementPrep.residentTaxShock > 5_000 && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-1.5">
+            <p className="text-sm font-medium">
+              <AlertCircle className="h-4 w-4 inline text-warning" /> 退職前1年のチェックリスト
+            </p>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5 ml-1">
+              <li>
+                住民税の翌年請求分（約 <strong>{formatManYen(retirementPrep.residentTaxShock)}</strong> 万円）の
+                現金枠を確保（退職年に集中して請求されます）
+              </li>
+              {retirementPrep.furusatoLimitInWork !== null && retirementPrep.furusatoLimitInWork > 2_000 && (
+                <li>
+                  最終在職年のふるさと納税上限: <strong>{Math.round(retirementPrep.furusatoLimitInWork / 10_000)}万円</strong>
+                  {" "}まで活用可能（年12月まで）
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {showWorstCase && (
+          <>
+            <DiagnosisSummary diagnosis={diagnosis} />
+            <ComparisonTable
+              diagnosis={diagnosis}
+              medianAssets={result.percentiles.p50}
+              ages={result.ages}
+            />
+            <p className="text-xs text-muted-foreground">
+              p5 = 下位5%シナリオ。20回に1回程度起こりうる悪いケースです。
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );
