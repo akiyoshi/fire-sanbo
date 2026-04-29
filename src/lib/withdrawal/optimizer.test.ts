@@ -136,7 +136,7 @@ describe("取り崩し順序最適化（deterministic）", () => {
   });
 
   it("deterministic + accountAllocations でstdDevが0にされ決定論的になる", () => {
-    const input: SimulationInput = {
+    const input = {
       ...baseInput,
       accountAllocations: {
         nisa: { expectedReturn: 0.08, standardDeviation: 0.20 },
