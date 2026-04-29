@@ -63,16 +63,16 @@
   - [simulation/engine.test.ts](src/lib/simulation/engine.test.ts): 統合 3件（在職/退職後ゼロ/退職後年金あり）
 - **UI 列追加は v4.6.4 に集約**
 
-### 📋 SWR（Safe Withdrawal Rate）自動算定 `[FP-CFA-Tax]` — v4.6.2
+### ✅ v4.6.2 完了 (2026-04-29)
 
-- `src/lib/swr/engine.ts` を新設、ただし `prescription/engine.ts` の expense 軸二分探索ヘルパーへの**委譲ファサード**として実装（DRY — autoplan AD-2）
-- 出力: `{ maxAnnualExpense, rate, vsBengen4Pct }`
-- **UI: インライン併記**（autoplan User Challenge 1 — タブから方向転換）
-  - 成功率カード直下に1行「90%を維持できる月額支出: 33万円（年400万円・SWR 3.2%）」
-  - 詳細（confidence interval、Bengen 4%比較）は `<details>` で2軍展開
-  - primary 数値は「月額」（autoplan AD-12）
-- テスト: 10件（境界4 + 委譲一致3 + property 3）+ E2E 1件
-- 詳細: [改善計画書 §5.2](docs/improvement-plan-fp-cfa-tax.md#52-c-3-swr-自動算定)
+- **C-3 SWR 自動算定** — 完了
+  - [swr/engine.ts](src/lib/swr/engine.ts): `calcSWR(input, targetRate=0.90)` 新設
+  - 内部は `runSimulationLite` への委譲（autoplan AD-2、DRY）
+  - 探索範囲は `max(現在支出×3, 月100万)` まで拡張 — prescription expense 軸の制約「現在より少なく」を超えて、資産余裕ユーザーの真の SWR を算出
+  - 出力: `{ maxAnnualExpense, monthlyExpense, rate, vsBengen4Pct, targetRate, convergenceIterations }`
+- **テスト**: +10 件 (322→332)
+  - [swr/engine.test.ts](src/lib/swr/engine.test.ts): 境界4 + 委譲一致3 + property 3
+- **UI インライン併記は v4.6.4 で UI 統合**
 
 ### 📋 iDeCo × 退職金 5/19 年ルール `[FP-CFA-Tax]` — v4.6.3
 
