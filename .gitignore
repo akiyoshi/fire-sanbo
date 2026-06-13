@@ -44,3 +44,9 @@ dist/
 # playwright
 test-results/
 playwright-report/
+
+# gstack-copilot-jp junctions (linked to d:\github\gstack-copilot-jp\.github\*)
+# Skill/agent/hook bodies live in the gstack-copilot-jp repo; do not commit the link targets.
+.github/skills
+.github/agents
+.github/hooks
