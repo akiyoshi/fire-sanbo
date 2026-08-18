@@ -13,7 +13,7 @@
 
 | レイヤー | 技術 |
 |---------|------|
-| フレームワーク | Vite 6 + React 19（SPA、SSR/RSCなし） |
+| フレームワーク | Vite 8.2 + React 19.2（SPA、SSR/RSCなし） |
 | スタイル | Tailwind CSS v4 + shadcn/ui (base-nova / OKLCHトークン) |
 | アイコン | lucide-react（SVG） |
 | 計算 | Web Worker（モンテカルロをオフスレッド実行） |
@@ -318,7 +318,7 @@ src/components/
 
 ## 13. セキュリティ
 
-- **CSP**: [vite.config.ts](vite.config.ts) の `cspPlugin()` で本番ビルド時のみ `<meta>` タグを注入。`script-src 'self'` / `object-src 'none'` / `base-uri 'self'` / `form-action 'self'`
+- **CSP**: [vite.config.mts](vite.config.mts) の `cspPlugin()` で本番ビルド時のみ `<meta>` タグを注入。`script-src 'self'` / `object-src 'none'` / `base-uri 'self'` / `form-action 'self'`
 - **GitHub Actions SHA-pin**: 全 5 アクションをコミット SHA で固定（サプライチェーン攻撃防止）
 - **Dependabot**: github-actions + npm の週次自動更新
 - **年齢ガード**: `retirementAge > currentAge`、`endAge > retirementAge`、`endAge ≤ 120` を `formToSimulationInput()` で強制
@@ -348,7 +348,7 @@ src/components/
 | 種別 | 指定子 | 例 |
 |------|-------|-----|
 | ツールチェーン | `~`（パッチのみ自動更新） | typescript ~5.9.3、eslint ~9.39.4 |
-| ランタイム | `^`（マイナーまで自動更新） | react ^19.2.5、recharts ^3.8.1 |
+| ランタイム | `^`（マイナーまで自動更新） | react ^19.2.8、recharts ^3.8.1 |
 | canary / rc | 禁止（devDeps であっても） | — |
 
 ### Dependabot ルール
@@ -364,10 +364,13 @@ src/components/
 | eslint | 9.x | `~9.39.4` | flat config、プラグインエコシステム安定 |
 | eslint-plugin-react-hooks | 7.x | `^7.0.1` | rules-of-hooks + exhaustive-deps のみ |
 | @types/node | 22.x | `^22` | CI Node.js 22 と一致 |
-| vite | 6.x | `^6.3.5` | 安定リリース |
-| vite-tsconfig-paths | 5.x | `^5.1.4` | TS5 対応安定版 |
+| vite | 8.2.x | `^8.2.1` | 現行安定版。Rolldown / Oxc 基盤 |
+| @vitejs/plugin-react | 6.0.x | `^6.0.5` | Vite 8 対応の公式 React プラグイン |
+| vitest | 4.1.x | `^4.1.10` | Vite 8 peer 対応 |
 
-> **教訓**: TypeScript 6 + ESLint 10 への同時メジャーバンプで eslint.config 全面書き直し・canary 依存・18 件の未使用 import 修正が発生。本プロジェクトが使っていない新機能のために破壊的変更を受け入れる価値はない。
+Vite 8 の `resolve.tsconfigPaths` を有効化し、外部の `vite-tsconfig-paths` は削除済み。設定ファイルは native config loader と互換な `.mts` を使用する。
+
+> **保留**: TypeScript 7.0.2 は安定版だが、typescript-eslint 8.67.0 の peer 上限が `<6.1.0` のため採用しない。ESLint 10 は対応可能だが、フレームワーク更新とは分離して評価する。
 
 ---
 

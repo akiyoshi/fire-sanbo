@@ -32,7 +32,7 @@
 
 | レイヤー | 技術 |
 |---------|------|
-| フレームワーク | Vite 6 + React 19 (SPA) |
+| フレームワーク | Vite 8 + React 19 (SPA) |
 | スタイル | Tailwind CSS v4 + shadcn/ui (OKLCH) |
 | アイコン | lucide-react (SVG) |
 | 計算 | Web Worker (メインスレッドブロッキング回避) |

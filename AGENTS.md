@@ -4,9 +4,9 @@
 
 ## プロジェクト概要
 
-**Vite 6 + React 19 SPA**（SSR/RSC なし）。日本の税制を組み込んだモンテカルロ FIRE シミュレーター。
+**Vite 8 + React 19 SPA**（SSR/RSC なし）。日本の税制を組み込んだモンテカルロ FIRE シミュレーター。
 
-- フレームワーク: Vite 6（dev / build）+ React 19
+- フレームワーク: Vite 8（dev / build）+ React 19
 - スタイル: Tailwind CSS v4 + shadcn/ui (OKLCH トークン)
 - テスト: Vitest（368 テスト）+ Playwright E2E（9 テスト）
 - 計算エンジン: [src/lib/](src/lib/) 以下（純 TypeScript、フレームワーク非依存）

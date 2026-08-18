@@ -1,7 +1,7 @@
 # FIRE参謀 — デザインドキュメント
 
 > **バージョン**: v4.6.7
-> **更新日**: 2026-04-29
+> **更新日**: 2026-08-18
 > **ライブ**: https://akiyoshi.github.io/fire-sanbo/
 
 ナビゲーション: [README](README.md) · **DESIGN** · [ARCHITECTURE](ARCHITECTURE.md) · [TODOS](TODOS.md) · [Archive](docs/archive/)
@@ -97,7 +97,11 @@
 
 ### 判断: ESLint flat config + ESLint 9 系で固定
 
-**理由**: ESLint 10 は TS パーサーと react-hooks プラグインの安定版が未追従。`defineConfig()` + `globalIgnores()` への書き換えコストに見合うメリットがない。`~9.39.4` で固定、Dependabot のメジャーバンプは ignore（[ARCHITECTURE.md §15](ARCHITECTURE.md#15-依存関係ポリシー)）。
+**理由**: ESLint 10 への対応自体は主要プラグインで完了したが、本プロジェクトが利用するルールに必要な改善がなく、フレームワーク更新と同時に変更する合理性がない。`~9.39.4` で固定し、独立した評価と全品質ゲートを経て更新する（[ARCHITECTURE.md §15](ARCHITECTURE.md#15-依存関係ポリシー)）。
+
+### 判断: Vite 8 の Rolldown / Oxc 基盤を採用
+
+**理由**: Vite 6 はサポート対象外となり、Vite 8.2 系が現行安定版になった。既存設定は削除済みの Rollup / esbuild オプションや legacy decorator に依存せず、React 公式プラグインも Vite 8 対応済み。Vite 8 ネイティブの `resolve.tsconfigPaths` に移行して外部パス解決プラグインを削除し、Node.js 22 の CI 基準を維持したままサポート対象へ復帰する。
 
 ### 判断: CHANGELOG ファイルは履歴アーカイブのみ、能動的に更新しない
 

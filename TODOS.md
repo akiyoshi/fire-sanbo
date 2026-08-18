@@ -29,7 +29,7 @@
 
 - Dependabot のパッチ・マイナー PR を週次でマージ
 - メジャーバンプは [ARCHITECTURE.md §15](ARCHITECTURE.md#15-依存関係ポリシー) のチェックリストに従う
-- 既知の保留: TypeScript 6、ESLint 10、Vite 7、@types/node 24（エコシステム追従待ち）
+- 既知の保留: TypeScript 7（typescript-eslint の peer 対応待ち）、ESLint 10（独立評価）、@types/node 26（CI Node.js 22 と不一致）
 
 ---
 
