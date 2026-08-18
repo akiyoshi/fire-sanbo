@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 function cspPlugin(): Plugin {
   return {
@@ -33,9 +32,11 @@ function cspPlugin(): Plugin {
 
 export default defineConfig({
   base: "/fire-sanbo/",
-  plugins: [react(), tsconfigPaths(), cspPlugin()],
+  plugins: [react(), cspPlugin()],
+  resolve: {
+    tsconfigPaths: true,
+  },
   worker: {
     format: "es",
-    plugins: () => [tsconfigPaths()],
   },
 });
